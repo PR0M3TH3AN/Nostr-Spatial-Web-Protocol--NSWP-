@@ -242,3 +242,52 @@ describe("a backup from relay monitors (NIP-66)", () => {
     expect((await queryBacked(USUAL, { kinds: [1] }, 1000, { query: silent.query, now: () => NOW })).events).toEqual([]);
   });
 });
+
+describe("a relay that asks for a sign-in or a payment (NIP-01's reasons)", () => {
+  it("is closed to reading for CLOSED, to writing for OK false, kept apart, and forgotten after a week", () => {
+    const notes = learnRelays({}, { [A]: "closed: auth-required: sign in", [B]: "rejected: restricted: pay first", [C]: "eose" }, t);
+    expect(notes[A]?.closed).toEqual({ read: t });
+    expect(notes[B]?.closed).toEqual({ write: t });
+    expect(notes[C]?.closed).toBeUndefined();
+    // Closed to reading: no place in a look, kept in a send. Closed to writing: the other way round.
+    expect(pickRelays({ own: [A, B, C], usual: [], notes, now: t, for: "read" }).relays).toEqual([C, B]);
+    expect(pickRelays({ own: [A, B, C], usual: [], notes, now: t, for: "write" }).relays.sort()).toEqual([A, C].sort());
+    // Without saying what for, as before: nothing left out.
+    expect(pickRelays({ own: [A, B, C], usual: [], notes, now: t }).relays.length).toBe(3);
+    expect(pickRelays({ own: [A], usual: [], notes, now: t + RELAY_PICK.staleMs + 1, for: "read" }).relays).toEqual([A]);
+  });
+
+  it("is not closed for a challenge to sign in followed by an answer to the end", async () => {
+    // A relay that sends AUTH and then answers the question to its end, as three of the owner's do.
+    const real = globalThis.WebSocket;
+    class Challenging {
+      static OPEN = 1;
+      readyState = 1;
+      onopen: (() => void) | null = null;
+      onmessage: ((m: { data: string }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onclose: (() => void) | null = null;
+      constructor() {
+        setTimeout(() => this.onopen?.(), 0);
+      }
+      send(raw: string) {
+        const m = JSON.parse(raw) as unknown[];
+        if (m[0] !== "REQ") return;
+        this.onmessage?.({ data: JSON.stringify(["AUTH", "a-challenge"]) });
+        this.onmessage?.({ data: JSON.stringify(["EOSE", m[1]]) });
+      }
+      close() {}
+    }
+    (globalThis as { WebSocket: unknown }).WebSocket = Challenging;
+    try {
+      const { queryRelays } = await import("@nswp/core");
+      const got = await queryRelays([A], { kinds: [1] }, 1000);
+      expect(got.relays[A]).toBe("eose");
+      const notes = learnRelays({}, got.relays, t);
+      expect(notes[A]?.closed).toBeUndefined();
+      expect(pickRelays({ own: [A], usual: [], notes, now: t, for: "read" }).relays).toEqual([A]);
+    } finally {
+      (globalThis as { WebSocket: unknown }).WebSocket = real;
+    }
+  });
+});

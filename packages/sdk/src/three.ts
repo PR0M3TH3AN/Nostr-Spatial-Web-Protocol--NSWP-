@@ -355,7 +355,7 @@ export { addMessagingControls, type Messaging, type MessagingHand, type Messagin
 export { addFollowingControls, keyIn, type Following, type FollowingHand, type FollowingOptions } from "./following.js";
 export { createProfiles, readProfile, type Profile, type Profiles } from "./profiles.js";
 export { createPeople, type FollowHand, type FollowResult, type FollowWhy, type People, type PeopleOptions } from "./people.js";
-export { askWell, learnFrom, relaysWell, sendWell, type SentWell } from "./relay-book.js";
+export { askOwn, askWell, learnFrom, relaysWell, sendWell, type AskedOwn, type SentWell } from "./relay-book.js";
 export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";
 // For a page shown inside a client that draws the sign-in address's panel over it (protocol/02-doors.md).
 export { askClientForSignIn, clientPanelOpen, clientSignsInAt, onClientSignIn, type ClientPanelMode } from "./client-frame.js";

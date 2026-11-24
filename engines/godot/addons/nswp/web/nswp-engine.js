@@ -5096,35 +5096,35 @@ var NSWP = (() => {
     }
     return out;
   }
-  function tintBag(newest, change2) {
-    if (!newest || newest.kind !== BAG_KIND || !Array.isArray(newest.tags))
+  function tintBag(newest2, change2) {
+    if (!newest2 || newest2.kind !== BAG_KIND || !Array.isArray(newest2.tags))
       return null;
     const item = itemCoordinate(change2.item);
-    if (!item || !bagIn(newest).includes(item))
+    if (!item || !bagIn(newest2).includes(item))
       return null;
     const words2 = Object.entries(change2.tints ?? {}).filter(([slot, color]) => /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color)).slice(0, 4).map(([slot, color]) => `${slot}=${color}`);
-    const was = bagTints(newest)[item] ?? {};
+    const was = bagTints(newest2)[item] ?? {};
     if (JSON.stringify(Object.entries(was).map(([s, c]) => `${s}=${c}`)) === JSON.stringify(words2))
       return null;
-    const kept2 = newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt" && !(t[0] === "tint" && itemCoordinate(t[1]) === item)).map((t) => [...t]);
+    const kept2 = newest2.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt" && !(t[0] === "tint" && itemCoordinate(t[1]) === item)).map((t) => [...t]);
     return {
       kind: BAG_KIND,
-      created_at: Math.max(Math.floor(change2.now), newest.created_at + 1),
+      created_at: Math.max(Math.floor(change2.now), newest2.created_at + 1),
       tags: [["d", BAG_D], ...kept2, ...words2.length ? [["tint", item, ...words2]] : [], ["alt", "A bag: the items this person has"]],
       content: ""
     };
   }
-  function changeBag(newest, change2) {
-    if (newest && (newest.kind !== BAG_KIND || !Array.isArray(newest.tags)))
+  function changeBag(newest2, change2) {
+    if (newest2 && (newest2.kind !== BAG_KIND || !Array.isArray(newest2.tags)))
       return null;
-    if (!newest && !change2.fromNothing)
+    if (!newest2 && !change2.fromNothing)
       return null;
     const add = itemCoordinate(change2.add);
     const remove = itemCoordinate(change2.remove);
     if (add === "" === (remove === ""))
       return null;
     const which = add || remove;
-    const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt") : [];
+    const had = newest2 ? newest2.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt") : [];
     const names = (t) => t[0] === "a" && itemCoordinate(t[1]) === which;
     const has = had.some(names);
     if (add ? has : !has)
@@ -5134,7 +5134,7 @@ var NSWP = (() => {
     const kept2 = add ? [...had.map((t) => [...t]), ["a", add, ...change2.relay ? [change2.relay] : []]] : had.filter((t) => !names(t) && !(t[0] === "tint" && itemCoordinate(t[1]) === which)).map((t) => [...t]);
     return {
       kind: BAG_KIND,
-      created_at: Math.max(Math.floor(change2.now), newest ? newest.created_at + 1 : 0),
+      created_at: Math.max(Math.floor(change2.now), newest2 ? newest2.created_at + 1 : 0),
       tags: [["d", BAG_D], ...kept2, ["alt", "A bag: the items this person has"]],
       content: ""
     };
@@ -5577,7 +5577,7 @@ var NSWP = (() => {
       return "";
     }
   }
-  function readRelayList(events2, pubkey, max = 8) {
+  function readRelayList(events2, pubkey, max = RELAY_PICK.listed) {
     const latest = events2.filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === pubkey).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
     if (!latest)
       return null;
@@ -5608,8 +5608,33 @@ var NSWP = (() => {
     /** A relay that hasn't been tried for this long is given another chance: what was known of it is forgotten. */
     staleMs: 7 * 24 * 3600 * 1e3,
     /** No more relays than this are remembered. */
-    kept: 40
+    kept: 40,
+    /** How many of a person's listed relays are taken from their list (NIP-65): enough to find a note on any of them. */
+    listed: 24,
+    /**
+     * Where a look for a visitor's own note on their own device found nothing, how many more of their relays are asked
+     * at once, and how long each such wave is waited for. Waves go on until it is found or every listed relay is asked.
+     */
+    wave: 4,
+    waveMs: 3e3,
+    /** A relay that ran out of time is asked once more, at the end of the waves, and waited for this long. */
+    lateMs: 6e3,
+    /** A note of a person's is sent once this many relays said they took it (OK true). Fewer is said, and sent again. */
+    took: 3,
+    /** At most this many relays have a visitor's own newest note put back on them after a look, each at most once a day. */
+    mend: 6,
+    /**
+     * A person's own note always goes to at least this many of the usual relays too, whether or not enough of their
+     * own took it: a world that hasn't their relay list yet looks only there, and the list itself is found only there.
+     */
+    usual: 1,
+    /** How long a look waits for a person's relay list, while the usual relays are asked. */
+    listWaitMs: 6e3
   };
+  function relayClosed(note, to, now) {
+    const at = note?.closed?.[to];
+    return at !== void 0 && now - at <= RELAY_PICK.staleMs;
+  }
   function relayScore(note, now) {
     if (!note || now - note.at > RELAY_PICK.staleMs)
       return 0.5;
@@ -5631,19 +5656,25 @@ var NSWP = (() => {
         ok = Math.round(ok / 2);
         failed2 = Math.round(failed2 / 2);
       }
-      next[clean3] = { ok, failed: failed2, at: now };
+      const closed = { ...had.closed ?? {} };
+      if (/^closed: (auth-required|restricted):/.test(said2))
+        closed.read = now;
+      if (/^rejected: (auth-required|restricted):/.test(said2))
+        closed.write = now;
+      next[clean3] = { ok, failed: failed2, at: now, ...closed.read !== void 0 || closed.write !== void 0 ? { closed } : {} };
     }
     const kept2 = Object.entries(next).sort((a, b) => b[1].at - a[1].at).slice(0, RELAY_PICK.kept);
     return Object.fromEntries(kept2);
   }
   function pickRelays(o) {
+    const open3 = (url) => !o.for || !relayClosed(o.notes[url], o.for, o.now);
     const score = (url) => relayScore(o.notes[url], o.now);
     const best = (urls) => urls.map((url, i) => ({ url, i, s: score(url) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.url);
-    const own2 = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))]).slice(0, RELAY_PICK.most);
+    const own2 = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))].filter(open3)).slice(0, RELAY_PICK.most);
     const working = own2.filter((url) => score(url) >= RELAY_PICK.working).length;
     const added = [];
-    for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own2.includes(u)))) {
-      if (working + added.length >= RELAY_PICK.least)
+    for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own2.includes(u) && open3(u)))) {
+      if (working + added.length >= RELAY_PICK.least && added.length >= (o.usualAtLeast ?? 0))
         break;
       if (score(url) < RELAY_PICK.working && added.length > 0)
         continue;
@@ -5765,18 +5796,18 @@ var NSWP = (() => {
     return { url, monitor: event.pubkey, at: Number.isInteger(event.created_at) ? event.created_at : 0, auth: said2("auth"), payment: said2("payment"), restricted: said2("writes"), pow: said2("pow"), rttOpen: Number.isFinite(ms) && ms > 0 ? ms : null, rttWrite: Number.isFinite(wrote) && wrote > 0 ? wrote : null, refuses };
   }
   function pickDiscovered(events2, o) {
-    const newest = /* @__PURE__ */ new Map();
+    const newest2 = /* @__PURE__ */ new Map();
     for (const event of events2) {
       const f = readRelayFinding(event);
       if (!f || f.at > o.now + 600 || o.now - f.at > DISCOVERY.freshSec)
         continue;
       const key = `${f.url} ${f.monitor}`;
-      const had = newest.get(key);
+      const had = newest2.get(key);
       if (!had || had.at < f.at)
-        newest.set(key, f);
+        newest2.set(key, f);
     }
     const byRelay = /* @__PURE__ */ new Map();
-    for (const f of newest.values())
+    for (const f of newest2.values())
       byRelay.set(f.url, [...byRelay.get(f.url) ?? [], f]);
     const not = new Set(o.not ?? []);
     const open3 = [];
@@ -7481,11 +7512,11 @@ ${roomName}`)));
     return hosts.some((host) => href.startsWith(host));
   }
   function parseFileHostList(events2, pubkey) {
-    const newest = events2.filter((e) => e.kind === FILE_HOST_LIST_KIND && e.pubkey === pubkey && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
-    if (!newest)
+    const newest2 = events2.filter((e) => e.kind === FILE_HOST_LIST_KIND && e.pubkey === pubkey && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+    if (!newest2)
       return [];
     const hosts = [];
-    for (const tag2 of newest.tags) {
+    for (const tag2 of newest2.tags) {
       if (tag2[0] !== "server")
         continue;
       const host = cleanFileHost(tag2[1]);
@@ -8062,26 +8093,26 @@ postMessage({ t: "started" });
   function newestFollows(events2, pubkey) {
     return events2.filter((e) => e.kind === FOLLOWS_KIND && e.pubkey === pubkey && Array.isArray(e.tags)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0] ?? null;
   }
-  function changeFollows(newest, change2) {
-    if (newest && (newest.kind !== FOLLOWS_KIND || !Array.isArray(newest.tags)))
+  function changeFollows(newest2, change2) {
+    if (newest2 && (newest2.kind !== FOLLOWS_KIND || !Array.isArray(newest2.tags)))
       return null;
-    if (!newest && !change2.fromNothing)
+    if (!newest2 && !change2.fromNothing)
       return null;
     const add = typeof change2.add === "string" ? change2.add.toLowerCase() : "";
     const remove = typeof change2.remove === "string" ? change2.remove.toLowerCase() : "";
     if (add === "" === (remove === ""))
       return null;
     const who2 = add || remove;
-    if (!isHex64(who2) || add && newest?.pubkey === add)
+    if (!isHex64(who2) || add && newest2?.pubkey === add)
       return null;
-    const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((item) => typeof item === "string") && !SITE_MARKS.includes(t[0] ?? "")) : [];
+    const had = newest2 ? newest2.tags.filter((t) => Array.isArray(t) && t.every((item) => typeof item === "string") && !SITE_MARKS.includes(t[0] ?? "")) : [];
     const names = (t) => t[0] === "p" && typeof t[1] === "string" && t[1].toLowerCase() === who2;
     const follows = had.some(names);
     if (add ? follows : !follows)
       return null;
     const tags = add ? [...had.map((t) => [...t]), ["p", add, ...change2.relay ? [change2.relay] : []]] : had.filter((t) => !names(t)).map((t) => [...t]);
-    const created_at = Math.max(Math.floor(change2.now), newest ? newest.created_at + 1 : 0);
-    return { kind: FOLLOWS_KIND, created_at, tags, content: typeof newest?.content === "string" ? newest.content : "" };
+    const created_at = Math.max(Math.floor(change2.now), newest2 ? newest2.created_at + 1 : 0);
+    return { kind: FOLLOWS_KIND, created_at, tags, content: typeof newest2?.content === "string" ? newest2.content : "" };
   }
   function isFollowAsked(signed, o) {
     if (!o.pubkey || !verifyEvent(signed) || signed.kind !== FOLLOWS_KIND || signed.pubkey !== o.pubkey)
@@ -8759,22 +8790,33 @@ postMessage({ t: "started" });
     }
   }
   function relaysWell(o, now = Date.now()) {
-    return pickRelays({ ...o, notes: read(), now });
+    return pickRelays({ ...o, notes: withMonitors(read()), now });
   }
+  var openOf = (urls, to, at) => {
+    const notes2 = withMonitors(read());
+    return [...new Set(urls.map(cleanRelayUrl).filter(Boolean))].filter((u) => pickRelays({ own: [u], usual: [], notes: notes2, now: at, for: to }).relays.includes(u));
+  };
+  var withMonitors = (kept2) => {
+    if (!found?.closed.length) return kept2;
+    const next = { ...kept2 };
+    for (const url of found.closed) next[url] = { ...next[url] ?? { ok: 0, failed: 0, at: found.at }, closed: { ...next[url]?.closed ?? {}, write: found.at } };
+    return next;
+  };
   async function sendWell(event, o) {
     const publish = o.publish ?? publishEvent;
     const now = o.now ?? (() => Date.now());
-    const first = relaysWell(o, now());
+    const wrapped2 = event.kind === WRAP_KIND;
+    const first = relaysWell({ own: o.own, usual: o.usual, for: "write", ...wrapped2 ? {} : { usualAtLeast: RELAY_PICK.usual } }, now());
     const sent = await publish(first.relays, event).catch(() => ({ relays: Object.fromEntries(first.relays.map((r) => [r, "error: not sent"])) }));
     learnFrom(sent.relays, now());
     let took = Object.values(sent.relays).filter((said2) => said2 === "ok").length;
     const tried = [...first.relays];
-    if (took === 0) {
-      const rest = o.usual.filter((r) => !tried.includes(r));
+    if (took < RELAY_PICK.took && !(wrapped2 && took > 0)) {
+      const rest = openOf(o.usual.filter((r) => !tried.includes(cleanRelayUrl(r))), "write", now());
       if (rest.length) {
         const again = await publish(rest, event).catch(() => ({ relays: Object.fromEntries(rest.map((r) => [r, "error: not sent"])) }));
         learnFrom(again.relays, now());
-        took = Object.values(again.relays).filter((said2) => said2 === "ok").length;
+        took += Object.values(again.relays).filter((said2) => said2 === "ok").length;
         tried.push(...rest);
       }
     }
@@ -8795,6 +8837,126 @@ postMessage({ t: "started" });
     const now = o.now ?? (() => Date.now());
     const asked2 = relaysWell(o, now()).relays;
     return queryBacked(asked2, filter, o.timeoutMs ?? 4e3, { ...o.query ? { query: o.query } : {}, now });
+  }
+  var LIST_KEY = "nswp:relays:list";
+  var MENDED_KEY = "nswp:relays:mended";
+  var MENDED_FOR_MS = 24 * 3600 * 1e3;
+  var lists = /* @__PURE__ */ new Map();
+  var keptList = (who2) => {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(LIST_KEY) ?? "null");
+      return verifyEvent(kept2) && kept2.kind === RELAY_LIST_KIND && kept2.pubkey === who2 ? kept2 : null;
+    } catch {
+      return null;
+    }
+  };
+  var keepList = (list) => {
+    try {
+      globalThis.localStorage?.setItem(LIST_KEY, JSON.stringify(list));
+    } catch {
+    }
+  };
+  var mendedHere = {};
+  var mended = () => {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(MENDED_KEY) ?? "null");
+      return kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : mendedHere;
+    } catch {
+      return mendedHere;
+    }
+  };
+  var askEach = async (urls, filter, ms, query, now, into, events2) => {
+    await Promise.all(
+      urls.map(async (url) => {
+        const got = await query([url], filter, ms).catch(() => ({ events: [], relays: { [url]: "error: not asked" } }));
+        learnFrom(got.relays, now());
+        const ids = /* @__PURE__ */ new Set();
+        for (const e of got.events) {
+          if (!verifyEvent(e)) continue;
+          ids.add(e.id);
+          events2.set(e.id, e);
+        }
+        into.set(url, { said: got.relays[url] ?? Object.values(got.relays)[0] ?? "timeout", ids });
+      })
+    );
+  };
+  var newest = (events2) => events2.slice().sort((x, y) => y.created_at - x.created_at || (x.id < y.id ? -1 : 1))[0] ?? null;
+  var putBack = (note, asked2, o) => {
+    if (!o.publish && typeof document === "undefined") return;
+    const done = mended();
+    const at = o.now();
+    const missing = [...asked2.entries()].filter(([url, a]) => a.said === "eose" && !a.ids.has(note.id) && !(at - (done[`${url} ${note.id}`] ?? -Infinity) < MENDED_FOR_MS)).map(([url]) => url);
+    const ownFirst = [...missing.filter((u) => o.first?.includes(u)), ...missing.filter((u) => !o.first?.includes(u))];
+    const to = openOf(ownFirst, "write", at).slice(0, RELAY_PICK.mend);
+    if (!to.length) return;
+    const next = Object.fromEntries(Object.entries(done).filter(([, when]) => at - when < MENDED_FOR_MS));
+    for (const url of to) next[`${url} ${note.id}`] = at;
+    mendedHere = next;
+    try {
+      globalThis.localStorage?.setItem(MENDED_KEY, JSON.stringify(next));
+    } catch {
+    }
+    void (o.publish ?? publishEvent)(to, note).then((sent) => learnFrom(sent.relays, o.now())).catch(() => null);
+  };
+  var listOf = async (who2, o) => {
+    const asked2 = /* @__PURE__ */ new Map();
+    const events2 = /* @__PURE__ */ new Map();
+    await askEach(openOf(o.usual, "read", o.now()), { kinds: [RELAY_LIST_KIND], authors: [who2], limit: 4 }, RELAY_PICK.listWaitMs, o.query, o.now, asked2, events2);
+    const had = o.mine ? keptList(who2) : lists.get(who2) ?? null;
+    const best = newest([...events2.values(), ...had ? [had] : []].filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === who2));
+    if (!best) return null;
+    if (o.mine) {
+      keepList(best);
+      putBack(best, asked2, o);
+    } else lists.set(who2, best);
+    return best;
+  };
+  async function askOwn(filter, who2, o) {
+    const query = o.query ?? queryRelays;
+    const now = o.now ?? (() => Date.now());
+    const mine = !!o.mine;
+    const first = o.timeoutMs ?? 4e3;
+    const asked2 = /* @__PURE__ */ new Map();
+    const events2 = /* @__PURE__ */ new Map();
+    const ask = (urls, ms) => askEach(urls.filter((u) => !asked2.has(u)), filter, ms, query, now, asked2, events2);
+    const known = mine ? keptList(who2) : lists.get(who2) ?? null;
+    const coming = listOf(who2, { usual: o.usual, mine, query, ...o.publish ? { publish: o.publish } : {}, now });
+    const ownOf = (list2) => readRelayList(list2 ? [list2] : [], who2)?.write ?? [];
+    const firstPick = relaysWell({ own: ownOf(known), usual: o.usual, for: "read", usualAtLeast: 1 }, now()).relays;
+    const list = await Promise.all([ask(firstPick, first), coming]).then(([, l]) => l ?? known);
+    const own2 = ownOf(list);
+    await ask(relaysWell({ own: own2, usual: [], for: "read" }, now()).relays, first);
+    if (mine && events2.size === 0) {
+      const rest = openOf(own2, "read", now()).filter((u) => !asked2.has(u));
+      for (let i = 0, wave = 1; i < rest.length && events2.size === 0; i += RELAY_PICK.wave, wave++) {
+        o.onWave?.(wave);
+        await ask(rest.slice(i, i + RELAY_PICK.wave), RELAY_PICK.waveMs);
+      }
+      const late = [...asked2.entries()].filter(([, a]) => a.said === "timeout").map(([url]) => url);
+      for (let i = 0, wave = 1; i < late.length && events2.size === 0; i += RELAY_PICK.wave, wave++) {
+        o.onWave?.(wave);
+        await askEach(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, query, now, asked2, events2);
+      }
+    }
+    const answered = () => [...asked2.values()].filter((a) => a.said === "eose").length;
+    if (answered() === 0 && events2.size === 0 && mayAskBackUp([...asked2.keys()], o)) {
+      const more = (await foundRelays({ not: [...asked2.keys()], ...o.query ? { query: o.query } : {}, now })).open.slice(0, BACKUP_AT_ONCE);
+      if (more.length) await ask(more, first);
+    }
+    const all = [...events2.values()];
+    const relays = Object.fromEntries([...asked2.entries()].map(([url, a]) => [url, a.said]));
+    let state = "found";
+    if (!all.length) {
+      const n = asked2.size;
+      const need = Math.min(n, Math.max(3, Math.ceil(n / 2)));
+      const everyOne = !mine || openOf(own2, "read", now()).every((u) => asked2.has(u));
+      state = n > 0 && answered() >= need && everyOne ? "none" : "unreached";
+    }
+    if (o.mine) {
+      const note = newest([...all, ...o.mine.kept ? [o.mine.kept] : []]);
+      if (note && note.pubkey === who2) putBack(note, asked2, { ...o.publish ? { publish: o.publish } : {}, now, first: own2 });
+    }
+    return { events: all, state, relays, own: own2 };
   }
   var FOUND_KEY = "nswp:relays:found";
   var FOUND_FOR_MS = 24 * 3600 * 1e3;
@@ -9223,7 +9385,7 @@ postMessage({ t: "started" });
     let seeking2 = 0;
     let seekTimer;
     let paid = false;
-    let lists = null;
+    let lists2 = null;
     let listState = "none";
     let ownerBlocked = [];
     let namedOnly = false;
@@ -9324,7 +9486,7 @@ postMessage({ t: "started" });
         if (!paid) return set("open", "");
       }
       if (!paid) {
-        if (lists && buyer && listState === "reading") return;
+        if (lists2 && buyer && listState === "reading") return;
         return set("open", "");
       }
       if (!signer || !buyer) return shut(signer ? "signed-out" : "no-signer");
@@ -9346,12 +9508,12 @@ postMessage({ t: "started" });
       if (disposed) return;
       const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
       for (const l of want2) {
-        const newest = (got?.events ?? []).filter((e) => e && e.kind === LISTING_KIND && e.pubkey === listingSeller(l) && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === name(l))).sort((a, b) => b.created_at - a.created_at)[0];
-        if (!newest) {
+        const newest2 = (got?.events ?? []).filter((e) => e && e.kind === LISTING_KIND && e.pubkey === listingSeller(l) && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === name(l))).sort((a, b) => b.created_at - a.created_at)[0];
+        if (!newest2) {
           unread.set(l, answered ? "not-found" : "no-relay");
           continue;
         }
-        const read6 = readListing(newest, l);
+        const read6 = readListing(newest2, l);
         if (!read6.ok) unread.set(l, read6.why);
         else if (read6.listing.for && worldName && read6.listing.for !== `${WORLD_KIND}:${read6.listing.seller}:${worldName}`) unread.set(l, "not-for-here");
         else {
@@ -9363,22 +9525,22 @@ postMessage({ t: "started" });
       clearTimeout(retryTimer);
       if ([...unread.values()].some((w) => w === "no-relay" || w === "not-found")) retryTimer = setTimeout(() => void readOffers(), Math.min(2e4 * 2 ** retries++, GATE_TIMES.look * 1e3));
     };
-    const rootOf = (subject) => lists?.root ?? [subject.split(":")[1]];
-    const isKeeper = (key) => !!lists && lists.subjects.some((s) => rootOf(s).includes(key));
-    const isBlocked = (key) => !!lists && !!key && ownerBlocked.includes(key) && !isKeeper(key);
+    const rootOf = (subject) => lists2?.root ?? [subject.split(":")[1]];
+    const isKeeper = (key) => !!lists2 && lists2.subjects.some((s) => rootOf(s).includes(key));
+    const isBlocked = (key) => !!lists2 && !!key && ownerBlocked.includes(key) && !isKeeper(key);
     const isInvited = (key) => isKeeper(key) || inviteState === "read" && invited.includes(key) || inviteState === "unanswered" && invited.includes(key);
     const chooseList = (scope, events2, answered) => {
       const kept2 = rememberedLists();
       const people2 = /* @__PURE__ */ new Set();
       let state2 = "not-found";
       let found2 = false;
-      for (const subject of lists.subjects) {
+      for (const subject of lists2.subjects) {
         const d = listD(scope, subject);
         const root = rootOf(subject);
         const all = [...events2, ...kept2[d] ? [kept2[d]] : []];
         const r = resolveOwnerList(all, { scope, subject, root, now: sec() });
-        const newest = all.filter((e) => e && e.kind === LIST_KIND && root.includes(e.pubkey) && e.created_at <= sec() + OWNER_LIST_LIMITS.ahead && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === d)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
-        if (newest && (!kept2[d] || newest.created_at > kept2[d].created_at || newest.created_at === kept2[d].created_at && newest.id < kept2[d].id)) rememberList(d, newest);
+        const newest2 = all.filter((e) => e && e.kind === LIST_KIND && root.includes(e.pubkey) && e.created_at <= sec() + OWNER_LIST_LIMITS.ahead && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === d)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+        if (newest2 && (!kept2[d] || newest2.created_at > kept2[d].created_at || newest2.created_at === kept2[d].created_at && newest2.id < kept2[d].id)) rememberList(d, newest2);
         if (r.ok) {
           for (const key of r.entries) people2.add(key);
           state2 = "read";
@@ -9388,7 +9550,7 @@ postMessage({ t: "started" });
       return { people: [...people2].sort(), state: answered ? state2 : "unanswered" };
     };
     const applyLists = (events2, answered = true) => {
-      if (!lists) return;
+      if (!lists2) return;
       const blocks = chooseList("user-deny", events2, answered);
       listState = blocks.state;
       let differs = blocks.people.join() !== ownerBlocked.join();
@@ -9402,9 +9564,9 @@ postMessage({ t: "started" });
       if (differs) changed();
     };
     const readLists = async () => {
-      if (!lists || disposed) return;
+      if (!lists2 || disposed) return;
       const scopes = byInvitation ? ["user-deny", "user-allow"] : ["user-deny"];
-      const filter = { kinds: [LIST_KIND], authors: [...new Set(lists.subjects.flatMap(rootOf))], "#d": lists.subjects.flatMap((s) => scopes.map((scope) => listD(scope, s))) };
+      const filter = { kinds: [LIST_KIND], authors: [...new Set(lists2.subjects.flatMap(rootOf))], "#d": lists2.subjects.flatMap((s) => scopes.map((scope) => listD(scope, s))) };
       const got = await askWell(filter, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, now }).catch(() => null);
       if (disposed) return;
       const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
@@ -9443,14 +9605,14 @@ postMessage({ t: "started" });
       paid = meant;
       byInvitation = access.byInvitation;
       if ((access.keepers || byInvitation) && access.sellers.length) {
-        lists = { root: access.keepers, subjects: access.sellers.map((key) => worldSubject(key, access.d)) };
+        lists2 = { root: access.keepers, subjects: access.sellers.map((key) => worldSubject(key, access.d)) };
         listState = "reading";
         if (byInvitation) inviteState = "reading";
       }
-      if (!meant && !lists) return set("free", "");
+      if (!meant && !lists2) return set("free", "");
       if (meant && listings.length === 0) return set("shut", "not-own");
-      if (lists) {
-        const remembered = lists.subjects.some((s) => rememberedLists()[listD("user-deny", s)] || byInvitation && rememberedLists()[listD("user-allow", s)]);
+      if (lists2) {
+        const remembered = lists2.subjects.some((s) => rememberedLists()[listD("user-deny", s)] || byInvitation && rememberedLists()[listD("user-allow", s)]);
         if (remembered) {
           applyLists([]);
           void readLists().then(() => look());
@@ -9462,7 +9624,7 @@ postMessage({ t: "started" });
       if (signer) await signer.whenAnswered(4e3).catch(() => void 0);
       if (disposed) return;
       if (signer && !unwatch) unwatch = signer.onChange(() => void look());
-      lookTimer = setInterval(() => void (lists ? readLists().then(() => look()) : look()), GATE_TIMES.look * 1e3);
+      lookTimer = setInterval(() => void (lists2 ? readLists().then(() => look()) : look()), GATE_TIMES.look * 1e3);
       await look();
     };
     if (state !== "free") void begin();
@@ -9533,7 +9695,7 @@ postMessage({ t: "started" });
         return inviteState;
       },
       get invited() {
-        return byInvitation && lists ? [.../* @__PURE__ */ new Set([...invited, ...lists.subjects.flatMap(rootOf)])].sort() : null;
+        return byInvitation && lists2 ? [.../* @__PURE__ */ new Set([...invited, ...lists2.subjects.flatMap(rootOf)])].sort() : null;
       },
       get host() {
         return host();
@@ -9551,13 +9713,13 @@ postMessage({ t: "started" });
       async changeList(change2, key) {
         const signer = opts.signer();
         const me = signer?.state === "unlocked" ? signer.pubkey : null;
-        if (disposed || !lists || !signer || !me || !isKeeper(me)) return { ok: false, said: "Only one of this world's keepers, signed in here, can change who comes in." };
+        if (disposed || !lists2 || !signer || !me || !isKeeper(me)) return { ok: false, said: "Only one of this world's keepers, signed in here, can change who comes in." };
         if (!isHex64(key)) return { ok: false, said: "That isn't someone's key." };
         if (isKeeper(key)) return { ok: false, said: "That's one of this world's keepers: always let in, and never kept out." };
         const scope = scopeOfChange(change2);
         if (scope === "user-allow" && !byInvitation) return { ok: false, said: "This world isn't by invitation, so there is no list of who is let in." };
         if (changing) return { ok: false, said: "One change at a time: the last is still with your sign-in address." };
-        const subject = lists.subjects.find((s) => rootOf(s).includes(me));
+        const subject = lists2.subjects.find((s) => rootOf(s).includes(me));
         const d = listD(scope, subject);
         const found2 = rememberedLists()[d] ?? null;
         let none = false;
@@ -9710,10 +9872,10 @@ postMessage({ t: "started" });
       icon: "people",
       note: () => {
         if (!gate2.keeper) return "";
-        const lists = [];
-        if (gate2.byInvitation) lists.push(gate2.invites === "read" ? `${count2(gate2.guests?.length ?? 0, "person", "people")} invited` : gate2.invites === "not-found" ? "nobody invited yet" : "who is invited couldn't be read just now");
-        lists.push(gate2.lists === "read" || gate2.lists === "not-found" ? `${count2(gate2.ownerBlocked.length, "person", "people")} kept out` : "who is kept out couldn't be read just now");
-        return `Anyone can read this list. ${capital(lists.join(", "))}.${inHeadset() ? ` ${stepOut}` : ""}`;
+        const lists2 = [];
+        if (gate2.byInvitation) lists2.push(gate2.invites === "read" ? `${count2(gate2.guests?.length ?? 0, "person", "people")} invited` : gate2.invites === "not-found" ? "nobody invited yet" : "who is invited couldn't be read just now");
+        lists2.push(gate2.lists === "read" || gate2.lists === "not-found" ? `${count2(gate2.ownerBlocked.length, "person", "people")} kept out` : "who is kept out couldn't be read just now");
+        return `Anyone can read this list. ${capital(lists2.join(", "))}.${inHeadset() ? ` ${stepOut}` : ""}`;
       }
     });
     const listed = () => [...gate2.guests ?? [], ...gate2.ownerBlocked];
@@ -39810,13 +39972,13 @@ postMessage({ t: "started" });
     };
   }
   function WebGLRenderLists() {
-    let lists = /* @__PURE__ */ new WeakMap();
+    let lists2 = /* @__PURE__ */ new WeakMap();
     function get(scene, renderCallDepth) {
-      const listArray = lists.get(scene);
+      const listArray = lists2.get(scene);
       let list;
       if (listArray === void 0) {
         list = new WebGLRenderList();
-        lists.set(scene, [list]);
+        lists2.set(scene, [list]);
       } else {
         if (renderCallDepth >= listArray.length) {
           list = new WebGLRenderList();
@@ -39828,7 +39990,7 @@ postMessage({ t: "started" });
       return list;
     }
     function dispose() {
-      lists = /* @__PURE__ */ new WeakMap();
+      lists2 = /* @__PURE__ */ new WeakMap();
     }
     return {
       get,
@@ -49067,8 +49229,8 @@ void main() {
         if (!found2) {
           const [, maker, ...rest] = coordinate2.split(":");
           found2 = askWell({ kinds: [ITEM_KIND], authors: [maker], "#d": [rest.join(":")], limit: 4 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).then((got) => {
-            const newest = got.events.filter((e) => e.kind === ITEM_KIND && e.pubkey === maker && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
-            const item = newest ? parseItem(newest) : null;
+            const newest2 = got.events.filter((e) => e.kind === ITEM_KIND && e.pubkey === maker && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+            const item = newest2 ? parseItem(newest2) : null;
             return item && item.id === coordinate2 ? item : null;
           }).catch(() => null).then((item) => {
             settled.set(coordinate2, item);
@@ -51102,9 +51264,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const d = await s.find(slot);
       if (!d) return null;
       const got = await askWell({ kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, { own: await ownRelays(who2), usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
-      const newest = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
-      if (!newest) return null;
-      const opened = await s.open(newest);
+      const newest2 = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+      if (!newest2) return null;
+      const opened = await s.open(newest2);
       return opened && opened.slot === slot ? { data: opened.data, at: opened.at } : null;
     };
     const load3 = async (slotIn) => {
@@ -51114,13 +51276,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const who2 = s?.state === "unlocked" ? s.pubkey : null;
       const here = [readLocal(who2, slot), who2 ? readLocal(null, slot) : null].filter((x) => !!x).sort((a, b) => b.at - a.at)[0] ?? null;
       const there = who2 ? await fromAccount(slot).catch(() => null) : null;
-      const newest = there && (!here || there.at >= here.at) ? { ...there, from: "account" } : here ? { ...here, from: "device" } : null;
-      if (newest?.from === "account") writeLocal(who2, slot, { data: newest.data, at: newest.at });
-      if (who2 && newest?.from === "device" && !taking.has(slot)) {
+      const newest2 = there && (!here || there.at >= here.at) ? { ...there, from: "account" } : here ? { ...here, from: "device" } : null;
+      if (newest2?.from === "account") writeLocal(who2, slot, { data: newest2.data, at: newest2.at });
+      if (who2 && newest2?.from === "device" && !taking.has(slot)) {
         taking.add(slot);
-        void toAccount(newest.data, slot, who2).catch(() => false).then(() => taking.delete(slot));
+        void toAccount(newest2.data, slot, who2).catch(() => false).then(() => taking.delete(slot));
       }
-      return newest && newest.data !== "" ? newest : null;
+      return newest2 && newest2.data !== "" ? newest2 : null;
     };
     const taking = /* @__PURE__ */ new Set();
     const toAccount = async (data, slot, who2) => {
@@ -52020,8 +52182,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     if (at.kind !== AVATAR_KIND || at.pubkey !== author) return null;
     const relays = [.../* @__PURE__ */ new Set([...(at.relays ?? []).filter((r) => r.startsWith("wss://")).slice(0, 3), ...opts.relays ?? DEFAULT_RELAYS])];
     const got = await askWell({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, { own: [], usual: relays, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).catch(() => null);
-    const newest = (got?.events ?? []).filter((e) => e.kind === AVATAR_KIND && e.pubkey === author && verifyEvent(e) && e.tags.some((t) => t[0] === "d" && t[1] === at.identifier)).sort((a, b) => b.created_at - a.created_at)[0];
-    return newest && JSON.stringify(newest).length <= LOOK_NOTE_LIMIT ? newest : null;
+    const newest2 = (got?.events ?? []).filter((e) => e.kind === AVATAR_KIND && e.pubkey === author && verifyEvent(e) && e.tags.some((t) => t[0] === "d" && t[1] === at.identifier)).sort((a, b) => b.created_at - a.created_at)[0];
+    return newest2 && JSON.stringify(newest2).length <= LOOK_NOTE_LIMIT ? newest2 : null;
   }
   function worldDrawsModels(world2) {
     return !!world2 && world2.dress !== "own" && (world2.formats.includes("vrm") || world2.formats.includes("glb"));
@@ -55114,9 +55276,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         else setChatState("closed");
       }
       if (chatState === "peek" && !c.ready) setChatState("closed");
-      const newest = c.lines[c.lines.length - 1]?.key ?? "";
-      if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
-      chatNewest = newest;
+      const newest2 = c.lines[c.lines.length - 1]?.key ?? "";
+      if (c.ready && newest2 && newest2 !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
+      chatNewest = newest2;
       const showing2 = chatState === "open" ? dockTab : "room";
       if (chatOnly) {
         chatWhose.hidden = false;
@@ -56959,29 +57121,39 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       } catch {
       }
     };
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found: found2 };
-      return found2;
+    const unsentKey = (who2) => `nswp:bag:${who2}:unsent`;
+    const unsent = (who2) => {
+      try {
+        return store2?.getItem(unsentKey(who2)) ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const markSent = (bag, took) => {
+      try {
+        if (took >= RELAY_PICK.took) store2?.removeItem(unsentKey(bag.pubkey));
+        else store2?.setItem(unsentKey(bag.pubkey), bag.id);
+      } catch {
+      }
     };
     let known = null;
     let looking = null;
     let offered = null;
     const look = async (who2) => {
       const kept2 = readKept(who2);
-      const own2 = await ownRelays(who2);
-      const got = await askWell({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, { own: own2, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
-      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+      const got = await askOwn({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, who2, { usual: usual(), mine: { kept: kept2 }, query, publish, timeoutMs: 4e3, now }).catch(() => null);
+      const answered = !!got && got.state !== "unreached";
+      const own2 = got?.own ?? [];
       const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
       const bag = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
-      if (kept2 && bag === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own: own2, usual: usual(), publish, query, now }).catch(() => null);
+      if (kept2 && bag === kept2 && (unsent(who2) === kept2.id || answered && (!found2 || found2.id !== kept2.id)))
+        void sendWell(kept2, { own: own2, usual: usual(), publish, query, now }).then((sent) => markSent(kept2, sent.took)).catch(() => null);
       if (bag && bag !== kept2) keep6(bag);
       if (opts.me() !== who2) return;
-      known = { who: who2, bag, answered, at: now() };
+      known = { who: who2, bag, answered, own: own2, at: now() };
       changed();
     };
+    const inBag = (at) => at.bag || at.answered ? bagIn(at.bag) : null;
     const load3 = async (fresh = false) => {
       const who2 = opts.me();
       if (!who2) {
@@ -56992,12 +57164,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
       if (known && known.who !== who2) known = null;
-      if (!fresh && known && now() - known.at < FRESH_MS3) return bagIn(known.bag);
+      if (!fresh && known && now() - known.at < FRESH_MS3) return inBag(known);
       looking ?? (looking = look(who2).finally(() => {
         looking = null;
       }));
       await looking;
-      return known && known.who === who2 ? bagIn(known.bag) : null;
+      return known && known.who === who2 ? inBag(known) : null;
     };
     const change2 = async (itemIn2, adding, title) => {
       const who2 = opts.me();
@@ -57026,11 +57198,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made2.tags);
       if (!signed || !same) return { ok: false, why: "refused", said: "It couldn't be signed. Your bag is as it was." };
       keep6(signed);
-      known = { who: who2, bag: signed, answered: true, at: now() };
+      known = { who: who2, bag: signed, answered: true, own: at.own, at: now() };
       changed();
-      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+      const sent = await sendWell(signed, { own: at.own, usual: usual(), publish, query, now }).catch(() => null);
+      markSent(signed, sent?.took ?? 0);
       if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: "Signed, but no relay took it. It is kept on this device and will be sent again." };
-      return { ok: true, said: adding ? `${it} is in your bag. Anyone can see what is in it.` : `${it} is out of your bag.` };
+      const done = adding ? `${it} is in your bag. Anyone can see what is in it.` : `${it} is out of your bag.`;
+      if (sent.took < RELAY_PICK.took) return { ok: true, said: `${done} Only ${sent.took === 1 ? "1 relay has" : `${sent.took} relays have`} it so far; it is sent again the next time your bag is looked at.` };
+      return { ok: true, said: done };
     };
     const TINTS_KEY = "nswp:tints";
     const keptTints = () => {
@@ -57052,9 +57227,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made2.tags);
       if (!signed || !same) return;
       keep6(signed);
-      known = { who: who2, bag: signed, answered: true, at: now() };
+      known = { who: who2, bag: signed, answered: true, own: at?.own ?? [], at: now() };
       changed();
-      await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+      const sent = await sendWell(signed, { own: at?.own ?? [], usual: usual(), publish, query, now }).catch(() => null);
+      markSent(signed, sent?.took ?? 0);
     };
     return {
       tints(itemIn2) {
@@ -57076,7 +57252,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         clearTimeout(tintTimers.get(item));
         tintTimers.set(item, setTimeout(() => void writeTints(item).catch(() => null), 2500));
       },
-      items: () => known && known.who === opts.me() ? bagIn(known.bag) : null,
+      items: () => known && known.who === opts.me() ? inBag(known) : null,
       load: load3,
       canChange: () => !!opts.hand,
       add: (item, title = "") => change2(item, true, title),
@@ -58064,12 +58240,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const unreadIn = (peer, list) => list.filter((m) => m.from === peer && m.at > (seenAt()[peer] ?? 0)).length;
     const knownTo = (peer, list) => !!opts.known?.(peer) || list.some((m) => m.from === who2);
     const look = async (me) => {
-      const lists = await askWell({ kinds: [RELAY_LIST_KIND, MESSAGE_RELAYS_KIND], authors: [me], limit: 8 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+      const lists2 = await askWell({ kinds: [RELAY_LIST_KIND, MESSAGE_RELAYS_KIND], authors: [me], limit: 8 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
       if (hand.pubkey() !== me) return;
-      const answered = !!lists && Object.values(lists.relays).some((said2) => said2 === "eose");
-      const relayList = readRelayList(lists?.events ?? [], me);
+      const answered = !!lists2 && Object.values(lists2.relays).some((said2) => said2 === "eose");
+      const relayList = readRelayList(lists2?.events ?? [], me);
       own2 = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
-      const found2 = readMessageRelays(lists?.events ?? [], me);
+      const found2 = readMessageRelays(lists2?.events ?? [], me);
       if (found2.length) inbox = found2;
       if (!inbox.length) {
         if (answered && relayBackup()) monitors = await foundRelays({ query, now }).catch(() => monitors);
@@ -58169,9 +58345,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       seen(peer) {
         if (!who2) return;
-        const newest = (threads().get(peer) ?? []).reduce((at, m) => Math.max(at, m.at), 0);
-        if (!newest || (seenAt()[peer] ?? 0) >= newest) return;
-        seenAt()[peer] = newest;
+        const newest2 = (threads().get(peer) ?? []).reduce((at, m) => Math.max(at, m.at), 0);
+        if (!newest2 || (seenAt()[peer] ?? 0) >= newest2) return;
+        seenAt()[peer] = newest2;
         try {
           store2?.setItem(seenKey(who2), JSON.stringify(seenAt()));
         } catch {

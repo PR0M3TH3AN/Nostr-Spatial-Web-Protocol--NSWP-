@@ -56,7 +56,7 @@ export function cleanRelayUrl(url: unknown): string {
  * The events are taken as already checked (`queryRelays` checks every
  * signature); whose they are is checked here.
  */
-export function readRelayList(events: NostrEvent[], pubkey: string, max = 8): RelayList | null {
+export function readRelayList(events: NostrEvent[], pubkey: string, max: number = RELAY_PICK.listed): RelayList | null {
   const latest = events.filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === pubkey).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
   if (!latest) return null;
   const write: string[] = [];
@@ -97,6 +97,14 @@ export interface RelayNote {
   failed: number;
   /** When it was last tried, in milliseconds. */
   at: number;
+  /**
+   * Where it was found closed, and when (milliseconds): to reading, where it answered a question with CLOSED
+   * "auth-required:" or "restricted:"; to writing, where it answered a note with OK false and one of those, or a
+   * relay monitor found it asks for proof of who someone is or for payment. Kept apart: a paid relay may refuse a
+   * note and still answer a question. Forgotten after `RELAY_PICK.staleMs`, as the rest is. An AUTH challenge on
+   * its own is not closed: some relays send one and then answer to the end.
+   */
+  closed?: { read?: number; write?: number };
 }
 export type RelayNotes = Record<string, RelayNote>;
 
@@ -113,7 +121,34 @@ export const RELAY_PICK = {
   staleMs: 7 * 24 * 3600 * 1000,
   /** No more relays than this are remembered. */
   kept: 40,
+  /** How many of a person's listed relays are taken from their list (NIP-65): enough to find a note on any of them. */
+  listed: 24,
+  /**
+   * Where a look for a visitor's own note on their own device found nothing, how many more of their relays are asked
+   * at once, and how long each such wave is waited for. Waves go on until it is found or every listed relay is asked.
+   */
+  wave: 4,
+  waveMs: 3000,
+  /** A relay that ran out of time is asked once more, at the end of the waves, and waited for this long. */
+  lateMs: 6000,
+  /** A note of a person's is sent once this many relays said they took it (OK true). Fewer is said, and sent again. */
+  took: 3,
+  /** At most this many relays have a visitor's own newest note put back on them after a look, each at most once a day. */
+  mend: 6,
+  /**
+   * A person's own note always goes to at least this many of the usual relays too, whether or not enough of their
+   * own took it: a world that hasn't their relay list yet looks only there, and the list itself is found only there.
+   */
+  usual: 1,
+  /** How long a look waits for a person's relay list, while the usual relays are asked. */
+  listWaitMs: 6000,
 } as const;
+
+/** Whether a relay is closed to reading or to writing, by what is remembered of it. */
+function relayClosed(note: RelayNote | undefined, to: "read" | "write", now: number): boolean {
+  const at = note?.closed?.[to];
+  return at !== undefined && now - at <= RELAY_PICK.staleMs;
+}
 
 /** How far a relay can be counted on, 0 to 1, from what is remembered of it. Nothing known is 0.5. */
 export function relayScore(note: RelayNote | undefined, now: number): number {
@@ -138,7 +173,12 @@ export function learnRelays(notes: RelayNotes, results: Record<string, string>, 
       ok = Math.round(ok / 2);
       failed = Math.round(failed / 2);
     }
-    next[clean] = { ok, failed, at: now };
+    // Closed, told from how it said no: a question answered CLOSED (queryRelays says "closed: …"), a note answered
+    // OK false (publishEvent says "rejected: …"), with the reason NIP-01 gives for a sign-in or a payment.
+    const closed = { ...(had.closed ?? {}) };
+    if (/^closed: (auth-required|restricted):/.test(said)) closed.read = now;
+    if (/^rejected: (auth-required|restricted):/.test(said)) closed.write = now;
+    next[clean] = { ok, failed, at: now, ...(closed.read !== undefined || closed.write !== undefined ? { closed } : {}) };
   }
   // The longest untried are forgotten first.
   const kept = Object.entries(next).sort((a, b) => b[1].at - a[1].at).slice(0, RELAY_PICK.kept);
@@ -153,15 +193,17 @@ export function learnRelays(notes: RelayNotes, results: Record<string, string>, 
  * be working, the best of the usual relays are added, so that what is sent is kept somewhere that is up.
  * `own` is how many of the result are the person's own; `added` is which were added.
  */
-export function pickRelays(o: { own: string[]; usual: string[]; notes: RelayNotes; now: number }): { relays: string[]; own: number; added: string[] } {
+export function pickRelays(o: { own: string[]; usual: string[]; notes: RelayNotes; now: number; for?: "read" | "write"; usualAtLeast?: number }): { relays: string[]; own: number; added: string[] } {
+  // A relay found closed to what this is for takes no place: it is left out, theirs or not.
+  const open = (url: string) => !o.for || !relayClosed(o.notes[url], o.for, o.now);
   const score = (url: string) => relayScore(o.notes[url], o.now);
   // Best first; ties keep the order they were given in.
   const best = (urls: string[]) => urls.map((url, i) => ({ url, i, s: score(url) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.url);
-  const own = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))]).slice(0, RELAY_PICK.most);
+  const own = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))].filter(open)).slice(0, RELAY_PICK.most);
   const working = own.filter((url) => score(url) >= RELAY_PICK.working).length;
   const added: string[] = [];
-  for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own.includes(u)))) {
-    if (working + added.length >= RELAY_PICK.least) break;
+  for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own.includes(u) && open(u)))) {
+    if (working + added.length >= RELAY_PICK.least && added.length >= (o.usualAtLeast ?? 0)) break;
     if (score(url) < RELAY_PICK.working && added.length > 0) continue;
     added.push(url);
   }

@@ -8,7 +8,7 @@
  * try elsewhere if nothing took it. What it learns stays on the device, is about relays and never about people,
  * and is never sent anywhere.
  */
-import { DISCOVERY, DISCOVERY_RELAYS, learnRelays, pickDiscovered, pickRelays, publishEvent, queryRelays, RELAY_DISCOVERY_KIND, WRAP_KIND, type DiscoveredRelays, type Filter, type NostrEvent, type QueryResult, type RelayNotes } from "@nswp/core";
+import { cleanRelayUrl, DISCOVERY, DISCOVERY_RELAYS, learnRelays, pickDiscovered, pickRelays, publishEvent, queryRelays, readRelayList, RELAY_DISCOVERY_KIND, RELAY_LIST_KIND, RELAY_PICK, verifyEvent, WRAP_KIND, type DiscoveredRelays, type Filter, type NostrEvent, type QueryResult, type RelayNotes } from "@nswp/core";
 
 const KEY = "nswp:relays";
 let notes: RelayNotes | null = null;
@@ -33,10 +33,29 @@ export function learnFrom(results: Record<string, string>, now: number = Date.no
   }
 }
 
-/** Where to send something of a person's, or look for it: their own relays, best first, and the usual ones if too few of theirs are up. */
-export function relaysWell(o: { own: string[]; usual: string[] }, now: number = Date.now()): { relays: string[]; own: number; added: string[] } {
-  return pickRelays({ ...o, notes: read(), now });
+/**
+ * Where to send something of a person's, or look for it: their own relays, best first, and the usual ones if too few
+ * of theirs are up. `for` leaves out relays found closed to reading or to writing; `usualAtLeast` makes sure of that
+ * many usual relays among them.
+ */
+export function relaysWell(o: { own: string[]; usual: string[]; for?: "read" | "write"; usualAtLeast?: number }, now: number = Date.now()): { relays: string[]; own: number; added: string[] } {
+  return pickRelays({ ...o, notes: withMonitors(read()), now });
 }
+
+/** These relays, cleaned, without any found closed to `to`. */
+const openOf = (urls: string[], to: "read" | "write", at: number): string[] => {
+  const notes = withMonitors(read());
+  // A pick of one relay leaves it out only where it is closed to `to`.
+  return [...new Set(urls.map(cleanRelayUrl).filter(Boolean))].filter((u) => pickRelays({ own: [u], usual: [], notes, now: at, for: to }).relays.includes(u));
+};
+
+/** What is remembered, with what monitors found closed (kept from the last time they were asked) as closed to writing. */
+const withMonitors = (kept: RelayNotes): RelayNotes => {
+  if (!found?.closed.length) return kept;
+  const next: RelayNotes = { ...kept };
+  for (const url of found.closed) next[url] = { ...(next[url] ?? { ok: 0, failed: 0, at: found.at }), closed: { ...(next[url]?.closed ?? {}), write: found.at } };
+  return next;
+};
 
 export interface SentWell {
   /** How many relays took it. */
@@ -48,23 +67,31 @@ export interface SentWell {
 }
 
 /**
- * Send something to the relays that are working. If none of the first choice takes it, the rest of the usual
- * relays are tried once: something signed should not be lost because the first few were down.
+ * Send something of a person's to the relays that are working, until `RELAY_PICK.took` of them said they took it.
+ *
+ * - Their own relays, best first, and always at least `RELAY_PICK.usual` of the usual ones as well: a world that
+ *   hasn't their relay list yet looks only there. Never for a wrapped private message, which goes only where its
+ *   reader said.
+ * - Where fewer than `RELAY_PICK.took` took it, the rest of the usual relays are tried once. `took` says how many
+ *   took it in all, for the caller to say so where it is fewer, and to send it again.
+ * - Relays found closed to writing take no place.
  */
 export async function sendWell(event: NostrEvent, o: { own: string[]; usual: string[]; publish?: typeof publishEvent; query?: typeof queryRelays; now?: () => number }): Promise<SentWell> {
   const publish = o.publish ?? publishEvent;
   const now = o.now ?? (() => Date.now());
-  const first = relaysWell(o, now());
+  const wrapped = event.kind === WRAP_KIND;
+  const first = relaysWell({ own: o.own, usual: o.usual, for: "write", ...(wrapped ? {} : { usualAtLeast: RELAY_PICK.usual }) }, now());
   const sent = await publish(first.relays, event).catch(() => ({ relays: Object.fromEntries(first.relays.map((r) => [r, "error: not sent"])) }));
   learnFrom(sent.relays, now());
   let took = Object.values(sent.relays).filter((said) => said === "ok").length;
   const tried = [...first.relays];
-  if (took === 0) {
-    const rest = o.usual.filter((r) => !tried.includes(r));
+  if (took < RELAY_PICK.took && !(wrapped && took > 0)) {
+    // The usual relays not yet tried, best first, leaving out any found closed to writing.
+    const rest = openOf(o.usual.filter((r) => !tried.includes(cleanRelayUrl(r))), "write", now());
     if (rest.length) {
       const again = await publish(rest, event).catch(() => ({ relays: Object.fromEntries(rest.map((r) => [r, "error: not sent"])) }));
       learnFrom(again.relays, now());
-      took = Object.values(again.relays).filter((said) => said === "ok").length;
+      took += Object.values(again.relays).filter((said) => said === "ok").length;
       tried.push(...rest);
     }
   }
@@ -89,6 +116,204 @@ export async function askWell(filter: Filter, o: { own: string[]; usual: string[
   const asked = relaysWell(o, now()).relays;
   // Where none of them answers, a few that monitors have found working are asked (NIP-66).
   return queryBacked(asked, filter, o.timeoutMs ?? 4000, { ...(o.query ? { query: o.query } : {}), now });
+}
+
+// ---- A person's own notes, looked for well. Asked of their own relays (NIP-65) and the usual ones, and where it is
+// the visitor's own note on their own device, looked for until it is found or every relay of theirs has been asked,
+// and put back where it is missing. "None" is never said on one relay's word, nor where nobody answered.
+
+/** What a look for a person's own note found: the notes, and whether there is none or it couldn't be looked for. */
+export interface AskedOwn {
+  events: NostrEvent[];
+  /** "found": something came back. "none": enough relays answered to the end and none had it. "unreached": too few answered to say. */
+  state: "found" | "none" | "unreached";
+  /** Per relay asked: "eose", "timeout", or what it said instead. */
+  relays: Record<string, string>;
+  /** Their own relays, as their relay list gives them; empty where none was found. */
+  own: string[];
+}
+
+/** The visitor's own relay list, kept on their device once known: used at once next time, while a newer one is asked for. */
+const LIST_KEY = "nswp:relays:list";
+/** What has been put back where, and when: a relay has one note put back on it at most once a day. */
+const MENDED_KEY = "nswp:relays:mended";
+const MENDED_FOR_MS = 24 * 3600 * 1000;
+/** Other people's relay lists, found on this page: for the page's life. A miss is never kept. */
+const lists = new Map<string, NostrEvent>();
+
+const keptList = (who: string): NostrEvent | null => {
+  try {
+    const kept = JSON.parse(globalThis.localStorage?.getItem(LIST_KEY) ?? "null") as unknown;
+    return verifyEvent(kept) && kept.kind === RELAY_LIST_KIND && kept.pubkey === who ? kept : null;
+  } catch {
+    return null;
+  }
+};
+const keepList = (list: NostrEvent) => {
+  try {
+    globalThis.localStorage?.setItem(LIST_KEY, JSON.stringify(list));
+  } catch {
+    /* a private window: for this page only */
+  }
+};
+/** Where nothing can be kept on the device (a private window, or no browser): remembered for the page. */
+let mendedHere: Record<string, number> = {};
+const mended = (): Record<string, number> => {
+  try {
+    const kept = JSON.parse(globalThis.localStorage?.getItem(MENDED_KEY) ?? "null") as unknown;
+    return kept && typeof kept === "object" && !Array.isArray(kept) ? (kept as Record<string, number>) : mendedHere;
+  } catch {
+    return mendedHere;
+  }
+};
+
+type Asked = { said: string; ids: Set<string> };
+/** Ask each relay on its own (one socket each, as asking them together is), so what each one has is known. */
+const askEach = async (urls: string[], filter: Filter, ms: number, query: typeof queryRelays, now: () => number, into: Map<string, Asked>, events: Map<string, NostrEvent>) => {
+  await Promise.all(
+    urls.map(async (url) => {
+      const got = await query([url], filter, ms).catch(() => ({ events: [] as NostrEvent[], relays: { [url]: "error: not asked" } }));
+      learnFrom(got.relays, now());
+      const ids = new Set<string>();
+      for (const e of got.events) {
+        if (!verifyEvent(e)) continue;
+        ids.add(e.id);
+        events.set(e.id, e);
+      }
+      into.set(url, { said: got.relays[url] ?? Object.values(got.relays)[0] ?? "timeout", ids });
+    }),
+  );
+};
+
+/** The newest of these, by date, the lower id on a tie. */
+const newest = (events: NostrEvent[]): NostrEvent | null => events.slice().sort((x, y) => y.created_at - x.created_at || (x.id < y.id ? -1 : 1))[0] ?? null;
+
+/**
+ * Put a note back on the relays that answered to the end without it: at most `RELAY_PICK.mend`, each at most once a
+ * day for that note. Already signed: nothing new is signed. Not waited for.
+ */
+const putBack = (note: NostrEvent, asked: Map<string, Asked>, o: { publish?: typeof publishEvent; now: () => number; first?: string[] }) => {
+  // Outside a browser, only by what the caller handed in: a script or a test reaches no relay by this.
+  if (!o.publish && typeof document === "undefined") return;
+  const done = mended();
+  const at = o.now();
+  const missing = [...asked.entries()]
+    .filter(([url, a]) => a.said === "eose" && !a.ids.has(note.id) && !(at - (done[`${url} ${note.id}`] ?? -Infinity) < MENDED_FOR_MS))
+    .map(([url]) => url);
+  // Their own relays first, then the usual ones.
+  const ownFirst = [...missing.filter((u) => o.first?.includes(u)), ...missing.filter((u) => !o.first?.includes(u))];
+  const to = openOf(ownFirst, "write", at).slice(0, RELAY_PICK.mend);
+  if (!to.length) return;
+  const next = Object.fromEntries(Object.entries(done).filter(([, when]) => at - when < MENDED_FOR_MS));
+  for (const url of to) next[`${url} ${note.id}`] = at;
+  mendedHere = next;
+  try {
+    globalThis.localStorage?.setItem(MENDED_KEY, JSON.stringify(next));
+  } catch {
+    /* a private window: for this page only */
+  }
+  void (o.publish ?? publishEvent)(to, note)
+    .then((sent) => learnFrom(sent.relays, o.now()))
+    .catch(() => null);
+};
+
+/**
+ * A person's relay list (NIP-65), looked for on the usual relays. Where it is the visitor's own on their own device,
+ * the newest known is kept there and put back on a usual relay that answered without it.
+ */
+const listOf = async (who: string, o: { usual: string[]; mine: boolean; query: typeof queryRelays; publish?: typeof publishEvent; now: () => number }): Promise<NostrEvent | null> => {
+  const asked = new Map<string, Asked>();
+  const events = new Map<string, NostrEvent>();
+  await askEach(openOf(o.usual, "read", o.now()), { kinds: [RELAY_LIST_KIND], authors: [who], limit: 4 }, RELAY_PICK.listWaitMs, o.query, o.now, asked, events);
+  const had = o.mine ? keptList(who) : (lists.get(who) ?? null);
+  const best = newest([...events.values(), ...(had ? [had] : [])].filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === who));
+  if (!best) return null;
+  if (o.mine) {
+    keepList(best);
+    putBack(best, asked, o);
+  } else lists.set(who, best);
+  return best;
+};
+
+/**
+ * Look for a person's own note: `filter` asks for it, `who` is whose it is.
+ *
+ * - Their relay list is asked for on the usual relays while the usual relays are asked for the note, and waited
+ *   for up to `RELAY_PICK.listWaitMs`. When it comes, their own relays, best first, are asked too. The visitor's own
+ *   list, once known, is kept on their device and used at once next time while a newer one is asked for. A list
+ *   not found is never kept: it is asked for again next time.
+ * - `mine`, the visitor's own note on their own device: where nothing was found, the rest of their listed relays
+ *   (up to `RELAY_PICK.listed`) are asked in waves of `RELAY_PICK.wave`, each waited for `RELAY_PICK.waveMs`; then
+ *   each relay that ran out of time is asked once more, waited for `RELAY_PICK.lateMs`. `onWave` is told as each wave
+ *   begins. Their newest note, found or `mine.kept` on the device, is put back where it is missing (`RELAY_PICK.mend`).
+ *   Anyone else's note gets the first look and no more: no waves, nothing put back.
+ * - "none" only once every relay there was to ask was asked, and at least half of those asked answered to the end,
+ *   and never fewer than three of them (or all, where fewer than three could be asked). Otherwise "unreached".
+ * - Relays found closed to reading take no place. One that answered with a challenge to sign in and then to the end
+ *   answered like any other.
+ * - Where nobody answered at all, a few relays monitors found working are asked, as `askWell` does.
+ */
+export async function askOwn(
+  filter: Filter,
+  who: string,
+  o: { usual: string[]; mine?: { kept?: NostrEvent | null } | false; query?: typeof queryRelays; publish?: typeof publishEvent; timeoutMs?: number; now?: () => number; onWave?: (wave: number) => void },
+): Promise<AskedOwn> {
+  const query = o.query ?? queryRelays;
+  const now = o.now ?? (() => Date.now());
+  const mine = !!o.mine;
+  const first = o.timeoutMs ?? 4000;
+  const asked = new Map<string, Asked>();
+  const events = new Map<string, NostrEvent>();
+  const ask = (urls: string[], ms: number) => askEach(urls.filter((u) => !asked.has(u)), filter, ms, query, now, asked, events);
+
+  // What is known of their list now, and what will be known when it comes.
+  const known = mine ? keptList(who) : (lists.get(who) ?? null);
+  const coming = listOf(who, { usual: o.usual, mine, query, ...(o.publish ? { publish: o.publish } : {}), now });
+  const ownOf = (list: NostrEvent | null) => readRelayList(list ? [list] : [], who)?.write ?? [];
+
+  // The first look: the usual relays at once, with their own already known; then their own as the list comes.
+  const firstPick = relaysWell({ own: ownOf(known), usual: o.usual, for: "read", usualAtLeast: 1 }, now()).relays;
+  const list = await Promise.all([ask(firstPick, first), coming]).then(([, l]) => l ?? known);
+  const own = ownOf(list);
+  await ask(relaysWell({ own, usual: [], for: "read" }, now()).relays, first);
+
+  if (mine && events.size === 0) {
+    // The rest of their relays, in waves, best first.
+    const rest = openOf(own, "read", now()).filter((u) => !asked.has(u));
+    for (let i = 0, wave = 1; i < rest.length && events.size === 0; i += RELAY_PICK.wave, wave++) {
+      o.onWave?.(wave);
+      await ask(rest.slice(i, i + RELAY_PICK.wave), RELAY_PICK.waveMs);
+    }
+    // Then once more, waited for longer, each that ran out of time.
+    const late = [...asked.entries()].filter(([, a]) => a.said === "timeout").map(([url]) => url);
+    for (let i = 0, wave = 1; i < late.length && events.size === 0; i += RELAY_PICK.wave, wave++) {
+      o.onWave?.(wave);
+      await askEach(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, query, now, asked, events);
+    }
+  }
+
+  // Nobody answered: a few found by monitors, as everywhere else.
+  const answered = () => [...asked.values()].filter((a) => a.said === "eose").length;
+  if (answered() === 0 && events.size === 0 && mayAskBackUp([...asked.keys()], o)) {
+    const more = (await foundRelays({ not: [...asked.keys()], ...(o.query ? { query: o.query } : {}), now })).open.slice(0, BACKUP_AT_ONCE);
+    if (more.length) await ask(more, first);
+  }
+
+  const all = [...events.values()];
+  const relays = Object.fromEntries([...asked.entries()].map(([url, a]) => [url, a.said]));
+  let state: AskedOwn["state"] = "found";
+  if (!all.length) {
+    const n = asked.size;
+    const need = Math.min(n, Math.max(3, Math.ceil(n / 2)));
+    // Mine: every listed relay of theirs that could be asked, was.
+    const everyOne = !mine || openOf(own, "read", now()).every((u) => asked.has(u));
+    state = n > 0 && answered() >= need && everyOne ? "none" : "unreached";
+  }
+  if (o.mine) {
+    const note = newest([...all, ...(o.mine.kept ? [o.mine.kept] : [])]);
+    if (note && note.pubkey === who) putBack(note, asked, { ...(o.publish ? { publish: o.publish } : {}), now, first: own });
+  }
+  return { events: all, state, relays, own };
 }
 
 // ---- A backup (NIP-66). When a person's own relays and the usual ones all fail, relays that monitors have found
@@ -221,11 +446,15 @@ export async function publishBacked(relays: string[], event: NostrEvent, o: { pu
 /** For tests: forget everything. */
 export function forgetRelays(): void {
   notes = {};
+  lists.clear();
+  mendedHere = {};
   found = null;
   backup = true;
   try {
     globalThis.localStorage?.removeItem(FOUND_KEY);
     globalThis.localStorage?.removeItem(KEY);
+    globalThis.localStorage?.removeItem(LIST_KEY);
+    globalThis.localStorage?.removeItem(MENDED_KEY);
   } catch {
     /* nothing kept */
   }
