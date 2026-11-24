@@ -12,8 +12,17 @@
 - **Who:** a written design first. BitUnlock (selling it, counting use,
   making the calls), BitLogin (who the visitor is, and the only thing that
   asks on their behalf), the kit (how a world asks). Not briefed.
-- **State:** asked. Part of `ai-keys-and-agents`, which is last and not a
-  priority.
+- **State:** planned, as the last phase of the agents. The owner, the same
+  day, having read what follows: "Yes let's plan on the AI sub with
+  bitunlock being the last phase of AI agents. Seemless AI subscription.
+  Let's document into the backlog." So it comes after the nine pieces of
+  `ai-keys-and-agents`, and BitUnlock is the service that sells it, counts
+  the use and makes the calls. Not started, and nobody is briefed.
+- **What "seamless" asks of the design:** a visitor who has subscribed
+  never sees a key, an invoice for each call, or a prompt for each world.
+  They subscribe once, and an agent in any world that takes agents simply
+  works until the month's amount is used; what happens then is said to them
+  plainly, once, with the choice theirs.
 
 ## The two ways to pay for an agent's thinking
 
