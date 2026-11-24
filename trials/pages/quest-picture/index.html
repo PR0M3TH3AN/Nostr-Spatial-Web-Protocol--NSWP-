@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can this browser make the menu's picture?</title>
+<link rel="icon" href="data:,">
+<!--
+  One page for the owner's Quest (docs/plans/headset-menu.md, the first step of the build). It asks one thing: can
+  this browser turn a page's own elements into a picture that a headset's scene could show. It fetches nothing but
+  its own script (picture.js, beside it: a world's content rules refuse a script written into a page), sends nothing
+  and keeps nothing. Open it in the headset's browser and read out what it says.
+
+  A trial's page: answered by the local service under the Gallery's local copy at /trial-pages/quest-picture/, with
+  the Gallery's own headers, and never part of any site's build (scripts/trial-pages.mjs).
+-->
+<style>
+  html, body { margin: 0; background: #070c13; color: #eef5fb; font: 500 20px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  #answer { font-size: 44px; font-weight: 750; margin: 18px 0 6px; }
+  #answer.yes { color: #7be0a0; }
+  #answer.no { color: #ff8a7a; }
+  #said { font-size: 24px; margin: 0 0 18px; white-space: pre-line; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  .pair h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; color: #9fb4c6; }
+  canvas { width: 100%; height: auto; border: 1px solid #23364a; border-radius: 12px; background: #000; }
+  #who { font-size: 15px; color: #9fb4c6; margin-top: 18px; overflow-wrap: anywhere; }
+  button.again { font: inherit; font-size: 22px; padding: 12px 22px; border-radius: 12px; border: 1px solid #58c8f0; background: #0e1a26; color: #eef5fb; margin-top: 18px; }
+  /* The stand-in for the menu: rounded glass, a tab strip, rows with drawn icons, a bar to move along. */
+  #menu { width: 400px; box-sizing: border-box; padding: 12px; border-radius: 22px 22px 12px 12px; border: 1px solid rgba(88, 200, 240, .55);
+    background: linear-gradient(180deg, rgba(20, 34, 48, .95), rgba(8, 13, 20, .95)); font: 500 13px/1.35 system-ui, "Segoe UI", Roboto, sans-serif; color: #eef5fb; }
+  #menu .tabs { display: flex; gap: 14px; padding: 4px 6px 10px; border-bottom: 1px solid rgba(88, 200, 240, .25); margin-bottom: 10px; }
+  #menu .tabs span { opacity: .7; }
+  #menu .tabs .on { opacity: 1; color: #58c8f0; border-bottom: 2px solid #58c8f0; padding-bottom: 4px; }
+  #menu .row { display: flex; align-items: center; gap: 10px; padding: 12px; margin: 6px 0; border-radius: 12px; border: 1px solid rgba(88, 200, 240, .8); background: rgba(14, 26, 38, .9); }
+  #menu .row.plain { border-color: rgba(255, 255, 255, .14); }
+  #menu .row b { margin-left: auto; color: #58c8f0; font-weight: 600; }
+  #menu svg { width: 18px; height: 18px; flex: none; }
+  #menu input { flex: 1; }
+</style>
+<main>
+  <h1>Can this browser make the menu's picture?</h1>
+  <div id="answer">Not started.</div>
+  <p id="said">If this is still here after a few seconds, the page's own script did not run. Say that.</p>
+  <div class="pair">
+    <div>
+      <h2>The menu's own elements</h2>
+      <div id="menu">
+        <div class="tabs"><span>Travel</span><span>You</span><span class="on">Sound</span><span>Display</span></div>
+        <div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg>All sound: on<b>On</b></div>
+        <div class="row">Music: low<b>On</b></div>
+        <div class="row plain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Add music from this device</div>
+        <div class="row plain">Voices <input type="range" min="0" max="100" value="70"></div>
+      </div>
+    </div>
+    <div>
+      <h2>The picture this browser made of them</h2>
+      <canvas id="made" width="800" height="560"></canvas>
+    </div>
+  </div>
+  <button class="again" id="again">Try again</button>
+  <p id="who"></p>
+</main>
+<script src="picture.js"></script>
+</html>

@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A page for a real device to try, served by the local service and never deployed** (`scripts/trial-pages.mjs`, `scripts/serve-local.mjs`, `trials/pages/`, `packages/core/test/trial-pages.test.ts`). No kit code.
+  - **`/trial-pages/`, under the Gallery's local copy only.** The local service answers a page in `trials/pages/<name>/` at `/trial-pages/<name>/` of the Gallery's local copy, with the Gallery's own headers, so it runs under the rules a world's page runs under. Every other site's local copy answers as it always did. Nothing outside `trials/pages/` is named however the path is written, a folder is never listed, and the service prints each page's address as it starts.
+  - **Never in a build.** A page is read from `trials/pages/` as it is asked for. A test the gate runs fails if any site's build carries a trial's page, if what builds or deploys names the trials, or if a page has a script written into it.
+  - **The first page, `quest-picture/`:** whether a browser can turn a page's own elements into a picture a headset's scene could show, for the owner's Quest (`docs/plans/headset-menu.md`, "The five minutes on the Quest"). It says "Yes." or "No." with the step that failed, and how long it took.
+  - **Tried** on a copy of the service on another port, in Chrome: the page says "Yes." (32 ms the first time, 1 ms after) under the Gallery's own content rules, asking for nothing but itself and its one script; the Grove, the Library and the Foundry answer 404 at the same path; two ways of writing a path up and out of the folder answer 404. The test fails with a `trial-pages` folder put into the Grove's build, and with the page's script put into the Library's.
+  - **Not tried:** the Quest. That is what the page is for.
 - **A space bar held down no longer holds the menu still** (SDK `ui/hud.ts`; the engine script; `trials/menu-rows.mjs`). Found by the space bar's check, which the entry below had built and not tried.
   - **What was wrong:** a key that is held down is told to the page again and again, and each telling began the press anew. So with a row holding the keys and the space bar held, the menu was never drawn again until the bar came up, however long that was. "It is never held still for long" (below) was untrue for a held key.
   - **Now only the bar's going down begins a press.** Held for longer than a press is (1.2 seconds), it is not waited for, as a mouse button is not. One line.

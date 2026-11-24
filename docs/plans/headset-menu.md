@@ -1,11 +1,12 @@
 # In a headset, the flat screen's menu: a design, with pictures
 
 **State:** a design, 2026-11-24. **The owner has seen the pictures and
-answered two things the same day: it is B, the sheet 1.0 m wide; and the
-menu is never drawn over the hands** (his words are below, under "Hands are
-never under the menu"). **Two things are still his to say,** at the end of
-this page: whether the headset shows the flat menu itself as a picture, and
-the wrist. **No code on those two until he has.** The ask is in
+answered the same day: it is B, the sheet 1.0 m wide; the menu is never
+drawn over the hands** (his words are below, under "Hands are never under
+the menu"); **and the wrist has the narrow layout with no bar** ("On the
+wrist", below). **One thing is still open,** at the end of this page:
+whether the headset shows the flat menu itself as a picture, which waits on
+his five minutes with the Quest. **No code on that until he has.** The ask is in
 `docs/backlog/headset-menu-like-the-flat-one.md`, in the owner's words: the
 exact same menu as on a flat screen, larger, floating in front, the bar
 below it tilted a little to the player, and whatever is pointed at coming
@@ -136,6 +137,8 @@ are in front of the sheet, which is where they must be to point at it.
 
 ### On the wrist
 
+**The owner, 2026-11-24:** "Yes, narrow layout on the wrist with no bar."
+
 **The wrist stays, as a second way in.** It shows the flat menu's narrow
 layout, the one a phone has, as wide as today's wrist console is, with its
 rows scrolled where a tab is long. The same tabs and rows. No bar: there is
@@ -227,14 +230,14 @@ world's own or the client's.
 ## The build, in order, when the owner has said yes
 
 1. **A page for the owner's Quest:** does its browser make the picture. One
-   line back: yes or no. The page is written and tried in Chrome
-   (`headset-menu/quest-picture.html` in the sessions' notes folder). How it
-   reaches the headset is decided (the orchestrator, 2026-11-24) and built
-   when the owner says go: two files in `trials/pages/quest-picture/`, since
-   the Gallery's rules refuse a script written into a page; answered by the
-   local service at `/trial-pages/` under the Gallery's local copy only,
+   line back: yes or no. **Built, 2026-11-24, on the owner's "Go for
+   quest".** Two files in `trials/pages/quest-picture/`, since the Gallery's
+   rules refuse a script written into a page; answered by the local service
+   at `/trial-pages/quest-picture/` under the Gallery's local copy only,
    with the Gallery's own headers, never from a `dist/`; and a test in the
-   gate that no site's build carries a trial's page.
+   gate that no site's build carries a trial's page. In Chrome on the
+   laptop, as served: "Yes.", 32 ms the first time and 1 ms after. **Not yet
+   opened in the Quest:** "The five minutes on the Quest", below.
 2. **The picture in the scene,** behind an address flag, in the Gallery:
    the sheet and the bar, pointing and pressing. Today's console stays the
    default. **Hands drawn over the menu come with this step, and their
@@ -247,6 +250,32 @@ world's own or the client's.
 7. **The default,** once the owner has used it in the headset.
 
 Each is a pull request. Names for anything new are proposed with each.
+
+## The five minutes on the Quest
+
+For the owner, with the headset on and the local service running.
+
+1. **Open the Quest's browser and go to the address the service prints** on
+   the line "a trial's page", under the Gallery's. It is
+   `https://`, this machine's address on the network, `:4301/trial-pages/quest-picture/`.
+2. **The first time, the browser warns about the certificate.** Before
+   accepting, check the fingerprint it shows is the one the service prints.
+   That is you trusting your own computer, and nothing else.
+3. **Read out what the page says.** It answers in a second or two.
+
+| It says | What that means |
+|---|---|
+| **"Yes."** in green, with two times in milliseconds, and two boxes | The Quest's browser makes the picture. Read out the two times, and say whether the right box looks like the left one: the words, the two drawn icons, the round corners, the bar to move along |
+| **"No."** in red, with "Step that failed:" one, two or three | It doesn't. Read out the whole line: which step failed is what decides the next thing to try |
+| **"Not started."** still there after a few seconds | The page's own script did not run. Say that |
+
+And the last line on the page, "This browser says it is:", as far as its
+first number: it tells the Quest's browser from another.
+
+**On the same visit, since it costs nothing:** in the Gallery (the same
+address with nothing after `:4301/`), enter VR, open the menu, and hold each
+hand in front of it. Today the menu is drawn over the hands; say what you
+see, so that it is known before the mend and again after it.
 
 ## Done looks like
 
@@ -307,5 +336,5 @@ Each is a pull request. Names for anything new are proposed with each.
 2. **Is the headset showing the flat menu itself, as a picture, the right
    way to keep the two the same?** It needs five minutes on your Quest
    first. **Not answered yet.**
-3. **The wrist:** the narrow layout there, with no bar. Yes? **Not answered
-   yet.**
+3. **The wrist:** the narrow layout there, with no bar. Yes? **Answered,
+   2026-11-24: "Yes, narrow layout on the wrist with no bar."**
