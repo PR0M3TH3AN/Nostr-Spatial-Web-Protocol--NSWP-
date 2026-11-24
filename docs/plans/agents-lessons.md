@@ -1575,6 +1575,73 @@ the table" failed for both deciders.
 - **Left as it was:** an order for a thing a room lacks may be taken for
   another that shares a word.
 
+## A second body, a body that says what it can do, and manner as dials (D86, 2026-11-24; free)
+
+Next in the order the owner chose for bodies. Nothing sent or spent.
+Nothing above the walker changed: not the typed actions, the module or
+the world.
+
+| Counted | Two legs | Four legs |
+|---|---|---|
+| A planted foot's slide at a steady pace, after the first 1.5 s | about nothing | about nothing |
+| A right-angle turn at once at 2.4 m/s | 18 cm | 51 cm |
+| The same turn spread over half a second | 0.6 cm | 2.3 cm |
+| Slide a metre on the trial page's square routes | 1 cm | 4 to 6 cm, nearly all at corners |
+| Legs for 100 figures, a frame | 1.0 ms | 1.8 ms |
+| Frames a second, 1 to 100 figures, with the card | 58 to 60 | 58 to 60 |
+
+- **One walker takes any number of legs** (shown, free: D86). A shape
+  lists its hips: where each sits, its place in the gait, which way its
+  knee bends. A four-legged trot runs on the same rules; two legs count
+  exactly as before.
+- **A body says what it can do, and the world offers only what both it
+  and the body allow** (shown, free: D86): it walks, glides or stays;
+  whether it sees, speaks, works things, carries; how fast it turns. A
+  body that stays is offered no walking and does what it can reach; one
+  that can't carry is offered nothing to pick up; one that says it walks
+  and has no legs is refused like a room with mistakes. *For the
+  protocol:* what an agent is offered is the world's allowance cut by the
+  body's own declaration. *For the kit:* a figure could say it in the
+  same words, so a figure on a stand or a voice in a lamp needs no
+  special case. No name is given or taken by its being written here.
+- **A refusal for want of a body's ability has to carry that reason**
+  (shown: D86). Today the agent says "I'm stuck." or "I'm not sure what
+  you mean." and the visitor can't tell why.
+- **A world that moves a long or slow-turning body has to round its
+  path's corners** (shown, free: D86), to the radius the body's speed and
+  turn rate allow. Turning the heading slowly is not enough: a route that
+  changes its direction of travel at once pushes a long body sideways.
+  *For a world.*
+- **Manner is dials** (shown, free: D86): rate, lift, ground, sway.
+  Plain, careful, hurried and sneaking are settings of them; every one
+  keeps planted feet planted.
+- **Not done:** arm swing, then reaching; the two findings above mended;
+  the private yardstick.
+
+## A body that says why it can't, and corners rounded (D87, 2026-11-24; free)
+
+D86's two findings mended, in the order the orchestrator gave. Nothing
+sent or spent; no server started.
+
+- **A choice a body can't make travels like a choice behind a shut
+  door** (shown, free: D87): listed as not possible, with a choice that
+  tells the visitor why (can't move, can't carry, can't use, can't reach
+  for a body that stays). The cut-down list always keeps those. A body
+  that stays, asked for the far lamp: "I can't reach that from here, and
+  I can't move." where it said "I'm stuck." *For the protocol:* no new
+  kind of action; the reason is said through the speech that exists.
+  Whether JEV picks those choices is not measured (paid).
+- **A world that walks a body along a path steers it at the body's own
+  turn rate and rounds the corners** (shown, free: D87): it turns no
+  faster than its rate, aims past a corner from 0.6 m, slows while
+  facing away, and steps straight along the path where a rounded corner
+  would leave ground it can stand on. A body turning in place has to
+  step: the walker counts the hips swinging round as moving. Over about
+  47 m and four orders round two walls: two legs 0.13 cm a metre turning
+  at once, 0.02 rounded; four legs 4.1 and 1.3. *For a world.*
+- **Not found:** why four legs still slide 1.3 cm a metre, ten times two
+  legs.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

@@ -213,6 +213,18 @@ the cost, not legs. The numbers and what they mean are in
 behind the same seam, the body declaring what it can do, and a manner as
 dials; then the private yardstick, on the owner's word for that download.
 
+## The second body is built and counted (the playground's D86, 2026-11-24)
+
+Four legs on the same walker, a body that says what it can do, and
+manner as dials. A steady pace slides about nothing for both bodies; a
+hundred four-legged figures' legs cost 1.8 ms a frame against 1.0 for
+two. Found: a long body is pushed sideways at a route's sharp corners (4
+to 6 cm a metre against 1), so a world has to round its paths for it;
+and an agent asked for what its body can't do does not yet say why. The
+numbers and what they mean for a world, the kit and the protocol are in
+`docs/plans/agents-lessons.md`. Next, in the owner's order: arm swing,
+then reaching.
+
 ## Must not
 
 - Ship anything under a licence that forbids commercial use, or fetch any
