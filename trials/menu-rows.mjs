@@ -147,6 +147,15 @@ try {
   // Nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is where it was. (When a
   // line took room of its own, every row went up by its height and came down four seconds later, and a second press
   // on the same row landed somewhere else.)
+  // Two rows for a later part (a press made while the menu is drawn again), added here so that the rows are the
+  // same ones from the first reading of their places to the last.
+  await page.evaluate(() => {
+    window.__held = { presses: 0, other: 0, own: 0 };
+    const c = window.__nswpTest.controls;
+    c.add({ id: "trial-held", section: "room", label: () => `Pressed while it changes ${window.__held.own}`, act: () => void window.__held.presses++ });
+    c.add({ id: "trial-beside", section: "room", label: () => `A row beside it ${window.__held.other}`, act: () => {} });
+  });
+  await page.waitForTimeout(600);
   const rowsAt = () => page.evaluate(() => { const sh = document.querySelector("nswp-hud").shadowRoot; const box = (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }; return { sheet: box(sh.querySelector("section.sheet")), rows: [...sh.querySelectorAll(".rows button")].map(box) }; });
   await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
   const still = [await rowsAt()];
@@ -201,6 +210,43 @@ try {
   }
   await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));
   await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
+
+  // ---- A press, with the menu drawn again while it is being made. A press is the mouse going down on a thing and
+  // coming up on the same thing; drawing the menu again makes every row anew; so a drawing between the two took the
+  // row from under the mouse, and the press was never delivered. Now the menu waits for the press to be over. The
+  // mouse goes down on a row, the menu is told something changed, and the mouse comes up: three ways.
+  const heldRow = hud.getByRole("button", { name: /Pressed while it changes/ }).first();
+  await heldRow.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
+  await page.waitForTimeout(700);
+  for (const [what, change] of [
+    ["nothing it shows changes", ""],
+    ["another row's words change", "other"],
+    ["the pressed row's own words change", "own"],
+  ]) {
+    const at = await heldRow.boundingBox();
+    const before = await page.evaluate(() => window.__held.presses);
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+    await page.mouse.down();
+    // The menu is told something changed, as it is when a counter ticks or a picture arrives.
+    await page.evaluate((change) => { if (change) window.__held[change]++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); }, change);
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+    const heard = await page.waitForFunction((n) => window.__held.presses === n + 1, before, { timeout: 3000 }).then(() => true, () => false);
+    check(`a press is still a press when the menu is told to draw again while it is made, and ${what}`, heard, await page.evaluate(() => window.__held));
+  }
+  // And what changed meanwhile is drawn as soon as the press is over: it was put off, not lost.
+  const shownAfter = await page.waitForFunction(() => { const labels = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].map((b) => b.textContent); return labels.some((l) => /A row beside it 1/.test(l)) && labels.some((l) => /Pressed while it changes 1/.test(l)); }, null, { timeout: 3000 }).then(() => true, () => false);
+  check("what changed during a press is drawn once the press is over", shownAfter, await page.evaluate(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].map((b) => b.textContent.trim().slice(0, 40))));
+  // A thing held for longer than a press is isn't kept waiting on: the menu is drawn again under it.
+  {
+    const at = await heldRow.boundingBox();
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+    await page.mouse.down();
+    await page.evaluate(() => { window.__held.other++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); });
+    const drawnMeanwhile = await page.waitForFunction(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => /A row beside it 2/.test(b.textContent)), null, { timeout: 4000 }).then(() => true, () => false);
+    await page.mouse.up();
+    check("held for longer than a press is, the menu is drawn again without waiting for it", drawnMeanwhile, null);
+  }
   // A phone's width, where the sheet is the whole width: the same. The page is given the new width and asked for
   // its next frame, so that what is measured is laid out at that width.
   const widthOf = async (width, height) => {

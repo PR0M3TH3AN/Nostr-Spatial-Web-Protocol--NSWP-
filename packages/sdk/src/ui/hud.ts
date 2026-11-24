@@ -1155,7 +1155,34 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
   };
 
+  // A press is the pointer going down on a thing and coming up on the same thing. Drawing the menu again makes
+  // every row, tab and key anew, so a drawing between the two took the thing away from under the pointer and the
+  // press was never delivered: lost, with nothing said. It happened whenever anything in the menu changed during a
+  // press (a counter, a picture arriving, a world saying what it is), which a person's press is long enough for.
+  // So while something here is being pressed, the menu is not drawn again: it is drawn as soon as the press is
+  // over. Held longer than a press is (a bar being moved along, a finger resting), it is drawn anyway.
+  const PRESS_MS = 1200;
+  let pressedAt = -Infinity;
+  let owed = false;
+  const pressing = () => performance.now() - pressedAt < PRESS_MS;
+  const pressBegan = () => (pressedAt = performance.now());
+  const pressOver = () => {
+    if (pressedAt === -Infinity) return;
+    pressedAt = -Infinity;
+    if (!owed) return;
+    owed = false;
+    // After the press itself has been delivered, which comes just after the pointer does.
+    setTimeout(draw, 0);
+  };
+  const onSpace = (e: KeyboardEvent) => void (e.key === " " && (e.type === "keydown" ? pressBegan() : pressOver()));
+  root.addEventListener("pointerdown", pressBegan, true);
+  root.addEventListener("keydown", onSpace as EventListener, true);
+  root.addEventListener("keyup", onSpace as EventListener, true);
+  for (const type of ["pointerup", "pointercancel", "blur"] as const) addEventListener(type, pressOver, true);
+
   const draw = () => {
+    if (pressing()) return void (owed = true);
+    owed = false;
     const view: UiView = controls.view();
     const t = view.theme;
     host.style.setProperty("--accent", rgb(t.accent));
@@ -1686,6 +1713,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       stop();
       stopAsking();
       removeEventListener("focus", onPageFocus);
+      for (const type of ["pointerup", "pointercancel", "blur"] as const) removeEventListener(type, pressOver, true);
       stopSay();
       removeEventListener("keydown", onKey);
       stopLeft();

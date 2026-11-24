@@ -54639,7 +54639,26 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       clearTimeout(asTimer);
       asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
     };
+    const PRESS_MS = 1200;
+    let pressedAt = -Infinity;
+    let owed = false;
+    const pressing = () => performance.now() - pressedAt < PRESS_MS;
+    const pressBegan = () => pressedAt = performance.now();
+    const pressOver = () => {
+      if (pressedAt === -Infinity) return;
+      pressedAt = -Infinity;
+      if (!owed) return;
+      owed = false;
+      setTimeout(draw, 0);
+    };
+    const onSpace = (e) => void (e.key === " " && (e.type === "keydown" ? pressBegan() : pressOver()));
+    root.addEventListener("pointerdown", pressBegan, true);
+    root.addEventListener("keydown", onSpace, true);
+    root.addEventListener("keyup", onSpace, true);
+    for (const type of ["pointerup", "pointercancel", "blur"]) addEventListener(type, pressOver, true);
     const draw = () => {
+      if (pressing()) return void (owed = true);
+      owed = false;
       const view2 = controls2.view();
       const t = view2.theme;
       host.style.setProperty("--accent", rgb(t.accent));
@@ -55077,6 +55096,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stop();
         stopAsking();
         removeEventListener("focus", onPageFocus);
+        for (const type of ["pointerup", "pointercancel", "blur"]) removeEventListener(type, pressOver, true);
         stopSay();
         removeEventListener("keydown", onKey);
         stopLeft();
