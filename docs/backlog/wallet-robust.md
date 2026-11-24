@@ -12,8 +12,14 @@
   serves. The owner, an hour later: "I was able to load in the 20 sats
   again. =)". A follow-up, beta ad4b4aa (the wallet reads the account's
   relay list again each time it opens), is with BitLogin's session to
-  release on his "yes do as you recommend". Not a regression from the
-  morning's release. Still not known: whether the cause found is what
+  released the same day as main f818c5b on his "yes do as you recommend",
+  and the lock fix (beta 1271008: with BitLogin's lock on, the panel asks
+  for the PIN itself before the wallet, Files and Purchases) as main
+  49b7488 on his "Yes, release it". Each found by the orchestrator in what
+  the site serves. Put to him and awaiting his order: first keeping a
+  saved record the answering relays did not return until a mint says it
+  is spent (small), then restoring what is held from the mint by a seed
+  (two or three days). Not a regression from the morning's release. Still not known: whether the cause found is what
   happened to his wallet, and which line his wallet now shows (kept only
   in this browser, or kept with his account).
 
