@@ -90,6 +90,52 @@ a decision carries and what that costs, how many of a fixed set of orders
 are carried out, and which fail for want of a declaration and which for
 want of shared state. The format used is a local sketch.
 
+## What the trial showed (2026-11-24; `nswp-agents`, branch `agents/playground`, 0bf813c)
+
+Three rooms as data: the session's own vault room, its greenhouse, and a
+boat house the orchestrator wrote from the format's page alone, without
+seeing the engine. One engine, which names nothing from any of them.
+
+- **A room by someone else loaded with no mistakes and worked.** With the
+  engine untouched and the free rules deciding, five of the boat house's six
+  orders were carried out, among them "Bring me the lifebelt": two shut ways
+  in a row, the opener of the second behind the first.
+- **Two general changes to the engine were needed, and each is a thing a
+  world has to be able to say:**
+  1. **Not possible yet, and what would make it so.** A function whose
+     condition doesn't hold was not offered at all, so "Play the radio" with
+     the power off was not understood. It is now listed as not yet possible,
+     with what to do first.
+  2. **The decider has to be told what opens a shut way.** JEV alone carried
+     out three of the six: a choice that is blocked was simply not on its
+     list, and it does not plan through a shut door by itself. Told, in the
+     opening function's own sentence, what opens the way, it carried out all
+     six. "Bring me the lifebelt" took six decisions.
+- **That link was worked out, not written:** from a door's condition and a
+  function's effect naming the same state. It can be worked out only because
+  effects are data. In the kit today what a press does is a script, so a
+  world would have to say it.
+- **What the format could not say,** found by writing the boat house: a
+  condition on what is carried or where a thing is (a key, a tool: the
+  largest gap); two conditions at once; one thing following another by
+  itself; who may do a thing; amounts; a door named in an order.
+- **Cost:** about 2,100 input tokens a decision in the boat house with the
+  text view off (twelve things, their functions, and the choices for
+  looking). At the one price reported so far (OpenRouter, about $0.04 a
+  million input tokens) deciding five times a second would be over a dollar
+  an hour, so a short list is worth money as well as time.
+- **Not shown:** anything with more than one visitor (the room lives in one
+  browser tab, so nothing could fail for want of shared state; every order
+  that changes a thing would); a world with hundreds of things; a real kit
+  world.
+
+**Next, as the owner and both sessions see it:** a shooting range, to try
+play that needs quick choices. The thinking so far: a small fixed set of
+controls every world shares (move, look, a held item's two presses), a goal
+that decides which choices are offered, a decision asked for when something
+changes and not on a clock, and aiming done by the body with a person's
+limits so it is not an aimbot.
+
 ## Must not
 
 - Take a kind, a tag, a capability word or a door icon before the owner
