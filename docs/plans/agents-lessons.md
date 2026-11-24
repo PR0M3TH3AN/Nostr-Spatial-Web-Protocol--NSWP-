@@ -119,8 +119,10 @@ shut in.
 - **The two named presses were enough to offer "Reload" in words; they
   were not enough to offer it sensibly** (shown: the range, D54). The
   range's blaster also had to say how many shots it holds, how fast it
-  fires and how long a reload takes. None of those is in the kit's item
-  today (read).
+  fires and how long a reload takes; with those, the choices could be made
+  from the declaration alone, by JEV as by the rules. None of those numbers
+  is in the kit's item today (read). The numbers that bound a press belong
+  in the declaration: the body and the decider both need them.
 - `sittable`, `touchable`, `readable` and `wearable` are read from an item
   and nothing acts on them (read). They are the natural home for what an
   item is for.
@@ -193,12 +195,35 @@ shut in.
   the owner's own session, not a measurement made for it).
   Where a world can say it outright ("12 degrees right, 8 m, in view") that
   is cheaper (reasoned).
-- **Decide when something changes, not on a clock** (shown with the free
-  rules deciding, D54: under 70% of a clock's questions for the same
-  shooting; not yet shown with JEV). Either way nothing is asked when there
-  is nothing to decide, one question is in flight at a time, the world runs
-  on meanwhile, and an answer that no longer fits is thrown away and
-  counted. In the boat house a question is about
+- **Decide when something changes, never on a clock** (shown with JEV on
+  the range, D54: three rounds, 690 requests, $0.0171). The same score
+  three ways; asked five times a second it cost 2.4 times as much as asked
+  on events and threw away four times as many late answers (28 against 7).
+  Nothing is asked when there is nothing to decide, one question is in
+  flight at a time, the world runs on meanwhile.
+- **While a choice being carried out is still possible, don't ask again**
+  (shown: D54, "staying at a leaf"). The same score in every round for 14%
+  fewer questions; nearly all of the saving came in the one round where
+  several targets were up at once (44 questions against 62), and next to
+  none otherwise. It never lost a target by not looking round. For the
+  runner: every skill says what ends it, and nothing else wakes the decider.
+- **A late answer is dropped by checking that it still fits** (shown: D54).
+  37 of 690 answers were late at an answer time of about 0.2 s. The world
+  has to be able to say whether a choice still holds at the moment it is
+  carried out.
+- **Say the state outright where the world knows it** (shown: D54). Kind,
+  side, distance and time left, in words, came to about 600 tokens a
+  question and were enough; no text view was sent.
+- **What the range did not show: that JEV is worth paying for on that
+  job.** JEV hit 40 of 41 hostile targets and no friendly one, and so did
+  plain rules, for nothing. The range has nothing rules can't do: no kind
+  to work out, no order in words, nothing to weigh. JEV's first shot came
+  366 to 464 ms after a target came up; its middle answer time was 169 to
+  200 ms. One run of each round, so a one-target difference is no ranking.
+- **Measure one round before saying what the rest will cost** (shown: D54).
+  The estimate given to the owner was low by about 15% on requests and 70%
+  on dollars, from guessing tokens a question.
+- **For sizing orders:** in the boat house a question is about
   2,100 tokens with everything offered and about 850 to 880 cut down. At
   the one price reported ($0.042 a million input tokens, through
   OpenRouter), five a second would be about $1.59 an hour with everything
@@ -218,8 +243,11 @@ shut in.
 - **A world's loop must not depend on its tab being in view** (shown: D54).
   In a pane that was not in view the browser woke the round about once a
   second and the free rules hit 1 of 12; in view, 12 of 12. For an agent
-  among visitors: its client can't be a background tab. No timed test is
-  run in a pane that is not in view.
+  among visitors: its client can't be a background tab, and its runner
+  can't live on a page's timers at all if it is to act while the page is
+  not in view. That bears on where an agent's runner lives in BitPortal.
+  JEV's own turn on the range had to be run from a script for this reason.
+  No timed test is run in a pane that is not in view.
 - **To be asked on events, a world has to announce them** (reasoned: D54):
   a target coming up, a target dropping, what a shot did, a clip emptying,
   a reload ending. The range's own simulation hands them over; in a world
@@ -240,6 +268,27 @@ shut in.
 - **Nothing is asked while nobody is interacting** (shown: D43): JEV is
   asked only when an order waits on its next step, and the chat model
   checks in only while an order is being carried out.
+
+## Abilities as skills (the owner's idea, 2026-11-24; being built, nothing shown yet)
+
+The owner asked the playground's session whether shooting is a skill that
+could carry to other shooting games, and whether every ability should be a
+skill an agent learns and uses "in the right situation if the right items
+are available. Like a gun." Then: "Yes all skills please". The shape the
+session is rebuilding every ability into, four parts:
+
+1. **What it needs:** an item held, a thing in reach, a state.
+2. **What it offers the decider:** the few choices that make sense while it
+   is in use.
+3. **How the body carries it out:** the code that turns, walks, fires, with
+   its stated limits.
+4. **What wakes the decider:** the events that end it or change it.
+
+For the port (reasoned, to be shown): this is the unit that could travel
+between worlds. An item brings a skill with it, as it brings its presses
+today; a world says which skills it allows; an agent's own list of skills
+it has is part of what it is. It is also where the narrowing, the leaf and
+the events above all meet: a skill is what decides what is asked and when.
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
@@ -276,6 +325,29 @@ shut in.
   limits are published with it** (reasoned: D54): a person can see that a
   shooter is an agent, and its hit rate and how fast it reacts sit near a
   person's.
+- **Two kinds of character, decided by the owner, 2026-11-24.** Asked
+  whether each character in a mystery would be a Nostr identity with its
+  own depth and memory, the orchestrator proposed a split and the owner
+  said: "Yes I like your agent split."
+  - **A cast member** belongs to one game in one world and is run by
+    whoever hosts it. It is a record, a character's sheet kept under the
+    host's key, with a throwaway key for the time it is in a room. It has
+    no lasting key of its own, and it shows as run by its host.
+  - **A lasting agent** (a companion across worlds, a keeper who remembers
+    a visitor for months) has a Nostr identity of its own, with its memory
+    as sealed notes, and is known wherever it goes.
+  - **The same sheet for both, filled to different depths:** who it is,
+    what it wants, whom it knows, what it knows, what it saw, what it can
+    do. Depth costs tokens at every decision, so it is not spent evenly: a
+    mystery's suspects are deep, a passer-by is thin.
+  - **What happened is never a character's to keep.** The game holds its
+    own record, so that what a witness says can be checked and the one
+    hiding can't rewrite it.
+  - **Why not an identity for everyone** (reasoned): somebody has to hold
+    each key, and a world's page can't; eight free identities look like
+    eight people where a cast shown as run by its host is honest; and each
+    is more to keep, sync and pay for. Where a lasting agent's key lives is
+    BitLogin's to design and is not designed.
 - **Whether a world takes agents** is a line in a door's details (the
   owner, 2026-11-24: "In door details"). The word is not given.
 
@@ -330,8 +402,31 @@ its `docs/VALIDATION.md`, "history and memory from Nostr"):
   each one waits for the owner's approval, which a house of eight people
   cannot do by hand.
 
-**For the port** (reasoned): persistence across visits, worlds and devices
-is what Nostr is for, and that half is close. Whether memory makes an agent
+- **No approved memory has ever been sent to the chat model the owner uses
+  now** (read from the session's logs, per the session). In every session
+  it has a log of, sharing memories was off. The one sign that a memory
+  reaches an answer was an early check with a small model on the device
+  that has since been taken out of the app.
+- **How the playground would save for real** (read, by its session, from
+  the client it carries; not run): it is a stand-alone app and uses
+  BitLogin's own client. At connect it asks to save its own data under one
+  name (`nswp-agents/poc/`), and asks BitLogin to sign a kind 30078 note
+  with that name as its `d` tag. In the old client it carries, BitLogin
+  refuses a name that was not granted, and a grant of every name (`*`) is
+  possible and said plainly at consent. What the live BitLogin does is
+  being asked of its session; no real round trip is put to the owner until
+  that is answered.
+
+**For the port** (reasoned): **an agent in a world cannot keep its memory
+that way.** The kit's rule is that a world can never have kind 30078 signed
+through `sign` or `propose`, since that kind holds other things under the
+same key. So an agent's memory needs a kind of its own (given under the
+fleet's rule; none is given), or a storing call that BitLogin owns and
+keeps to the asking page, so the page never names the `d` tag. A grant of
+every name must never be a world's to ask for.
+
+Persistence across visits, worlds and devices is what Nostr is for, and
+that half is close. Whether memory makes an agent
 act with reasons of its own is a separate question that needs no relay to
 answer: the house and the mystery (`docs/backlog/agent-game-trials.md`) can
 measure it with memory kept in the tab.
@@ -357,10 +452,6 @@ measure it with memory kept in the tab.
 
 ## Not yet known
 
-- Play that needs quick choices: the shooting range is built (D54) and has
-  not yet been shot by JEV or by the owner. With the free rules deciding,
-  in view: 12 of 12 hostile and no friendly hit, 22 shots, 417 ms from a
-  target coming up to the first shot.
 - **Whether a tree has another use than the one tried.** The owner,
   2026-11-24, after the third run: "Maybe there is another application for
   the tree method we don't quite understand yet?" What was tried is one
@@ -368,7 +459,9 @@ measure it with memory kept in the tab.
   action. Not tried:
   - a tree as where the agent is, not how it is asked: it stays at a leaf
     (fire, reload, move) and is asked the wider question only when
-    something changes (the shooting range);
+    something changes. **Since tried on the shooting range** (D54): the
+    same score for 14% fewer questions, the saving nearly all where several
+    things were live at once;
   - a tree of goals over time: an order broken into steps by the chat
     model, each step carried out by JEV;
   - a tree searched in code, not asked of JEV: since effects are data, the

@@ -206,6 +206,15 @@ Nothing was downloaded.
   alone JEV goes by OpenRouter's route unless TypeSafe allows the page's
   origin.
 
+## Two kinds of character (decided 2026-11-24)
+
+The owner: "Yes I like your agent split." A **cast member** is a record
+under its host's key, with a throwaway key while it is in a room, for one
+game in one world; a **lasting agent** has a Nostr identity of its own and
+its memory as sealed notes. The same sheet for both, filled to different
+depths. Set out in `docs/plans/agents-lessons.md`, "What the protocol would
+have to settle".
+
 ## Must not
 
 - Put a provider's key anywhere a world, a client, a relay or another
