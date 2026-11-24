@@ -37,7 +37,11 @@ the same way. The orchestrator says what is live.
    Nothing is merged on a gate that didn't pass. Whoever merges says which
    command they ran and that it exited 0. A test that fails only while the
    machine is busy still failed: it is run again when quiet, and that is
-   said.
+   said. The tests are the repo's own: `vitest` collects only
+   `packages/*/test`, never an agent's worktree under `.claude/`, and
+   `npm test` first checks that it does (`scripts/check-test-files.mjs`).
+   Until 2026-11-24 the main folder's run took every worktree's copy too,
+   and one mid-rebase stopped the first deploy of 0.89.0.
 4. **A report says what was seen and what wasn't.** "Passed here", "the
    other session reports", and "nobody has tried" are three different
    things, and each is written as what it is. A report of work names the

@@ -97,7 +97,7 @@ npm install
 ```
 
 ```bash
-npm test                 # unit tests + schema/vector agreement
+npm test                 # unit tests + schema/vector agreement: the repo's own, under packages/*/test, and nothing else
 ```
 
 ```bash
