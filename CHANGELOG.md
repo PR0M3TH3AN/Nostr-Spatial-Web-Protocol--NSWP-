@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.89.0
+
 - **A pointer the browser gives late is let go, where the panel or the menu has come up meanwhile** (SDK `fps.ts`; `trials/panel-pointer.mjs`). **A fault in kit 0.88.0, which is live, and in its panel mend.** Found 2026-11-24 by `trials/panel-pointer.mjs` on a loaded machine, in one run of five.
   - **What happened.** A browser takes a moment to give a page the pointer. Under a client that has the menu, the menu's going makes the world ask for the pointer. Where the client's panel was said up before the browser had given it (30 ms after, in the trial), there was nothing yet to let go as the panel came; the browser then gave the pointer, and the world held it under the panel. The view turned with the mouse. It did not walk: the keys were held off. The way out was Escape, which is the owner's fault of 0.87.0 back again on a slow moment.
   - **Mine.** The mend in 0.88.0 let the pointer go as the panel came up and took none while it was up, and never looked at one already asked for and not yet given. Its trial passed because the browser was quick.
