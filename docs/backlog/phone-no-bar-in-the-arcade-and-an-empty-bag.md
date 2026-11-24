@@ -39,9 +39,11 @@ spoke of his phone.
 
 His Bag's line reads "Your bag is empty. Things are put in it at your
 home. Items work here." From `packages/sdk/src/bagging.ts` and
-`bag.ts`, that line is said only when he is signed in, at least one
-relay answered to the end, and no bag note of his came back (or one
-with nothing in it), and this device holds no copy. A world reads the
+`bag.ts`, that line is said when he is signed in, no bag note of his came back
+(or one with nothing in it), and this device holds no copy. (The
+orchestrator first wrote "and at least one relay answered": wrong.
+BitPortal ran the kit's own code: the kit knows when nobody answered,
+and says "empty" all the same.) A world reads the
 bag from his own write relays and the kit's usual ones; his home also
 keeps a copy on the device it was changed on, and shows that copy
 whether or not any relay has it.
@@ -88,6 +90,38 @@ So the second reading is the one, and the first is why it could happen:
 the bag was sent to six of his relays once, one kept it, nothing sent it
 again, and a device that doesn't ask that one relay says "empty". What
 to do about it, for every note of a person's and not only the bag, is
+[`relays-chosen-well`](relays-chosen-well.md).
+
+## Made to happen on demand (BitPortal, 2026-11-24)
+
+The kit's own `createBag` from kit 0.89.0, in Node, with stand-in relays
+that answer after a set time or refuse, and a throwaway key. Nothing
+went to a real relay.
+
+- **Only the device it was signed on has it:** another device says
+  empty; the home on its own device lists it. The home's next look there
+  sends it again and three of four relays then hold it. Where every
+  relay refuses the note, another device says empty for good.
+- **One relay holds it and answers late; the world waits four seconds:**
+  at 3.5 s listed; at 4.5 s and at 8 s, "empty".
+- **No relay answers at all: "Your bag is empty" too.** "Couldn't be
+  looked for" is only ever said to someone signed out. A wording fault
+  whatever else is true.
+- **His relay list comes late.** With three or more of his own relays
+  working, the home sends the bag only to those and to no usual relay. A
+  world learns his relays from his relay list, waited for two and a half
+  seconds. Answering at 0.3 s or 2 s: listed. At 3 s, a slow line or a
+  phone: the world asks only the usual relays, which never had it, and
+  says empty. **The miss is kept ten minutes**, so "Look again" asks the
+  same wrong relays until then.
+- **Read, not shown:** the home uses the relays a visitor set in
+  BitPortal's own Settings where a world uses the kit's four, so someone
+  with no relay list who changed that setting has a bag written where no
+  world looks.
+- Counted on the kit's four usual relays, from anybody, with no author
+  asked: one bag note in all.
+
+Every mend is the kit's. They are listed in
 [`relays-chosen-well`](relays-chosen-well.md).
 
 ## Must not

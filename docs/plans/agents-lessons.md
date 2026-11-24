@@ -1504,6 +1504,57 @@ the join**, and each is a thing for the kit, a world or a figure:
   the session seeing it; other visitors seeing the agent at all (stage
   2).
 
+## A companion's memory: what matters always goes, the rest by what is asked (D82, 2026-11-24; free)
+
+On the owner's "Fix memory next". The chat model used to be sent the
+newest twenty memories, the oldest dropped first.
+
+- **A companion's memories need a kind that says "always"** (shown,
+  free: D82): what the character is, and who someone is to it. Those go
+  with every request. The rest are looked up by what is being asked
+  (words shared with the newest message and the one before, rarer words
+  counting more); newest is only a tie-break and a filler. In a day of 43
+  memories, asked where the key was hidden that morning, the morning's
+  memory goes right after the pinned two; the newest twenty did not have
+  it.
+- **By words, not meaning** (shown): "where did he put it?" finds
+  nothing.
+- **To look up by time, a memory needs when what it tells of happened,**
+  not only when it was written (reasoned). Nothing in the memory record
+  says that today. *For the protocol's memory notes.*
+
+## A key server for the trial world, and JEV deciding in it (D83 and D84, 2026-11-24; paid once, $0.00025)
+
+The server on the owner's "Yes, build it", the run on his "Yes, run it",
+both in the playground's session. Quoted about 40 requests and under
+half a cent; 8 requests, $0.00025. Both servers stopped after.
+
+- **A server on this machine as the broker's stand-in works** (shown,
+  paid, once: D84). 127.0.0.1 only; it answers one page's origin and
+  refuses every other before anything is sent; two paths only; it reads
+  the key itself for each request and never returns or logs it; it stops
+  at a set number of requests or fifteen idle minutes. The page never
+  held the key. Requests were counted at the server and at the page, and
+  the two counts agreed. What else could reach it while it runs: any
+  program on this machine that sends that origin.
+- **JEV decided each step in a world built with the kit** (shown, paid,
+  once: D84): three orders of four done, 0.19 to 0.31 s an answer, no
+  step falling back to the rules. It leaned weakly between two lamps
+  (0.45, 0.49) and strongly on the one box (0.93), as in D71.
+- **"Put the cube on the table" failed for both deciders** (shown: D84).
+  Two steps naming two things: putting on is offered only once something
+  is held, so JEV, offered only the picking up, said it cannot; the free
+  rules set the picking up aside because the order names a table. *For
+  the runner and the list of choices, not the world:* the second step
+  has to be offered as a next step, or a planner has to split the order.
+- **The template's content rules would stop a page reaching a key server
+  over http on another port** (shown: D83). Its dev server sends no
+  rules, so the trial works here. A broker on a person's machine for a
+  world served with those rules needs https, or to answer from the
+  world's own origin. *For the design of keys.*
+- **Not done:** the chat model as the companion's mind in the world; the
+  two-step order mended; the owner trying the world himself.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

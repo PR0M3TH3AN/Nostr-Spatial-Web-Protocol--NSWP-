@@ -96,6 +96,30 @@ client's is up over you".
   pressed, a press at the panel's place lands in the panel, the visitor
   has not moved or turned, full screen still on.
 
+## The panel's size at its first showing, counted on the live portal (BitPortal, 2026-11-24)
+
+Beside the pointer, the same day: BitLogin's panel came up tall and then
+shrank, and a press on it was lost for a moment after each change. First
+"Sign in" after a page load, on the live portal and Grove, how many of
+the openings said `ready` without a right height:
+
+| BitLogin live | This machine's load | Without a right height |
+|---|---|---|
+| 4ae0550 | 15 to 24 | 5 of 14 |
+| 4ae0550 | 35 | 1 of 6 |
+| 5acfcd7 | 40 to 49 | 2 of 14, one with no height ever |
+| 5acfcd7 | 11 to 26 | 0 of 14 |
+
+So, by the rule set for it, BitPortal builds no fallback of its own. Not
+shown: that it can't happen where a browser is starved; the opening with
+no height ever is BitLogin's, which has found a way it can happen and is
+mending it. How long a press at the panel's middle is lost followed the
+machine's load more than anything the panel changed (heard from 2.75 s
+at a load of 15, from 5.3 s at 27, never in 7 s at 40 to 49), and can't
+be read further here. The owner's own press, by hand, is the measure:
+open "Sign in" over a world and press in the panel at once, and again
+each half second.
+
 ## Must not
 
 - End full screen.

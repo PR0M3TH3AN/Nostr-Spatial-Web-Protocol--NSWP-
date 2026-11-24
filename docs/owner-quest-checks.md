@@ -152,6 +152,13 @@ full screen still on. Close the panel and press once in the world: the
 mouse looks around again. No scripted browser can go full screen, so
 nobody has seen this part.
 
+On the same visit, for how soon the panel hears you: over a world, press
+"Sign in, at bitlogin.network" and click in the middle of the panel at
+once, and again every half second. Say roughly how long it was before a
+click did something. On this machine under load the scripted count ran
+from under three seconds to never in seven, and followed the load more
+than anything the panel changed, so your own hand is the measure.
+
 ## Kept current
 
 The orchestrator takes a check off this page when its answer is in, and
