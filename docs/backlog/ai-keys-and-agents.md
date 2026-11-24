@@ -215,6 +215,41 @@ its memory as sealed notes. The same sheet for both, filled to different
 depths. Set out in `docs/plans/agents-lessons.md`, "What the protocol would
 have to settle".
 
+## A first trial in a world, on this machine (the owner, 2026-11-24)
+
+Asked for by the owner in the `nswp-agents` session ("lets also document
+the elements we need to get done and elements that bitportal needs to get
+done. Or bitlogin needs to get done to get us ready to test in-game"),
+which wrote `docs/READINESS.md` in that repository; the orchestrator
+corrected its rows for the kit, BitPortal and BitLogin from the kit's
+code (read, not run). Then, asked whether to start a first in-game trial
+on this machine in a local copy of the world template, the owner said:
+"Yes, start it".
+
+**What it is:** a copy of `nswp-world-template`, outside every
+repository, served on this machine only; the playground's agent loaded
+into it as a module; the world's things written beside its scene in the
+playground's declared format; the kit's `canStand` for walking, its
+figure (with the playground's legs) for a body, its sprites for what the
+agent says. The owner is the only visitor. Nothing live, nothing
+published, no real relay.
+
+**What it does not need:** any change to the kit, to BitPortal or to
+BitLogin, or any note kind. A world is a page built with the kit, and
+the adapter is that one world's own code. What a world has no way to say
+today (a list of its things with ids and what each can do) is written by
+the world's maker for the trial; whether and how the kit should carry it
+is for after, by names given (fleet rule 11).
+
+**What is still the owner's, each time:** a server on this machine that
+holds his key and gives only answers, for that one page only, off when
+not testing; any paid run; anything fetched.
+
+So the standing "not a priority" of 2026-11-23 holds for the kit,
+BitPortal and BitLogin, whose order of work is unchanged (the menu
+first). In the playground the owner is driving, and this trial is his
+word.
+
 ## Must not
 
 - Put a provider's key anywhere a world, a client, a relay or another
