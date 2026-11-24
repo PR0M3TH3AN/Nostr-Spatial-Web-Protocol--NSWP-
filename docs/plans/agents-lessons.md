@@ -1352,6 +1352,84 @@ decision and marked measured, measured once or reasoned. This document
 stays the record of what each finding means for a world, an item, the kit
 and the protocol; that one is the summary of what is believed.
 
+## A body that walks by rules, counted (D77, 2026-11-24)
+
+Built in the playground on the owner's "yes" to a walker by rules first.
+Nothing fetched, sent or spent. Our own, about 300 lines, learned from
+one open project's design and not taken in. The seam is one call each
+frame: where the body is, its heading, the time, and a manner word
+(careful, hurried, plain). The place still moves the body; nothing above
+"walk to" knows how it walks. The figure has two-segment legs made by
+code.
+
+| Counted | The walker | The free line |
+|---|---|---|
+| A planted foot's slide, a metre walked | 0.8 to 1.5 cm, nearly all at corners | 190 cm, legs swung by a clock |
+| One figure's step | 3 to 8 millionths of a second; a thousand in about 4 ms | |
+| Frames a second with the card, 1, 10, 50, 100 walkers | 60, 60, 60, 59 (the test's browser caps at 60) | |
+| The processor slowed six times | 49 with 10 walkers, 19 with 100 (drawing 32 ms of it, legs 6) | |
+| No card, drawing on the processor | 1 to 5, whatever the legs | |
+| A sudden right-angle turn | both feet answer within 0.6 s, 18 cm slid | |
+| Setting off at full speed from standing | 2 to 9 cm slid in the first second | |
+
+- **A body's legs can be worked out by rules from what a world already
+  hands a body each frame** (shown, free: D77): where it is and which way
+  it faces. *For a world:* nothing more to declare for walking. *For a
+  figure:* two-segment legs and a hip height.
+- **Drawing is what costs, not legs** (shown, free: D77). A hundred
+  walkers' legs take under a millisecond a frame, their drawing five. A
+  model for motion would have that same drawing to pay for beside it.
+- **Planted feet are what a viewer would notice** (shown, free: D77): 1 cm
+  a metre against 190.
+- **Not done:** the body declaring what it can do as something a skill
+  needs (no legs, no walk); a manner as dials worked out from a
+  character's sheet (today a word with three fixed sets); a second body
+  of another shape behind the same seam; the model, as a private
+  yardstick.
+
+## Guards in the runner, after the first paid hide and seek (D78, 2026-11-24; free)
+
+- **A choice that changed nothing is held back for a while** (built,
+  free: D78): ten seconds here, for the seekers with models. A decider
+  that always picks the look round is made to go and look. The free rules
+  come out exactly the same with it. *For the kit's runner:* the rule
+  needs no knowledge of the game.
+- **A planner is given the layout** (built, free: D78): only places not
+  yet looked at, nearest first, each with its distance and its two
+  nearest places not looked at, worked out by code from the place's own
+  positions; asked for at most eight ids, at once.
+- **A run stops asking a model whose replies are mostly empty** (built,
+  free: D78): more than a third after ten, said, with the plans not asked
+  for counted.
+- **Not known:** whether the chat model honours a smaller allowance for
+  its thinking; finding out costs a request.
+
+**The same twelve games again, with the guards (D79, on the owner's
+yes):** 235 requests, $0.042, against about 400 and 15 cents quoted.
+
+| Seeker | Before (D76) | With the guards | Dollars a minute |
+|---|---|---|---|
+| Rules (free) | 12 / 9 / 7 | the same | 0 |
+| Rules that remember (free) | 12 / 11 / 11 | the same | 0 |
+| JEV chooses where to look | 6 / 4 / 4 | 12 / 7 / 5 | 0.0018 |
+| JEV chooses everything (the open arm) | 6 / 5 / 5 | 11 / 7 / 5 | 0.0025 |
+
+(Caught in the 90 s, within 30 s, within 15 s.)
+
+- **Holding back a choice that just changed nothing is what turned JEV's
+  search from 6 of 12 to 12** (shown, paid, once: D79). No knowledge of
+  the game. It belongs in the kit's runner beside the cut-down list and
+  keeping a thing by its id. JEV still finds later than the rules, and
+  the open arm still wastes moves the rules do not (turning to look at a
+  thing it has just opened).
+- **The empty guard did its job** (shown, paid: D79). The chat model
+  answered none of ten askings with the shorter question; the run stopped
+  asking at ten, said so, and did not ask for 31 more plans. The first
+  run had paid for 43 empty replies.
+- **Planning by a chat model is still not measured.** The three plan
+  seekers scored the rules' own, because no plan came. With this model
+  the question needs a limit on its thinking, or another model.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
