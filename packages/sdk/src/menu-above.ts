@@ -17,7 +17,7 @@ import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, 
 import { framed, hearClientMenu, sayToClient, setSaver, sinceHere, speakMenu } from "./client-frame.js";
 import { loadPicture } from "./picture.js";
 import { changeSettings, currentSettings } from "./settings.js";
-import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
+import { KIT_QUESTION_TABS, type Controls, type UiCard, type UiItemView, type UiView } from "./ui/model.js";
 import { visitorsOwnRow } from "./visitor-switches.js";
 
 export { helpWords } from "./ui/help.js";
@@ -125,10 +125,9 @@ async function bitmapOf(from: CanvasImageSource | string): Promise<unknown> {
  */
 const CLIENTS: readonly string[] = [
   ...MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages"),
-  // The kit's one-time questions on how a visitor moves (fps.ts, input.ts). At a desk it is asked by whoever draws
-  // the console, which above a world is the client; in a headset the world draws the console, and asks there.
-  "how-you-move-desk",
-  "how-you-move",
+  // The kit's one-time questions on how a visitor moves. At a desk each is asked by whoever draws the console,
+  // which above a world is the client; in a headset the world draws the console, and asks there.
+  ...KIT_QUESTION_TABS,
 ];
 /** Rows that are the visitor's in a tab the world otherwise fills: the way home and their own doors, under Travel. */
 const VISITORS_ROWS: readonly string[] = ["back", "home", "go-home", "doors", "list"];

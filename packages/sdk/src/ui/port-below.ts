@@ -284,6 +284,8 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   let origin = "";
   let speaks = false;
   let world: MenuWorld | null = null;
+  /** What the world last described, as text: to tell a description said again from one that changed. */
+  let worldText = "";
   /** The visitor's last press on a row that saves: what the world may still hand up for it, and until when. */
   let saving: { id: string; at: number; until: number; left: number; making: boolean } | null = null;
   const now = opts.now ?? (() => performance.now());
@@ -442,6 +444,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     origin = "";
     speaks = false;
     world = null;
+    worldText = "";
     forget();
     saidPlaying = false;
     pictures.clear();
@@ -476,6 +479,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       if (awaiting) awaiting = false;
       else early = true;
       world = null;
+      worldText = "";
       forget();
       saidPlaying = false;
       pictures.clear();
@@ -499,6 +503,13 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     const word = readMenuWordUp(data, { own: origin === self, ...(opts.also ? { also: opts.also } : {}), picture: opts.picture ?? isBitmap });
     if (!word) return;
     if (word.what === "world") {
+      // A world that says again what it said before has changed nothing, and nothing here is drawn again for it. A
+      // menu drawn again is every row made anew: for a world speaking several times a second that was the whole menu
+      // replaced each time, whatever it said (found by BitPortal, 2026-11-24, whose trial measured a row and found
+      // an identical one in its place a step later). The kit's own world never repeats itself; any other may.
+      const text = JSON.stringify(word.world);
+      if (world && text === worldText) return;
+      worldText = text;
       world = word.world;
       // A picture lasts as long as the thing it is of: gone with a row or a card the world no longer describes.
       const still = new Set(world.sections.flatMap((s) => [...s.rows.map((r) => r.id), ...(s.card ? [`${MENU_CARD_PICTURE}${s.id}`] : [])]));

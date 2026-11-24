@@ -421,7 +421,9 @@ says which, and `controls.setPinned(tab, pinned)` is what the button calls,
 but don't pin for them. What they pinned travels with their other settings,
 so a tab pinned in one world is on their bar in the next that has it. Give a
 tab of your own a short plain id (a lowercase word of twelve letters at
-most) and it can be pinned and travel too.
+most) and it can be pinned and travel too. A tab with any other id is in
+your world's own menu and in no client's, rows and all, and the console
+says so once as you add it.
 
 Six keys of your own and four pinned tabs are wider than a phone. The bar
 then slides sideways, with an arrow at each end that has more, as the
