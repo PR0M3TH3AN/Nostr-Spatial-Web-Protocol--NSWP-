@@ -138,15 +138,25 @@ try {
       const at = box(line);
       const top = root.elementFromPoint((at.left + at.right) / 2, (at.top + at.bottom) / 2);
       const onTop = top === line || line.contains(top);
-      return { words: line.textContent, settled, runningOnceMoved, line: at, sheet: box(root.querySelector("section.sheet")), foot: box(root.querySelector(".foot")), rows: box(root.querySelector(".rows")), onTop, over: onTop ? null : `${top?.tagName} ${top?.className}`, inSheet: !!line.closest("section.sheet") };
+      // In the sheet a line takes no press: what is under its middle is asked for, and should be the sheet's own.
+      const underInSheet = !!top && !!top.closest?.("section.sheet");
+      return { words: line.textContent, settled, runningOnceMoved, underInSheet, line: at, sheet: box(root.querySelector("section.sheet")), foot: box(root.querySelector(".foot")), rows: box(root.querySelector(".rows")), onTop, over: onTop ? null : `${top?.tagName} ${top?.className}`, inSheet: !!line.closest("section.sheet") };
     }, [words, then ?? ""]);
   /** A look is a look only if the line had finished coming in: said by name, so that a slow page isn't read as a wrong place. */
   const settledFor = (what, look) => check(`${what}: the line had finished coming in before its place was read`, look?.settled === true, look && { settled: look.settled });
+  // Nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is where it was. (When a
+  // line took room of its own, every row went up by its height and came down four seconds later, and a second press
+  // on the same row landed somewhere else.)
+  const rowsAt = () => page.evaluate(() => { const sh = document.querySelector("nswp-hud").shadowRoot; const box = (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }; return { sheet: box(sh.querySelector("section.sheet")), rows: [...sh.querySelectorAll(".rows button")].map(box) }; });
+  await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
+  const still = [await rowsAt()];
   const up = await sayAndLook("Said with the menu up.");
+  still.push(await rowsAt());
   results["a line said with the menu up, where it is"] = up;
   settledFor("said with the menu up", up);
-  check("with the menu up, what is said for a moment is in the sheet, above its foot and below its rows", !!up && up.words === "Said with the menu up." && up.inSheet && up.line.left >= up.sheet.left && up.line.right <= up.sheet.right && up.line.bottom <= up.foot.top + 1 && up.line.top >= up.rows.bottom - 1, up);
-  check("and nothing lies over it", up?.onTop === true, up);
+  check("with the menu up, what is said for a moment is in the sheet, lying just above its foot", !!up && up.words === "Said with the menu up." && up.inSheet && up.line.left >= up.sheet.left && up.line.right <= up.sheet.right && up.line.top >= up.sheet.top && up.line.bottom <= up.foot.top + 1, up);
+  check("it takes no press, and what is under it is the sheet's own", up?.onTop === false && up?.underInSheet === true, up && { onTop: up.onTop, over: up.over, underInSheet: up.underInSheet });
+  check("as it comes, no row in the sheet moves and the sheet doesn't grow", still[0].rows.length > 0 && JSON.stringify(still[0]) === JSON.stringify(still[1]), still);
   await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet.png") });
   // A phone's width, where the sheet is the whole width: the same. The page is given the new width and asked for
   // its next frame, so that what is measured is laid out at that width.
@@ -157,9 +167,13 @@ try {
   await widthOf(390, 760);
   const narrow = await sayAndLook("Said on a narrow screen.");
   settledFor("said on a narrow screen", narrow);
-  check("the same on a narrow screen", !!narrow && narrow.words === "Said on a narrow screen." && narrow.inSheet && narrow.onTop && narrow.line.left >= 0 && narrow.line.right <= 390 && narrow.line.bottom <= narrow.foot.top + 1, narrow);
+  check("the same on a narrow screen", !!narrow && narrow.words === "Said on a narrow screen." && narrow.inSheet && narrow.underInSheet && narrow.line.left >= 0 && narrow.line.right <= 390 && narrow.line.bottom <= narrow.foot.top + 1, narrow);
   await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet-narrow.png") });
   await widthOf(1100, 700);
+  // And as the lines go, each after its four seconds, the rows are still where they were before any was said.
+  await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
+  const afterwards = await rowsAt();
+  check("as it goes, no row moves either", JSON.stringify(afterwards) === JSON.stringify(still[0]), [still[0], afterwards]);
   // With the menu down they are where they were: at the lower left, over the view. A line still up as the menu
   // goes moves there with it, and is simply there: it doesn't slide and fade in a second time. What is on top
   // there can't be asked as above: over the view a said line takes no presses, so the browser answers with the
@@ -173,7 +187,7 @@ try {
   // And the other way: a line said with the menu down, still up as the menu comes, is in the sheet with the rest.
   const raised = await sayAndLook("Said as the menu comes.", "open");
   settledFor("moved as the menu came", raised);
-  check("nor when the menu comes: nothing is running on it once moved, and it is in the sheet", JSON.stringify(raised?.runningOnceMoved) === "[]" && raised.inSheet && raised.onTop, raised);
+  check("nor when the menu comes: nothing is running on it once moved, and it is in the sheet", JSON.stringify(raised?.runningOnceMoved) === "[]" && raised.inSheet && raised.underInSheet, raised);
   await page.screenshot({ path: join(SHOTS, "menu-rows-said-as-the-menu-comes.png") });
   await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
   // A line lasts its moment and goes, wherever it stands.

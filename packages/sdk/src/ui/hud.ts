@@ -167,10 +167,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Only a line newly said comes in. One that is moved with the others (below) is simply there. */
 .say.coming { animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
-/* While the menu is up they are in its sheet, above its foot: the sheet lies over where they otherwise stand on all
-   but the widest screens, and a press in the menu is what most of them answer. */
-.sheet .says { position: static; flex: none; max-width: none; padding: 8px 12px; }
-.sheet .says:empty { display: none; }
+/* While the menu is up they are in its sheet, just above its foot: the sheet lies over where they otherwise stand on
+   all but the widest screens, and a press in the menu is what most of them answer. They lie over what is there and
+   take no room, so that nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is
+   where it was. A press where a line lies goes to what is under it. */
+.foot { position: relative; }
+.foot .says { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 6px); max-width: none; pointer-events: none; }
+/* Lying over rows and words, a line is solid enough that they don't show through it. */
+.foot .say { background: rgba(var(--glass), .96); }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -1388,13 +1392,13 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     said.replaceChildren(...(current?.said ? [el("b", {}, current.said.from), current.said.note] : []));
     sheet.hidden = !open;
     outside.hidden = !open;
-    // Words said for a moment stand where they can be read: in the sheet, above its foot, while the menu is up,
-    // and at the lower left otherwise. Lines already up move with them, and go when their moment is over.
+    // Words said for a moment stand where they can be read: in the sheet, lying just above its foot, while the menu
+    // is up, and at the lower left otherwise. Lines already up move with them, and go when their moment is over.
     // A line put into the page again would come in again, sliding and fading as if newly said: words the visitor
     // was already reading would flicker. So a line that is moved has done its coming in, however far it had got.
-    if (open ? says.parentElement !== sheet : says.parentElement === sheet) {
+    if (open ? says.parentElement !== foot : says.parentElement === foot) {
       for (const line of says.children) line.classList.remove("coming");
-      if (open) sheet.insertBefore(says, foot);
+      if (open) foot.append(says);
       else root.insertBefore(says, chat);
     }
     menu.setAttribute("aria-expanded", String(open));
