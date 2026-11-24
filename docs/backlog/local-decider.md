@@ -11,8 +11,9 @@
   run), the kit (the words a world asks in), the protocol.
 - **State:** the first step of the test is briefed to the `nswp-agents`
   session (the owner, 2026-11-24: "Yes, brief the agents session on the
-  local model test"). Nothing downloaded, built or tried: which model is
-  not yet named, and each download is his own word in that session. Part
+  local model test"). Nothing downloaded, built or tried: the model and
+  the library to run it are each his own word in that session, by name,
+  size and source. Part
   of `ai-keys-and-agents`, which is last and not a priority.
 
 ## The idea
@@ -60,10 +61,19 @@ Stop at the first step that fails, and say so.
 
 ## For a design to settle
 
-- **Which model.** JEV is a service; whether its maker publishes anything
-  to run is not known here. Another small model has to be shown to choose
-  well among typed actions, and to give a lean for each choice, not only
-  one answer.
+- **Which model.** JEV is a service, and its maker publishes nothing to
+  run. "Kev", named in the owner's proposal, is real (read from its own
+  pages by the `nswp-agents` session, 2026-11-24; not run): an open family
+  of "decision models" by Jared Palmer, Apache-2.0, that take a state and
+  typed questions (a choice, a score, a yes or no) and give a probability
+  for every option in one pass, with no text. That is JEV's own shape, so
+  rules, Kev on the device and JEV as a service could take the same
+  request. Kev-0.6B (on Qwen3-0.6B-Base) is the only size with a build for
+  a browser: about 335 to 375 MB of weights. Its maker's own figures put
+  it well behind JEV on unfamiliar material (0.62 right against 0.86; 0.80
+  against 0.85 on familiar). A newer 0.8B has no browser build. So a world
+  that wants a device decider is tied to what has been converted for the
+  browser, not to what is best.
 - **It answers with a choice, never with words.** What a world sends is a
   stranger's words going into a model; what comes back is one of the
   world's own choices and a lean. No text from it is shown or run. Talking
@@ -73,8 +83,13 @@ Stop at the first step that fails, and say so.
   shown while it works, as credit would be.
 - **Nothing waits on it to draw a frame.** It shares the graphics card
   with the world. In a headset a dropped frame is a comfort fault.
-- **The download:** hundreds of megabytes, the visitor's own choice, kept
-  for this site, said with its size before it starts.
+- **The download:** about 350 to 390 MB once, before the first decision,
+  the visitor's own choice, kept for this site, said with its size before
+  it starts.
+- **Threads in a tab need two headers** that limit what a page may frame
+  and be framed by. A shell that frames worlds may not be able to carry
+  them: to be found out in the test, and it may decide where a device
+  decider can live.
 - **Where it runs:** the shell, not the sign-in address (it holds no
   secret), and not a world. A world opened by itself has rules only.
 - **The words between a world and the shell,** and any capability word,
