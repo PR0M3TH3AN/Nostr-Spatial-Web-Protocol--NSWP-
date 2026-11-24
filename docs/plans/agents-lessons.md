@@ -275,6 +275,22 @@ shut in.
 ## Not yet known
 
 - Play that needs quick choices (the shooting range, next).
+- **Whether a tree has another use than the one tried.** The owner,
+  2026-11-24, after the third run: "Maybe there is another application for
+  the tree method we don't quite understand yet?" What was tried is one
+  reading only: two questions for each decision, which thing and then which
+  action. Not tried:
+  - a tree as where the agent is, not how it is asked: it stays at a leaf
+    (fire, reload, move) and is asked the wider question only when
+    something changes (the shooting range);
+  - a tree of goals over time: an order broken into steps by the chat
+    model, each step carried out by JEV;
+  - a tree searched in code, not asked of JEV: since effects are data, the
+    engine could look several steps ahead where today it looks one, for
+    things that need two conditions or a key and a tool;
+  - an order that names nothing ("tidy up"), where there are no words to
+    cut the list down by;
+  - choosing among worlds and doors, which are a tree already.
 - How often a rare failure happens: in the three runs above each order was
   tried once for each way of asking.
 - Whether looking can stand in for a declaration a world has not made (an
