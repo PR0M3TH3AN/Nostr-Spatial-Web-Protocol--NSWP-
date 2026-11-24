@@ -1555,6 +1555,26 @@ half a cent; 8 requests, $0.00025. Both servers stopped after.
 - **Not done:** the chat model as the companion's mind in the world; the
   two-step order mended; the owner trying the world himself.
 
+## An order of two steps (D85, 2026-11-24; free)
+
+On the owner's "Fix two-step orders", after D84's "put the blue cube on
+the table" failed for both deciders.
+
+- **A runner that offers the second step of an order only once the first
+  is done has to say so to the decider** (shown, free: D85). While
+  nothing is held, the cut-down list now carries one fact: first this
+  pickup, then the putting, which is offered once it is held. A decider
+  that can't see the second step otherwise refuses the first. The free
+  rules now take the cube and put it on the table, and leave the red box.
+  JEV on it is not yet measured.
+- **Stored choices across every room caught a mend that took the wrong
+  thing** (shown, free: D85): the first try, keeping any thing that
+  matched, took the red crate for "put the red jar on the workbench".
+  Narrowed to a thing named by a word that is its alone. *For the kit's
+  runner:* keep stored choices for every room in its tests.
+- **Left as it was:** an order for a thing a room lacks may be taken for
+  another that shares a word.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
