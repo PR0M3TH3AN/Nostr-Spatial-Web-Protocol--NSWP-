@@ -88,18 +88,44 @@ Not tried. What is known that bears on it (`docs/plans/agents-lessons.md`):
   knows, but how many offer something at the same moment.
 - A second skill on the range needed no new code.
 
-So the trial is a count: add skills, real ones and near-misses that offer
-choices at the same moment, and find where one list stops giving right
-answers or costs more than asking by category first. Asked both ways each
-time, each at least twice. Where the two lines cross, if they do, is where
-categories earn their second question. A third way to compare: the
-category chosen in code from what the place says, and only the choice
-asked.
+So the trial is a count. Its shape, as sharpened by the `nswp-agents`
+session the same day and agreed by the orchestrator:
 
-If categories are used, what they are is a matter for a skill's own file
-(which category it says it is in, and who may say so: a stranger's skill
-filed under a trusted heading is the same risk as its advice) and for what
-a world allows ("any movement skill, no combat").
+- **Count choices live at once, and say skills known beside it.** Grow the
+  live set with skills that all offer something in the same moment, real
+  ones and near-misses. Where to look: at about 150 choices at once JEV
+  carried out 3 of 6 orders (the warehouse, one list, D53), and a choice
+  costs about 25 tokens, so the line past which JEV runs slower is near 450
+  choices. Accuracy fell long before it. The crossing is expected between
+  50 and 150 choices live at once: sample there finely.
+- **Four ways of asking, each at least twice, three times near the
+  crossing** (a decider's spread from run to run was 11 to 16 of 29 on the
+  range): one list; category first, then the choice; the category chosen
+  in code from what the place says, and only the choice asked; and both
+  levels in one request, which costs no second wait. The house trial's
+  "needs as scores" way of asking is the last of these already (need is
+  the category, thing is the choice), so its paid run is the first data.
+- **Tasks with a right answer that code can check,** a known best choice
+  with near-miss skills beside it. Otherwise "stops giving right answers"
+  is judged by eye.
+- **Where categories can pay at all:** where code has nothing to cut by.
+  For an order in words, cutting down in code already beat asking a
+  category first (6 of 6 both ways, the tree at one and a half times the
+  tokens and twice the waiting). With no order, or one that names nothing,
+  as in the house and the mystery, there is nothing to cut by.
+
+**A category a world acts on is worked out, not claimed.** A skill's
+choices name typed actions, and each action already belongs to a
+capability the kit has (firing to combat, picking up to inventory). So the
+first level of a tree can be those capabilities, derived from the actions
+a file names and never from a label in it; "a world allows by category" is
+then what a world already does when it offers or withholds a capability.
+Anything finer is a stranger's claim, like a skill's advice: shown to the
+owner, never trusted for allowing. (No capability name is given or taken
+by this being written here.)
+
+After the house trial. The arithmetic of sizes is free and can be done at
+any time.
 
 ## Must not
 
