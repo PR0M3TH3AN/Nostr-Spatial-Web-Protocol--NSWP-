@@ -743,7 +743,20 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement as HTMLElement;
     return [...fields.values()].find((f) => f.input === at);
   };
+  /**
+   * A tab is being laid out only to be measured (`measureTab`, for the sheet's one size): nobody sees it and nothing
+   * of it is pressed. **Nothing laid out that way asks for anything, draws anything, or keeps anything.** No picture
+   * is asked for (a tile's picture is the making of a thing's model, fetched from its maker's host; a person's is
+   * fetched from wherever they keep it), no card is painted, nothing is fetched, no row's own element is taken from
+   * where it is, and no timer is started. Each thing is its own shape with nothing in it, which is all a measure
+   * needs. In kit 0.88.0 a tile asked for its picture whoever laid it out, so the things in a visitor's bag were
+   * fetched a moment after they arrived in any world, the menu never opened (found by BitPortal, 2026-11-24).
+   * A thing's model is fetched on looking in a bag (protocol/17-items.md), and looking is the Bag tab being up.
+   */
+  let measuringOnly = false;
   const drawField = (item: UiItemView, whose: string): HTMLElement => {
+    // Its shape and its words, and not the row's own box, which stays where it is with whatever is typed in it.
+    if (measuringOnly) return el("form", { class: "field" }, el("input", { type: "text" }), el("button", { type: "submit" }, item.label), el("p", { class: "to" }, whose ? `What you type here goes to ${whose}.` : ""));
     let f = fields.get(item.id);
     if (!f) {
       const input = el("input", { type: "text", maxlength: String(MENU_LIMITS.field), autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false", enterkeyhint: "done" });
@@ -793,6 +806,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     s.time.textContent = s.item.slider?.text?.() ?? "";
   };
   const drawSlider = (item: UiItemView): HTMLElement => {
+    // Its shape, and not the bar itself: nothing is asked of what it moves along, and no watching of it is begun.
+    if (measuringOnly) return el("label", { class: item.on === true ? "slide on" : "slide" }, icon(item.icon), el("span", { class: "name" }, item.label), el("input", { type: "range", min: "0", step: "1", value: "0" }), el("span", { class: "time mono" }, "0:00 of 0:00"));
     let s = sliders.get(item.id);
     if (!s) {
       const range = el("input", { type: "range", min: "0", step: "1", value: "0" });
@@ -847,6 +862,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     if (card.color) face.style.setProperty("--c", card.color);
     // A card laid out only to be measured (`sizeSheet`) is the same shape with nothing in its picture's place: a
     // tab that isn't up paints nothing, and fetches nobody's picture.
+    onlyMeasured ||= measuringOnly;
     const paint = onlyMeasured ? undefined : card.draw;
     if (paint) {
       // A thing, not a person: drawn large, and again many times a second while it is on show, so it may turn.
@@ -1215,7 +1231,15 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
   /** One tab that isn't up, laid out in the box nobody sees and measured. */
   const measureTab = (s: Section, layOut: LayOut): number => {
-    const r = el("div", { class: "rows" }, ...layOut(s));
+    // The one place a tab is laid out without being shown: everything made here is made for its shape alone.
+    let made: (HTMLElement | string)[];
+    measuringOnly = true;
+    try {
+      made = layOut(s);
+    } finally {
+      measuringOnly = false;
+    }
+    const r = el("div", { class: "rows" }, ...made);
     r.hidden = !s.items.length && !s.card;
     const n = el("p", { class: "note" }, s.note ?? "");
     const w = el("p", { class: "note said" }, ...(s.said ? [el("b", {}, s.said.from), s.said.note] : []));
@@ -1561,7 +1585,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     };
     const drawTile = (item: UiItemView) => {
       const shown = el("span", { class: "shown", "aria-hidden": "true" }, [...item.short][0]?.toUpperCase() ?? "");
-      const picture = item.picture?.();
+      // Asked for only where the tile is shown: asking is what has a thing's model made, or a person's picture fetched.
+      const picture = measuringOnly ? null : item.picture?.();
       if (picture) {
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = 192;
