@@ -20,8 +20,8 @@
   "yes": restoring what is held from the mint by a seed; its design is
   written (`docs/ecash-seed-counter.md` in BitLogin) and its tests on
   mock mints come first. **Open:** the wallet needing a refresh (below),
-  mended as local commit 4310d13, which is held for a correction (below)
-  and not released. Still not known: whether the cause
+  mended as local commit 4310d13 and corrected twice since (below); not
+  released, and his word is asked once the last correction has an id. Still not known: whether the cause
   found is what happened to his wallet, and which line his wallet now
   shows (kept only in this browser, or kept with his account).
 
@@ -127,6 +127,31 @@ what is live. Asked of the Bitlogin session: say the size last said at
 once at a showing, before the check, in a commit on top, with a new id
 for the owner's word. The orchestrator's ask to him for 4310d13 is
 withdrawn.
+
+**Corrected as BitLogin's local commit a9d12b7, not released.** At a showing the panel says its
+size at once, before the check, so the shell's wait is met; a resumed
+mode is checked as a hello's is; and a `ready` that went without a
+height is followed by the height on a timer (the "no height ever" of
+the live count, made to happen on demand and mended in three engines).
+Its stand-in shell is now held to BitPortal's rules (the frame kept
+hidden and laid out, 1.5 s to say a size): with `build.json` answering
+after 1.6 s, 4310d13 had its kept frame thrown away and a9d12b7 kept it
+and opened the wallet. Gate exit 0, 776 passed, after one earlier try
+failed under load. Read by the orchestrator in the commit. Not run:
+BitPortal's own shell, a real slow line.
+
+**And corrected again, the same evening.** The orchestrator asked what
+height that first size carries, every screen having been put away at
+the hide. BitLogin's test answered: the bar alone, 111, then 213, then
+667, so the panel would have come up short and grown twice. Mended as
+local commit e39ffe4 (hidden, the panel says no sizes; at a showing the
+height last said goes out, not one measured then; sizes are held until
+what it was shown for is drawn and still): 667, then 667. Reading that
+one, the orchestrator found one more door to the same fault, not run: a
+panel hidden again while its sizes are held says and keeps the bar's
+height when the hold ends. Asked for on top, so that the owner is asked
+for one commit: the ask for a9d12b7 is withdrawn as the one for 4310d13
+was, and no id is with him now.
 
 Also since: BitPortal's shell answers a `ready` from a kept frame it
 holds hidden with `hide` again (its PR 231, merged as 46745b8, not
