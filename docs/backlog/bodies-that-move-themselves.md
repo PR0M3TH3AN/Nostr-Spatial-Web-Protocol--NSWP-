@@ -156,6 +156,52 @@ agent that can be given a body and a world and behave specifically, with
 as little written for any one game as will do; open, and able to be
 shipped; and measured before believed.
 
+## A wider design the owner handed over, and what is taken from it (2026-11-24)
+
+The owner, with a third document from the other assistant, "BitPortal
+Generalized Agent Embodiment System": "Is this a better plan than the
+neural?" It proposes rules and inverse kinematics as the default body,
+with clips, motion matching and models as optional backends behind one
+action interface; bodies assembled from parts (legs, arms, wings, a
+tail); a body that declares what it can do; things that declare how they
+can be used and where; a manner made of dials (energy, confidence,
+tension); a compact state sent between visitors with the motion rebuilt
+on each device; and a standard for all of it in the protocol, last.
+
+**The orchestrator's answer: yes as the default, and it is the path
+already chosen, drawn much larger.** Its first step is the walker by
+rules; its optional model is the yardstick and what follows. Most of what
+it says of agents is what the playground has measured: an agent says what
+it wants and not which bones; the world checks every action; a refusal
+comes back with a reason; things say what they offer; the agent is told
+of the world in words and looks only when it must; and it decides when
+something changes, not on a clock.
+
+**Taken from it now, into the walker's trial:**
+
+- The seam is its action interface, kept as small as the typed actions
+  the playground already has, with an outcome and a reason for each.
+- A body declares what it can do, and that is one more of the things a
+  skill needs before it offers anything (beside learned, allowed and
+  supplied).
+- A manner is a few dials worked out from a word on the character's
+  sheet. A walker by rules has dials; the house showed that a sentence
+  has none.
+- After the two-legged walker, **one second body of another shape behind
+  the same seam** (four legs, or wheels), before any model. That is the
+  cheapest test of whether the seam is general, which is what the owner
+  is after.
+
+**Not taken yet, each for a reason:** the many kinds of body and part
+(none measured; the second body says whether the first abstraction
+holds); reaching and grasping by anchors on things (things here declare
+functions, not places for a hand); a physics engine and a path-finder
+fetched in (weight in every world, and the kit fetches nothing); rigged
+figures from elsewhere (their terms, and our figure has no bones); a
+package of files for an agent (an agent here is a sheet and notes, as
+`ai-keys-and-agents` has it); and anything for the protocol, which comes
+after something works and by names given (fleet rule 11).
+
 ## Must not
 
 - Ship anything under a licence that forbids commercial use, or fetch any
