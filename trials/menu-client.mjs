@@ -1220,6 +1220,11 @@ VISITS.file = async () => {
     try {
       await page6.goto(`${CLIENT}/`, { timeout: 60000 });
       await until6(() => world6()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+      // The world's Panels tab is in the client's menu only once the client has heard the world describe it, which
+      // is a moment after the world is ready. A menu brought up on a tab it doesn't have yet falls back to its first
+      // tab and stays there (as the kit is today), and every check after this then waited thirty seconds for a row
+      // on a tab that wasn't up: one run in four did, on 2026-11-24. So the tab is waited for first.
+      await until6(() => page6.evaluate(() => window.__client.below.port.view().sections.some((x) => x.id === "panels")), 30000);
       await page6.evaluate(() => { window.__said = []; window.__client.below.port.onSay((t) => window.__said.push(t)); window.__client.menu.setOpen(true, "panels"); });
       const row = await until6(() => page6.evaluate(() => { const i = window.__client.below.port.view().sections.find((s) => s.id === "panels")?.items.find((x) => x.id === "world:panel-file"); return i ? { kind: i.kind, accept: i.accept, from: i.from ?? null, label: i.label } : null; }), 15000);
       check("file/the world's row that takes a file is in the client's Panels, under the world's name, with the kinds it takes", row?.kind === "file" && JSON.stringify(row.accept) === '["image","video"]' && row.from === "The Gallery", row);

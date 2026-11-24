@@ -54293,14 +54293,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .sheet[hidden] { display: none; }
 /* One size on every tab: what a short tab leaves is here, above the foot. A tab that isn't up is measured in a box nobody sees. */
 .sheet > .room { flex: 1 1 0; min-height: 0; }
-.sheet > .measure { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
-.sheet > .measure > .rows { overflow: visible; }
+/* It stands beside the sheet and not in it, as wide as the sheet is, so that tabs can be measured while the sheet is down. */
+.measure { position: absolute; left: 0; top: 0; width: min(480px, calc(100vw - 20px)); border: 1px solid transparent; visibility: hidden; pointer-events: none; }
+.measure > .rows { overflow: visible; }
 /* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
 .outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
 .outside[hidden] { display: none; }
 /* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
+  .measure { width: min(780px, calc(100vw - 40px)); }
   .rows { grid-template-columns: 1fr 1fr; align-content: start; }
   .rows > .person, .rows > .swatches, .rows > .tiles, .rows > .row.primary { grid-column: 1 / -1; }
   .rows > .person.thing { grid-template-columns: 200px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
@@ -54636,7 +54638,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const foot = el("div", { class: "foot" }, pinIt, close);
     const room3 = el("div", { class: "room", "aria-hidden": "true" });
     const measure = el("div", { class: "measure", "aria-hidden": "true", inert: "" });
-    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, room3, foot, measure);
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, room3, foot);
     const chatTitle = el("b");
     const chatWhose = el("p", { class: "whose", hidden: "" });
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
@@ -54655,7 +54657,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatForm = el("form", {}, chatField, chatSend);
     const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
     const outside = el("div", { class: "outside", "aria-hidden": "true", hidden: "" });
-    root.append(style, outside, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id2, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
+    root.append(style, outside, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id2, menu2, quiet, asWho, full, says, chat, sheet, measure, el("div", { class: "low" }, loadingLine2, target2, bar));
     (opts.parent ?? document.body).append(host);
     let open3 = false;
     let section = "";
@@ -55087,26 +55089,74 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const measured = /* @__PURE__ */ new Map();
     let heldFor = "";
     let heldTall = 0;
+    const tallOf = (r, n, w) => r.scrollHeight + (r.offsetHeight - r.clientHeight) + n.getBoundingClientRect().height + w.getBoundingClientRect().height;
+    const placeOf = (wide) => `${wide}|${host.style.getPropertyValue("--s")}|`;
+    const keyOf = (at, s) => `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
+    const measureTab = (s, layOut) => {
+      const r = el("div", { class: "rows" }, ...layOut(s));
+      r.hidden = !s.items.length && !s.card;
+      const n = el("p", { class: "note" }, s.note ?? "");
+      const w = el("p", { class: "note said" }, ...s.said ? [el("b", {}, s.said.from), s.said.note] : []);
+      w.hidden = !s.said;
+      measure.replaceChildren(r, n, w);
+      return tallOf(r, n, w);
+    };
+    let lastView = null;
+    let lastLayOut = null;
+    let aheadWaiting = false;
+    const idle = (fn) => {
+      const ask = globalThis.requestIdleCallback;
+      if (typeof ask === "function") ask((d) => fn(() => d.timeRemaining()), { timeout: 2e3 });
+      else setTimeout(() => fn(() => 4), 250);
+    };
+    const measureAhead = () => {
+      if (aheadWaiting) return;
+      aheadWaiting = true;
+      idle((left) => {
+        aheadWaiting = false;
+        if (!lastView || !lastLayOut || !sheet.hidden || host.hidden) return;
+        measure.style.width = "";
+        const at = placeOf(Math.round(measure.getBoundingClientRect().width));
+        let more = false;
+        let done = 0;
+        for (const s of lastView.sections) {
+          const key = keyOf(at, s);
+          if (measured.has(key)) continue;
+          if (done > 0 && left() < 3) {
+            more = true;
+            break;
+          }
+          measured.set(key, measureTab(s, lastLayOut));
+          done++;
+        }
+        measure.replaceChildren();
+        if (more) measureAhead();
+      });
+    };
     const sizeSheet = (view2, layOut) => {
+      lastView = view2;
+      lastLayOut = layOut;
       sheet.style.height = "";
       says.classList.remove("one");
       if (sheet.hidden) {
         heldFor = "";
         heldTall = 0;
+        measureAhead();
         return;
       }
       const inSheet = says.parentElement === sheet;
       if (inSheet) says.classList.add("one");
       sheet.style.maxHeight = "none";
-      const wide = Math.round(sheet.getBoundingClientRect().width);
-      const tallOf = (r, n, w) => r.scrollHeight + (r.offsetHeight - r.clientHeight) + n.getBoundingClientRect().height + w.getBoundingClientRect().height;
+      const across = sheet.getBoundingClientRect().width;
+      const wide = Math.round(across);
+      measure.style.width = `${across}px`;
       const here = tallOf(rows, note, said2);
       const around = sheet.getBoundingClientRect().height - here;
-      const at = `${wide}|${host.style.getPropertyValue("--s")}|`;
+      const at = placeOf(wide);
       let most = here;
       const still = /* @__PURE__ */ new Set();
       for (const s of view2.sections) {
-        const key = `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
+        const key = keyOf(at, s);
         still.add(key);
         if (s.id === section) {
           measured.set(key, here);
@@ -55114,13 +55164,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }
         let tall = measured.get(key);
         if (tall === void 0) {
-          const r = el("div", { class: "rows" }, ...layOut(s));
-          r.hidden = !s.items.length && !s.card;
-          const n = el("p", { class: "note" }, s.note ?? "");
-          const w = el("p", { class: "note said" }, ...s.said ? [el("b", {}, s.said.from), s.said.note] : []);
-          w.hidden = !s.said;
-          measure.replaceChildren(r, n, w);
-          tall = tallOf(r, n, w);
+          tall = measureTab(s, layOut);
           measured.set(key, tall);
         }
         most = Math.max(most, tall);

@@ -60,6 +60,16 @@ fill it.
   every one of the Gallery's 14 tabs the sheet, its strip of tabs and its
   foot are in the same place, to the pixel (780 by 435, and 370 by 532).
   `trials/xr-console.mjs`: 14 sections, one picture size, one panel.
+- **What it costs, timed 2026-11-24** (the Gallery's 14 tabs, in the page's
+  own clock, the middle of three loads): laying out the tabs that aren't up
+  is the whole of it, and as first built it fell on the moment the menu
+  first comes up. With a graphics card that was 18 ms against 13 before one
+  size. With the processor slowed six times it was 80 ms against 23, which
+  is too much. **So the tabs are measured ahead,** in the page's idle
+  moments while the menu is down, a tab at a time; by the time the menu is
+  first brought up their sizes are kept. With that, slowed six times: 20 ms
+  at a desk's width and 23 at a phone's, which is what it was before one
+  size. A change of tab and coming up again never cost more than a few ms.
 - **Not tried:** BitPortal's own menu, which has other tabs; a real phone;
   a headset.
 
