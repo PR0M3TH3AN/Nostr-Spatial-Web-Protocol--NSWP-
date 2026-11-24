@@ -4,12 +4,17 @@
   assistant wrote for him: "what do you think of something like this as a
   part of our AI agent system? The animation component driven by our
   agents logic."
-- **Who:** nobody yet. A look first (the owner's, in a browser), then a
-  written design. It would touch the kit (figures), the playground
-  (`nswp-agents`) and whatever own models for figures become.
-- **State:** asked. Nothing fetched, built or tried. Part of
-  `ai-keys-and-agents`, which is last and not a priority; and it stands
-  behind `avatars-own-models`, since a figure today has no skeleton.
+- **And then,** the same day: "ok id like to get even a minimal version of
+  the Neural animation system working and tested with performance
+  metrics."
+- **Who:** the `nswp-agents` session, in its playground, as a trial.
+  Briefed 2026-11-24. Later, if it earns it: the kit (figures) and
+  whatever own models for figures become.
+- **State:** a minimal trial is briefed, with what to measure. Nothing
+  fetched or built: each download is the owner's own word in that
+  session, with its licence read first. Part of `ai-keys-and-agents`,
+  which is last and not a priority; for the kit it stands behind
+  `avatars-own-models`, since a figure today has no skeleton.
 
 ## The idea
 
@@ -68,6 +73,25 @@ The three.js port has a demonstration in a browser. The owner opening it
 on his own desk, and in the Quest's browser, says whether it runs there
 at a frame rate worth having, before anything is fetched or built. He
 opens it himself; no session downloads it.
+
+## The trial, as briefed
+
+One two-legged figure in a page, its skeleton moved every frame by the
+model from a goal; then the playground's own typed "walk to this thing"
+action, chosen by rules or JEV, handed to that body as its goal. Cheapest
+facts first, stopping at the first no: whether any browser on this
+machine has a graphics adapter for it; whether the published
+demonstration runs and how fast (the owner can open it himself); only
+then a fetch, on his word, of code and weights that are for
+non-commercial use, kept out of every repository and served from an
+origin of their own.
+
+The numbers asked for: size and time to the first pose; time for one
+figure's step, middle and worst; frames a second and the worst frame in a
+hundred with 1, 10, 50 and 100 figures, and with the processor slowed six
+times; memory; each route that does not start, said plainly; feet sliding
+and time to answer a change of goal; and all of it beside the same figure
+moved by ordinary clips blended by rules.
 
 ## Must not
 
