@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.91.0
+
 - **While the Bag goes on looking through a visitor's relays, it says how far it has got** (SDK `bag.ts`, `bagging.ts`, `relay-book.ts`). From BitPortal's count on 0.90.0: with half of 23 relays never answering, "Looking for your bag." stood for 37 seconds before "empty".
   - **Now, once the look goes on in waves past its first answers,** the Bag tab says "Still looking: 14 of your 23 relays asked.", and once every relay of theirs has been asked and the slow ones are asked again, "Still looking: waiting for your slowest relays." `bag.looking()` (given) gives how many of their own relays have been asked, of how many, while it goes on, and null otherwise; `askOwn`'s `onWave` is now told those two numbers beside the wave's.
   - **And "Your bag couldn't be looked for just now." is said only once a look is over** and found nothing to say. The tab marked a look as done when it began, so that line could show while the look was still going.
