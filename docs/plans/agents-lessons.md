@@ -1835,6 +1835,24 @@ for the session and stopped after.
 - **Still weak:** "put the red box on the bench" says it cannot only after
   taking the box from the visitor.
 
+## Haiku against DeepSeek on the agents' own tasks, and three tiers named (D98 to D100, 2026-11-24; paid once, half a cent)
+
+- **Haiku 5.5 is the better companion target** (shown, paid, once:
+  D99). With thinking off, on 56 requests: feeling cues 10 of 10 for
+  both, none made up against one; the order hand-off 7 of 10 against 5;
+  game lines played along with 3 of 8 against none. Haiku once turned
+  "switch on a lamp" into both lamps, and once wrote a stage direction in
+  asterisks (to be taken out of speech, free).
+- **A character sheet decides which game roles its chat model will play**
+  (shown, paid: D99): both models declined the villain's lines with the
+  gentle default sheet. *For a world:* a world that wants a villain or a
+  rival hands that role over as part of placing the agent; the model's
+  defaults won't play it.
+- **Three tiers, named by the owner** (D100): NPC (the free rules, no
+  model), cast member (with JEV and the chat model, in one world),
+  companion (goes between worlds with its owner). See
+  `docs/backlog/ai-keys-and-agents.md`.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
