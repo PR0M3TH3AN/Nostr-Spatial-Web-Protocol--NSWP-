@@ -16,7 +16,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { fetchByHashSaying, keptElsewhere, onFileHostsChange, type FileHostsOptions } from "./file-hosts.js";
 import { arrival } from "./index.js";
-import { askWell } from "./relay-book.js";
+import { askOwn } from "./relay-book.js";
 
 /** What a world lets a look's model be, from its manifest's `avatar`: never more than `LOOK_BUDGET`. */
 export function lookBudget(world?: { maxFileSizeMb?: number; maxTriangles?: number } | null): ModelBudget {
@@ -189,7 +189,9 @@ export async function ownLookNote(opts: { relays?: string[]; query?: typeof quer
   }
   if (at.kind !== AVATAR_KIND || at.pubkey !== author) return null;
   const relays = [...new Set([...(at.relays ?? []).filter((r) => r.startsWith("wss://")).slice(0, 3), ...(opts.relays ?? DEFAULT_RELAYS)])];
-  const got = await askWell({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, { own: [], usual: relays, ...(opts.query ? { query: opts.query } : {}), timeoutMs: 4000, ...(opts.now ? { now: opts.now } : {}) }).catch(() => null);
+  // Their own look, on their own device: looked for on their own relays too, until found, and put back where it is
+  // missing (relay-book.ts, `askOwn`); the address's own hints are asked first, with the usual relays.
+  const got = await askOwn({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, author, { usual: relays, mine: { kept: null }, ...(opts.query ? { query: opts.query } : {}), timeoutMs: 4000, ...(opts.now ? { now: opts.now } : {}) }).catch(() => null);
   const newest = (got?.events ?? []).filter((e) => e.kind === AVATAR_KIND && e.pubkey === author && verifyEvent(e) && e.tags.some((t) => t[0] === "d" && t[1] === at.identifier)).sort((a, b) => b.created_at - a.created_at)[0];
   return newest && JSON.stringify(newest).length <= LOOK_NOTE_LIMIT ? newest : null;
 }

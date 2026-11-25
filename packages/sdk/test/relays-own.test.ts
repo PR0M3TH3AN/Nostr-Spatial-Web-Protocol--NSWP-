@@ -1,10 +1,10 @@
 // A visitor's own notes, looked for and sent well: on stand-in relays that answer late, refuse, or keep nothing.
 // Each of these failed on kit 0.89.0, in what is live (the owner's empty bag on his phone, 2026-11-24). Nothing here
 // reaches a real relay: every asking and every sending is the stand-in's.
-import { BAG_KIND, bagIn, finalizeEvent, getPublicKey, RELAY_LIST_KIND, RELAY_PICK, type Filter, type NostrEvent } from "@nswp/core";
+import { BAG_KIND, bagIn, finalizeEvent, getPublicKey, RELAY_LIST_KIND, RELAY_PICK, WRAP_KIND, type Filter, type NostrEvent } from "@nswp/core";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBag, type BagHand } from "../src/bag.js";
 import { askOwn, forgetRelays } from "../src/relay-book.js";
 
@@ -194,7 +194,10 @@ describe("a visitor's own bag, sent", () => {
     const n = net(all([...USUAL, ...mine], { [USUAL[0]!]: { kept: [list] }, [mine[0]!]: { kept: [bagNote([BOOK])] } }));
     await bagOn(n).load();
     await new Promise((r) => setTimeout(r, 0));
-    expect(USUAL.slice(1).filter((u) => n.has(u, list.id)).length).toBe(3);
+    // On every usual relay that was asked for it and answered without it (the best of them are asked, as for anything).
+    const askedForList = [...new Set(n.asked.filter((x) => x.kinds.includes(RELAY_LIST_KIND)).map((x) => x.url))].filter((u) => u !== USUAL[0]);
+    expect(askedForList.length).toBeGreaterThanOrEqual(2);
+    expect(askedForList.filter((u) => n.has(u, list.id))).toEqual(askedForList);
   });
 });
 
@@ -239,5 +242,100 @@ describe("someone else's note", () => {
     expect(n.asked.some((a) => a.kinds.includes(BAG_KIND) && (a.ms === RELAY_PICK.waveMs || a.ms === RELAY_PICK.lateMs))).toBe(false);
     await new Promise((r) => setTimeout(r, 0));
     expect(n.sent).toEqual([]);
+  });
+});
+
+describe("a look held up by a relay that never answers", () => {
+  // Stand-in relays that answer after their own time, by the clock: a relay that never answers runs out the wait it
+  // was given. The clock is the test's, so the seconds are counted without being waited.
+  const timed = (relays: Record<string, Relay>) => {
+    const n = net(relays);
+    const answer = n.query;
+    n.query = (urls: string[], filter: Filter, ms = 4000) =>
+      new Promise((done) => {
+        const r = relays[urls[0]!];
+        // Ran out of time: down, or slower than the wait it was given. Then it is "timeout" when the wait is up.
+        const ranOut = !r || !!r.down || (r.late ?? 0) > ms;
+        setTimeout(() => void answer(urls, filter, ranOut ? -1 : ms).then(done), ranOut ? ms : (r.late ?? 0));
+      });
+    return n;
+  };
+  /** How long, by the test's clock, until this is done. */
+  const howLong = async (run: () => Promise<unknown>) => {
+    const from = Date.now();
+    let done = false;
+    void run().then(() => (done = true));
+    for (let i = 0; i < 400 && !done; i++) await vi.advanceTimersByTimeAsync(50);
+    return Date.now() - from;
+  };
+  beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] }));
+  afterEach(() => vi.useRealTimers());
+
+  it("doesn't wait out a usual relay that never answers, with the note and the list in hand at 0.3 s", async () => {
+    const mine = own(3);
+    const bag = bagNote([LANTERN]);
+    const n = timed(all([...USUAL, ...mine], { [USUAL[0]!]: { kept: [listNote(mine), bag], late: 300 }, [USUAL[3]!]: { kept: [], down: true } }));
+    let got: Awaited<ReturnType<typeof askOwn>> | null = null;
+    const ms = await howLong(async () => (got = await askOwn({ kinds: [BAG_KIND], authors: [me] }, me, { usual: USUAL, mine: { kept: null }, query: n.query, publish: n.publish, now: () => Date.now() })));
+    expect(got!.events.map((e) => e.id)).toEqual([bag.id]);
+    // Was six seconds (the list waited for every usual relay, the dead one among them).
+    expect(ms).toBeLessThan(RELAY_PICK.graceMs + 500);
+  });
+
+  it("gives the rest a moment once one has answered, where the dead one is among those asked", async () => {
+    const mine = own(3);
+    const bag = bagNote([LANTERN]);
+    const n = timed(all([...USUAL, ...mine], { [USUAL[0]!]: { kept: [listNote(mine), bag], late: 300 }, [USUAL[1]!]: { kept: [], down: true } }));
+    let got: Awaited<ReturnType<typeof askOwn>> | null = null;
+    const ms = await howLong(async () => (got = await askOwn({ kinds: [BAG_KIND], authors: [me] }, me, { usual: USUAL, mine: { kept: null }, query: n.query, publish: n.publish, now: () => Date.now() })));
+    expect(got!.events.map((e) => e.id)).toEqual([bag.id]);
+    expect(ms).toBeLessThan(300 + RELAY_PICK.graceMs + 500);
+  });
+});
+
+describe("a wrapped private message", () => {
+  it("is never put back, whoever asks", async () => {
+    const wrap = finalizeEvent({ kind: WRAP_KIND, created_at: T / 1000 - 50, tags: [["p", them]], content: "sealed" }, KEY);
+    const n = net(all([...USUAL], { [USUAL[0]!]: { kept: [wrap] } }));
+    const got = await askOwn({ kinds: [WRAP_KIND], authors: [me] }, me, { usual: USUAL, mine: { kept: wrap }, query: n.query, publish: n.publish, now: clock });
+    expect(got.events.map((e) => e.id)).toEqual([wrap.id]);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(n.sent.filter((x) => x.id === wrap.id)).toEqual([]);
+  });
+});
+
+describe("a newer note from a slower relay", () => {
+  const timedNet = (relays: Record<string, Relay>) => {
+    const n = net(relays);
+    const answer = n.query;
+    n.query = (urls: string[], filter: Filter, ms = 4000) =>
+      new Promise((done) => {
+        const r = relays[urls[0]!];
+        const ranOut = !r || !!r.down || (r.late ?? 0) > ms;
+        setTimeout(() => void answer(urls, filter, ranOut ? -1 : ms).then(done), ranOut ? ms : (r.late ?? 0));
+      });
+    return n;
+  };
+  beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] }));
+  afterEach(() => vi.useRealTimers());
+
+  it("is what the bag ends with, and nothing older is put back anywhere", async () => {
+    const mine = own(3);
+    const older = bagNote([LANTERN], T / 1000 - 500);
+    const newer = bagNote([LANTERN, BOOK], T / 1000 - 100);
+    const n = timedNet(all([...USUAL, ...mine], { [USUAL[0]!]: { kept: [listNote(mine), older], late: 300 }, [mine[1]!]: { kept: [newer], late: 2500 } }));
+    const bag = createBag({ me: () => me, relays: USUAL, storage: memory(), now: () => Date.now(), query: n.query, publish: n.publish });
+    let changes = 0;
+    bag.onChange(() => changes++);
+    let first: string[] | null = null;
+    void bag.load().then((items) => (first = items));
+    for (let i = 0; i < 160; i++) await vi.advanceTimersByTimeAsync(50);
+    // Shown at once with what came first, then the newer when it came.
+    expect(first).toEqual([LANTERN]);
+    expect(bag.items()).toEqual([LANTERN, BOOK]);
+    expect(changes).toBeGreaterThanOrEqual(2);
+    // Nothing older put back over it: what was put back is the newer one only.
+    expect(n.sent.some((s) => s.id === older.id)).toBe(false);
+    expect(n.sent.some((s) => s.id === newer.id)).toBe(true);
   });
 });

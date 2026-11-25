@@ -14,7 +14,7 @@
  * A relay is told who a message is for, and nothing of who sent it or what it says.
  */
 import { DEFAULT_RELAYS, isHex64, looksLikeWrap, MESSAGE_RELAYS_KIND, publishEvent, queryRelays, readMessageRelays, readRelayList, RELAY_LIST_KIND, WRAP_KIND, wrapSeal, writtenWith, type Message, type NostrEvent, type SealedMessage } from "@nswp/core";
-import { askWell, foundRelays, learnFrom, relayBackup, sendWell } from "./relay-book.js";
+import { askOwn, askWell, foundRelays, learnFrom, relayBackup, sendWell } from "./relay-book.js";
 
 export interface MessageHand {
   /** Whose messages: the key signed in here, or null for a guest. */
@@ -162,13 +162,17 @@ export function createMessages(opts: MessagesOptions): Messages {
   const knownTo = (peer: string, list: Message[]) => !!opts.known?.(peer) || list.some((m) => m.from === who);
 
   const look = async (me: string): Promise<void> => {
-    // Their own relays, and where they have said messages reach them.
-    const lists = await askWell({ kinds: [RELAY_LIST_KIND, MESSAGE_RELAYS_KIND], authors: [me], limit: 8 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+    // Their own relays, and where they have said messages reach them. The second is their own note, looked for as
+    // one (relay-book.ts, `askOwn`): on their own relays too, and "none" only where enough relays answered to say so.
+    const [lists, inboxNote] = await Promise.all([
+      askWell({ kinds: [RELAY_LIST_KIND], authors: [me], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null),
+      askOwn({ kinds: [MESSAGE_RELAYS_KIND], authors: [me], limit: 4 }, me, { usual: usual(), mine: { kept: null }, query, publish, timeoutMs: 3500, now }).catch(() => null),
+    ]);
     if (hand.pubkey() !== me) return;
-    const answered = !!lists && Object.values(lists.relays).some((said) => said === "eose");
+    const answered = inboxNote?.state === "none" || inboxNote?.state === "found";
     const relayList = readRelayList(lists?.events ?? [], me);
-    own = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
-    const found = readMessageRelays(lists?.events ?? [], me);
+    own = { read: relayList?.read ?? [], write: relayList?.write ?? inboxNote?.own ?? [] };
+    const found = readMessageRelays(inboxNote?.events ?? [], me);
     if (found.length) inbox = found;
     if (!inbox.length) {
       // They are about to be offered relays for their messages. A relay that asks a reader to prove who they

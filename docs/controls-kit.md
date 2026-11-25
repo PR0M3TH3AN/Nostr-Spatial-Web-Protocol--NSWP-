@@ -549,7 +549,11 @@ const mine = await askOwn(filter, theirKey, { usual: DEFAULT_RELAYS, mine: { kep
   from what they said. Fewer: the rest of the usual relays are tried once,
   and `took` says how many have it, so you can tell the visitor and send it
   again later. The Bag says "Only 1 relay has it so far" and sends it again
-  at the next look.
+  at the next look. **And a visitor's own newest note is put back** on the
+  relays that answered a look without it: their own first, then the usual
+  ones, up to six a look (`RELAY_PICK.mend`), each once a day. So it can
+  reach more usual relays than `RELAY_PICK.usual` says for a send: a
+  reader without their list looks there.
 - **A person's own note always reaches at least one usual relay too**
   (`RELAY_PICK.usual`), however many of their own took it: a world that
   hasn't their relay list yet looks only there, and the list itself is
@@ -561,9 +565,15 @@ const mine = await askOwn(filter, theirKey, { usual: DEFAULT_RELAYS, mine: { kep
   Closed to reading and to writing are kept apart: a paid relay that
   refuses a note still answers a question. A challenge to sign in followed
   by an answer to the end is an answer like any other.
-- **`askOwn` looks for a person's own note.** Their relay list is asked for
-  while the usual relays are, waited for up to six seconds
-  (`RELAY_PICK.listWaitMs`), and their own relays asked as it comes. With
+- **`askOwn` looks for a person's own note.** Their relay list is asked of
+  the best of the usual relays while those are asked for the note, and
+  taken once one has given it and the rest have had a second
+  (`RELAY_PICK.graceMs`), or once all have answered, never waited for longer
+  than six (`RELAY_PICK.listWaitMs`); their own relays are asked as it
+  comes. Each step of the look is done the same way once something is
+  found, so a relay that never answers holds nothing up once another has
+  answered. `relaysOf(who, …)` gives a person's relays by the same rules,
+  for sending something of theirs. With
   `mine`, the visitor's own note on their own device: where nothing is
   found, the rest of their relays (up to `RELAY_PICK.listed`, 24) are asked
   four at a time (`RELAY_PICK.wave`, three seconds each), then any that ran

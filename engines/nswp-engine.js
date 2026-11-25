@@ -5628,8 +5628,14 @@ var NSWP = (() => {
      * own took it: a world that hasn't their relay list yet looks only there, and the list itself is found only there.
      */
     usual: 1,
-    /** How long a look waits for a person's relay list, while the usual relays are asked. */
-    listWaitMs: 6e3
+    /** How long a look waits for a person's relay list, at the most, while the usual relays are asked. */
+    listWaitMs: 6e3,
+    /**
+     * Once one relay has given what was asked for (a person's relay list, or their note), how long the rest are given
+     * before it is taken: a newer one may be on another. Sooner where every relay asked has answered. So one relay
+     * that never answers holds nothing up once another has answered with it.
+     */
+    graceMs: 1e3
   };
   function relayClosed(note, to, now) {
     const at = note?.closed?.[to];
@@ -8883,6 +8889,7 @@ postMessage({ t: "started" });
   var newest = (events2) => events2.slice().sort((x, y) => y.created_at - x.created_at || (x.id < y.id ? -1 : 1))[0] ?? null;
   var putBack = (note, asked2, o) => {
     if (!o.publish && typeof document === "undefined") return;
+    if (note.kind === WRAP_KIND) return;
     const done = mended();
     const at = o.now();
     const missing = [...asked2.entries()].filter(([url, a]) => a.said === "eose" && !a.ids.has(note.id) && !(at - (done[`${url} ${note.id}`] ?? -Infinity) < MENDED_FOR_MS)).map(([url]) => url);
@@ -8898,19 +8905,48 @@ postMessage({ t: "started" });
     }
     void (o.publish ?? publishEvent)(to, note).then((sent) => learnFrom(sent.relays, o.now())).catch(() => null);
   };
+  var askFirst = (urls, filter, most, grace, query, now, into, events2, pending) => new Promise((done) => {
+    let left = urls.length;
+    let graceTimer = null;
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (graceTimer) clearTimeout(graceTimer);
+      clearTimeout(cap);
+      done();
+    };
+    const cap = setTimeout(finish, most);
+    if (!left) return finish();
+    for (const url of urls) {
+      const asking = askEach([url], filter, most, query, now, into, events2).then(() => {
+        left--;
+        if (events2.size && !graceTimer) graceTimer = setTimeout(finish, grace);
+        if (left === 0) finish();
+      });
+      pending?.push(asking);
+    }
+  });
   var listOf = async (who2, o) => {
     const asked2 = /* @__PURE__ */ new Map();
     const events2 = /* @__PURE__ */ new Map();
-    await askEach(openOf(o.usual, "read", o.now()), { kinds: [RELAY_LIST_KIND], authors: [who2], limit: 4 }, RELAY_PICK.listWaitMs, o.query, o.now, asked2, events2);
+    const best = relaysWell({ own: [], usual: o.usual, for: "read" }, o.now()).relays;
+    await askFirst(best, { kinds: [RELAY_LIST_KIND], authors: [who2], limit: 4 }, RELAY_PICK.listWaitMs, RELAY_PICK.graceMs, o.query, o.now, asked2, events2);
     const had = o.mine ? keptList(who2) : lists.get(who2) ?? null;
-    const best = newest([...events2.values(), ...had ? [had] : []].filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === who2));
-    if (!best) return null;
+    const list = newest([...events2.values(), ...had ? [had] : []].filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === who2));
+    if (!list) return null;
     if (o.mine) {
-      keepList(best);
-      putBack(best, asked2, o);
-    } else lists.set(who2, best);
-    return best;
+      keepList(list);
+      putBack(list, asked2, o);
+    } else lists.set(who2, list);
+    return list;
   };
+  async function relaysOf(who2, o) {
+    const known = o.mine ? keptList(who2) : lists.get(who2) ?? null;
+    const coming = listOf(who2, { usual: o.usual, mine: !!o.mine, query: o.query ?? queryRelays, ...o.publish ? { publish: o.publish } : {}, now: o.now ?? (() => Date.now()) }).catch(() => null);
+    const list = known ?? await coming;
+    return readRelayList(list ? [list] : [], who2)?.write ?? [];
+  }
   async function askOwn(filter, who2, o) {
     const query = o.query ?? queryRelays;
     const now = o.now ?? (() => Date.now());
@@ -8918,7 +8954,8 @@ postMessage({ t: "started" });
     const first = o.timeoutMs ?? 4e3;
     const asked2 = /* @__PURE__ */ new Map();
     const events2 = /* @__PURE__ */ new Map();
-    const ask = (urls, ms) => askEach(urls.filter((u) => !asked2.has(u)), filter, ms, query, now, asked2, events2);
+    const pending = [];
+    const ask = (urls, ms) => askFirst(urls.filter((u) => !asked2.has(u)), filter, ms, RELAY_PICK.graceMs, query, now, asked2, events2, pending);
     const known = mine ? keptList(who2) : lists.get(who2) ?? null;
     const coming = listOf(who2, { usual: o.usual, mine, query, ...o.publish ? { publish: o.publish } : {}, now });
     const ownOf = (list2) => readRelayList(list2 ? [list2] : [], who2)?.write ?? [];
@@ -8935,7 +8972,7 @@ postMessage({ t: "started" });
       const late = [...asked2.entries()].filter(([, a]) => a.said === "timeout").map(([url]) => url);
       for (let i = 0, wave = 1; i < late.length && events2.size === 0; i += RELAY_PICK.wave, wave++) {
         o.onWave?.(wave);
-        await askEach(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, query, now, asked2, events2);
+        await askFirst(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, RELAY_PICK.graceMs, query, now, asked2, events2, pending);
       }
     }
     const answered = () => [...asked2.values()].filter((a) => a.said === "eose").length;
@@ -8952,10 +8989,18 @@ postMessage({ t: "started" });
       const everyOne = !mine || openOf(own2, "read", now()).every((u) => asked2.has(u));
       state = n > 0 && answered() >= need && everyOne ? "none" : "unreached";
     }
-    if (o.mine) {
-      const note = newest([...all, ...o.mine.kept ? [o.mine.kept] : []]);
-      if (note && note.pubkey === who2) putBack(note, asked2, { ...o.publish ? { publish: o.publish } : {}, now, first: own2 });
-    }
+    const ownDevice = o.mine;
+    const shown4 = newest(all);
+    void Promise.all(pending).then(() => {
+      const everything = [...events2.values()];
+      const latest = newest(everything);
+      if (latest && shown4 && latest.id !== shown4.id && latest.created_at > shown4.created_at && o.onNewer)
+        o.onNewer({ events: everything, state: "found", relays: Object.fromEntries([...asked2.entries()].map(([url, a]) => [url, a.said])), own: own2 });
+      if (ownDevice) {
+        const note = newest([...everything, ...ownDevice.kept ? [ownDevice.kept] : []]);
+        if (note && note.pubkey === who2) putBack(note, asked2, { ...o.publish ? { publish: o.publish } : {}, now, first: own2 });
+      }
+    });
     return { events: all, state, relays, own: own2 };
   }
   var FOUND_KEY = "nswp:relays:found";
@@ -51131,27 +51176,28 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       } catch {
       }
     };
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found: found2 };
-      return found2;
-    };
+    const ownRelays = (key) => relaysOf(key, { usual: usual(), mine: true, query, publish, now });
     let known = null;
     let looking = null;
     let offered = null;
     const look = async (who2) => {
       const kept2 = readKept(who2);
-      const own2 = await ownRelays(who2);
-      const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own: own2, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
-      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+      const onNewer = (later) => {
+        const newer = newestFollows(later.events.filter((e) => verifyEvent(e)), who2);
+        if (!newer || !known || known.who !== who2 || known.list && newer.created_at <= known.list.created_at) return;
+        keep6(newer);
+        known = { ...known, list: newer, answered: true };
+        changed();
+      };
+      const got = await askOwn({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, who2, { usual: usual(), mine: { kept: kept2 }, query, publish, timeoutMs: 4e3, now, onNewer }).catch(() => null);
+      const answered = !!got && got.state !== "unreached";
+      const own2 = got?.own ?? [];
       const found2 = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
       const list = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
       if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own: own2, usual: usual(), publish, query, now }).catch(() => null);
       if (list && list !== kept2) keep6(list);
       if (hand.pubkey() !== who2) return;
-      known = { who: who2, list, answered, at: now() };
+      known = { who: who2, list, answered, own: own2, at: now() };
       changed();
     };
     const load3 = async (fresh = false) => {
@@ -51196,7 +51242,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const signed = await hand.change(list, asked2).catch(() => null);
       if (!signed || !isFollowAsked(signed, { list, ...asked2, pubkey: who2 })) return { ok: false, why: "refused", said: "It couldn't be signed. Who you follow is as it was." };
       keep6(signed);
-      known = { who: who2, list: signed, answered: true, at: now() };
+      known = { who: who2, list: signed, answered: true, own: known?.own ?? [], at: now() };
       changed();
       const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
       if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Signed, but no relay took it. It is kept on this device and will be sent again.` };
@@ -51250,20 +51296,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return false;
       }
     };
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found: found2 };
-      return found2;
-    };
+    const ownRelays = (key) => relaysOf(key, { usual: usual(), mine: true, query, publish, now });
     const fromAccount = async (slot) => {
       const s = signer();
       const who2 = s?.state === "unlocked" ? s.pubkey : null;
       if (!s || !who2) return null;
       const d = await s.find(slot);
       if (!d) return null;
-      const got = await askWell({ kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, { own: await ownRelays(who2), usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+      const got = await askOwn({ kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, who2, { usual: usual(), mine: { kept: null }, query, publish, timeoutMs: 3500, now }).catch(() => null);
       const newest2 = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
       if (!newest2) return null;
       const opened = await s.open(newest2);
@@ -52181,7 +52221,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }
     if (at.kind !== AVATAR_KIND || at.pubkey !== author) return null;
     const relays = [.../* @__PURE__ */ new Set([...(at.relays ?? []).filter((r) => r.startsWith("wss://")).slice(0, 3), ...opts.relays ?? DEFAULT_RELAYS])];
-    const got = await askWell({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, { own: [], usual: relays, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).catch(() => null);
+    const got = await askOwn({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, author, { usual: relays, mine: { kept: null }, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).catch(() => null);
     const newest2 = (got?.events ?? []).filter((e) => e.kind === AVATAR_KIND && e.pubkey === author && verifyEvent(e) && e.tags.some((t) => t[0] === "d" && t[1] === at.identifier)).sort((a, b) => b.created_at - a.created_at)[0];
     return newest2 && JSON.stringify(newest2).length <= LOOK_NOTE_LIMIT ? newest2 : null;
   }
@@ -57148,7 +57188,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let offered = null;
     const look = async (who2) => {
       const kept2 = readKept(who2);
-      const got = await askOwn({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, who2, { usual: usual(), mine: { kept: kept2 }, query, publish, timeoutMs: 4e3, now }).catch(() => null);
+      const onNewer = (later) => {
+        const newer = newestBag(later.events.filter((e) => verifyEvent(e)), who2);
+        if (!newer || !known || known.who !== who2 || known.bag && newer.created_at <= known.bag.created_at) return;
+        keep6(newer);
+        known = { ...known, bag: newer, answered: true };
+        changed();
+      };
+      const got = await askOwn({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, who2, { usual: usual(), mine: { kept: kept2 }, query, publish, timeoutMs: 4e3, now, onNewer }).catch(() => null);
       const answered = !!got && got.state !== "unreached";
       const own2 = got?.own ?? [];
       const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
@@ -58247,12 +58294,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const unreadIn = (peer, list) => list.filter((m) => m.from === peer && m.at > (seenAt()[peer] ?? 0)).length;
     const knownTo = (peer, list) => !!opts.known?.(peer) || list.some((m) => m.from === who2);
     const look = async (me) => {
-      const lists2 = await askWell({ kinds: [RELAY_LIST_KIND, MESSAGE_RELAYS_KIND], authors: [me], limit: 8 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+      const [lists2, inboxNote] = await Promise.all([
+        askWell({ kinds: [RELAY_LIST_KIND], authors: [me], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null),
+        askOwn({ kinds: [MESSAGE_RELAYS_KIND], authors: [me], limit: 4 }, me, { usual: usual(), mine: { kept: null }, query, publish, timeoutMs: 3500, now }).catch(() => null)
+      ]);
       if (hand.pubkey() !== me) return;
-      const answered = !!lists2 && Object.values(lists2.relays).some((said2) => said2 === "eose");
+      const answered = inboxNote?.state === "none" || inboxNote?.state === "found";
       const relayList = readRelayList(lists2?.events ?? [], me);
-      own2 = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
-      const found2 = readMessageRelays(lists2?.events ?? [], me);
+      own2 = { read: relayList?.read ?? [], write: relayList?.write ?? inboxNote?.own ?? [] };
+      const found2 = readMessageRelays(inboxNote?.events ?? [], me);
       if (found2.length) inbox = found2;
       if (!inbox.length) {
         if (answered && relayBackup()) monitors = await foundRelays({ query, now }).catch(() => monitors);
@@ -59288,14 +59338,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       who: () => hereAs()?.name || worldSigner().name
     };
     const usualRelays = () => opts.noteRelays ?? DEFAULT_RELAYS;
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (!key) return Promise.resolve([]);
-      if (relaysKept && relaysKept.key === key && Date.now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usualRelays(), timeoutMs: 2500 }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: Date.now(), found: found2 };
-      return found2;
-    };
+    const ownRelays = (key) => key ? relaysOf(key, { usual: usualRelays(), mine: true }) : Promise.resolve([]);
     let wantsFeed = false;
     const postNote = async (words2) => {
       const signed = await notes2.sign({ kind: 1, content: words2, tags: [] }).catch(() => null);
@@ -59323,8 +59366,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const loadPosts = async () => {
       const key = notes2.pubkey?.();
       if (!key) return [];
-      const got = await askWell({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, { own: await ownRelays(key), usual: usualRelays(), timeoutMs: 5e3 });
-      if (!got.events.length && !Object.values(got.relays).some((said2) => said2 === "eose")) return null;
+      const got = await askOwn({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, key, { usual: usualRelays(), timeoutMs: 5e3 });
+      if (!got.events.length && got.state === "unreached") return null;
       return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));
     };
     let feedFor = null;

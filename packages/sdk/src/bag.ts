@@ -122,7 +122,15 @@ export function createBag(opts: BagOptions): Bag {
     const kept = readKept(who);
     // Their own bag, on their own device: looked for until it is found or every relay of theirs was asked, and put
     // back where it is missing (relay-book.ts, `askOwn`).
-    const got = await askOwn({ kinds: [BAG_KIND], authors: [who], limit: 4 }, who, { usual: usual(), mine: { kept }, query, publish, timeoutMs: 4000, now }).catch(() => null);
+    // A newer bag from a slower relay, after this look has shown what came first: taken, kept and drawn.
+    const onNewer = (later: { events: NostrEvent[] }) => {
+      const newer = newestBag(later.events.filter((e) => verifyEvent(e)), who);
+      if (!newer || !known || known.who !== who || (known.bag && newer.created_at <= known.bag.created_at)) return;
+      keep(newer);
+      known = { ...known, bag: newer, answered: true };
+      changed();
+    };
+    const got = await askOwn({ kinds: [BAG_KIND], authors: [who], limit: 4 }, who, { usual: usual(), mine: { kept }, query, publish, timeoutMs: 4000, now, onNewer }).catch(() => null);
     const answered = !!got && got.state !== "unreached";
     const own = got?.own ?? [];
     const found = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who);
