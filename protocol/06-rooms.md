@@ -107,6 +107,12 @@ A member counts as present when that channel opens. One who has been silent
 for 8 seconds is treated as gone; a connection that hasn't opened after 25
 seconds is abandoned.
 
+**A relay for connections (TURN)** may be given beside STUN, for two members
+whose computers can't reach each other directly. Its credentials are short
+lived and handed out by a server the world trusts, never written into a page.
+The talk and pictures that go through it are encrypted as WebRTC always is,
+and it keeps nothing. The kit asks for them where it is told to (`iceFrom`).
+
 **A first try that doesn't open is made again once, afresh.** The one who
 offers sends a new `offer` (new candidates, new paths) when a first try
 hasn't opened after 15 seconds or has failed; the other answers it as any

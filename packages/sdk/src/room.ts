@@ -98,6 +98,13 @@ export interface JoinOptions {
   maxMembers?: number;
   iceServers?: RTCIceServer[];
   /**
+   * Where to ask for TURN servers (a relay for connections, for two people who can't reach each other directly):
+   * an address that answers `{ iceServers, ttl }`, as bitblocks-ice does (services/ice/). Asked once as the room is
+   * joined, waited for at most 3 seconds, and asked again before what it gave runs out. Default `ICE_FROM`; null asks
+   * nowhere. Where it doesn't answer, the room has STUN alone, as before.
+   */
+  iceFrom?: string | null;
+  /**
    * Your look, in its inline form (spec §4.2), to be drawn as by the others.
    * It is sent to each member directly, once connected, never to a relay.
    * Left out, you are drawn as your session key generates: new every visit.
@@ -238,6 +245,37 @@ const PLAY_WORD = /^(shot|hit|did|st|tint):/;
 const PLAY_SAID = { burst: 40, perSecond: 30 } as const;
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+/**
+ * The kit's own place to ask for TURN servers (`JoinOptions.iceFrom`): none yet. It is to be the owner's bitblocks-ice
+ * once he has deployed it; until then rooms have STUN alone.
+ */
+export const ICE_FROM: string | null = null;
+/** How long a room waits for its TURN servers as it is joined, in milliseconds, before going on with STUN alone. */
+const ICE_FROM_WAIT_MS = 3000;
+
+/**
+ * Ask `url` for ICE servers: `{ iceServers, ttl }`. Only well-formed STUN and TURN entries are taken; a TURN entry
+ * needs its username and credential. Null where nothing usable came back in time.
+ */
+async function askIce(url: string): Promise<{ servers: RTCIceServer[]; ttl: number } | null> {
+  try {
+    const res = await fetch(url, { credentials: "omit", cache: "no-store", signal: AbortSignal.timeout(ICE_FROM_WAIT_MS) });
+    if (!res.ok) return null;
+    const got = (await res.json()) as { iceServers?: unknown; ttl?: unknown };
+    if (!Array.isArray(got.iceServers) || typeof got.ttl !== "number" || !(got.ttl >= 60)) return null;
+    const servers: RTCIceServer[] = [];
+    for (const s of got.iceServers.slice(0, 8) as { urls?: unknown; username?: unknown; credential?: unknown }[]) {
+      const urls = (Array.isArray(s?.urls) ? s.urls : []).filter((u): u is string => typeof u === "string" && u.length < 200 && /^(stun|turns?):[^\s]+$/.test(u)).slice(0, 8);
+      if (!urls.length) continue;
+      const turn = urls.some((u) => u.startsWith("turn"));
+      if (turn && (typeof s.username !== "string" || typeof s.credential !== "string")) continue;
+      servers.push(turn ? { urls, username: s.username as string, credential: s.credential as string } : { urls });
+    }
+    return servers.length ? { servers, ttl: Math.min(got.ttl, 86_400) } : null;
+  } catch {
+    return null;
+  }
+}
 const HELLO_EVERY_MS = 20_000;
 /** How long one "I am recording" keeps the light on. It is repeated every two seconds. */
 const RECORDING_HOLD_MS = 6000;
@@ -327,7 +365,10 @@ export class RoomSession {
   private readonly announced = new Set<string>();
   private readonly waiting = new Map<string, { kind: "audio" | "music" | "video"; stream: MediaStream }[]>();
   private readonly maxMembers: number;
-  private readonly iceServers: RTCIceServer[];
+  private iceServers: RTCIceServer[];
+  /** Where TURN servers are asked for (`JoinOptions.iceFrom`), or null. */
+  private readonly iceFrom: string | null;
+  private iceTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly sockets = new Map<string, WebSocket>();
   private readonly peers = new Map<string, Peer>();
   private readonly seen = new Set<string>();
@@ -440,6 +481,7 @@ export class RoomSession {
     this.relays = opts.relays ?? [...ROOM_RELAYS];
     this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
     this.iceServers = opts.iceServers ?? DEFAULT_ICE;
+    this.iceFrom = opts.iceFrom === undefined ? ICE_FROM : opts.iceFrom;
     for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
     for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
     this.invited = opts.invited ? new Set([...opts.invited].filter((k) => /^[0-9a-f]{64}$/.test(k))) : null;
@@ -1324,6 +1366,33 @@ export class RoomSession {
     this.emit("status", this.status);
   }
 
+  /**
+   * Ask for TURN servers (`iceFrom`), and use them beside the room's own STUN: for connections made from now on, and,
+   * when they are asked for again before they run out, for those already made (`setConfiguration`). Where none come,
+   * what the room had is kept, and nothing more is asked. Asked again at four fifths of what they are good for.
+   *
+   * @internal Called by `room.join`; not for a world.
+   */
+  async askForIce(): Promise<void> {
+    if (!this.iceFrom || this.closed) return;
+    const got = await askIce(this.iceFrom);
+    if (this.closed) return;
+    if (got) {
+      const own = this.iceServers.filter((s) => !s.username);
+      const stun = own.length ? own : DEFAULT_ICE;
+      this.iceServers = [...stun, ...got.servers.filter((s) => s.username)];
+      for (const peer of this.peers.values()) {
+        try {
+          peer.pc.setConfiguration({ iceServers: this.iceServers });
+        } catch {
+          /* a connection that won't take it keeps what it had */
+        }
+      }
+    }
+    clearTimeout(this.iceTimer);
+    if (got) this.iceTimer = setTimeout(() => void this.askForIce(), got.ttl * 800);
+  }
+
   private sweep(): void {
     const now = Date.now();
     for (const [pubkey, peer] of this.peers) {
@@ -1395,6 +1464,7 @@ export class RoomSession {
       }
     }
     this.closed = true;
+    clearTimeout(this.iceTimer);
     clearInterval(this.screenTimer);
     clearInterval(this.watchTimer);
     clearInterval(this.tuneTimer);
@@ -1422,6 +1492,8 @@ export const room = {
   async join(opts: JoinOptions = {}): Promise<RoomSession> {
     if (typeof RTCPeerConnection === "undefined") throw new Error("nswp-sdk: this browser has no WebRTC support");
     const session = new RoomSession(opts);
+    // Its TURN servers first, waited for at most 3 seconds: a connection made before them would have STUN alone.
+    await session.askForIce();
     session.start();
     return session;
   },
