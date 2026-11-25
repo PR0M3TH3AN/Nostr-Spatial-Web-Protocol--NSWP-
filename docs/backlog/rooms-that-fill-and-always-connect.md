@@ -65,6 +65,49 @@ three; they overlapped on one relay only.
   few hours (`iceFrom`); a spending alert. A new host resource: his word
   before any of it is made.
 
+## TURN, the setup plan (the owner, 2026-11-25: "Yes, plan it")
+
+From Cloudflare's docs (realtime/turn/generate-credentials and its FAQ):
+a TURN key is a long-term secret, a key id and an API token, kept on a
+server; the server asks
+`POST https://rtc.live.cloudflare.com/v1/turn/keys/<key id>/credentials/generate-ice-servers`
+(`Authorization: Bearer <API token>`, body `{"ttl": seconds}`, at most 48
+hours) and gets back `{ iceServers: [...] }` to hand to the page as it is.
+Credentials can be revoked by username. No spending cap or alert was found
+in those pages.
+
+**Built by the NSWP builder, before anything is made at Cloudflare:**
+
+1. **`services/ice/`**, a small Cloudflare Worker in this repository:
+   `GET /` answers `{ iceServers, ttl }` for a page on a bitblocks.network
+   address (its `Origin` checked; anything else refused), asking
+   Cloudflare with the key it holds as two secrets, `TURN_KEY_ID` and
+   `TURN_KEY_API_TOKEN`. Credentials last 6 hours; the kit asks again
+   before they run out (`setConfiguration`). Port-53 addresses left out.
+2. **Its own limits, since Cloudflare has no cap:** a few asks a minute
+   from one address; a daily count of credentials, past which it answers
+   STUN only (rooms carry on as today) and says so in its log. The count
+   is its config, the owner's to set.
+3. **The kit:** `iceFrom` asked at join, at most once per room per visit;
+   if it doesn't answer in 3 seconds, STUN only. Tests against a stand-in
+   Worker only.
+
+**Then the owner, in this order, each on his own word:**
+
+4. In the Cloudflare dashboard (Realtime, TURN), make a TURN key named
+   `bitblocks-rooms`. Its id and token are typed by him alone, into the
+   Worker's secrets (`npx wrangler secret put TURN_KEY_ID`, then
+   `TURN_KEY_API_TOKEN`, in `services/ice/`), never in a chat, a file or
+   a commit.
+5. His word to deploy the Worker (at first on its workers.dev address;
+   a bitblocks.network address needs a DNS record, his too).
+6. One trial with two visitors whose direct way is blocked, through the
+   real TURN: a few megabytes, inside the free 1,000 GB; his word for it.
+7. The kit's default `iceFrom` set to the Worker in the next kit version,
+   deployed on his word as every version is.
+8. Afterwards: the orchestrator reads the TURN usage in Cloudflare's
+   analytics weekly and tells him the gigabytes used.
+
 ## Must not
 
 - Send a room's talk or video anywhere but the relay chosen, encrypted as
