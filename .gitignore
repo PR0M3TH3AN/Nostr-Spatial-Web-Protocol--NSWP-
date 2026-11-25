@@ -4,6 +4,5 @@ dist/
 *.nsec
 .env*
 
-# The hands page's own files, made by scripts/quest-hands.mjs: its bundle, and the art repository's models.
+# The hands page's script, made by scripts/quest-hands.mjs.
 trials/pages/quest-hands/*.js
-trials/pages/quest-hands/models/

@@ -8,7 +8,7 @@
 // on. And it writes down, a line each, what the headset reports: each input's profile ids (meta-quest-touch-plus or
 // a v2?) and whether hands and controllers are tracked at once.
 //
-// Fetches nothing but its own files and the four models beside it (copied there by scripts/quest-hands.mjs). Sends
+// Fetches nothing but its own files and the kit's four models, which every world serves at /hands/kit/. Sends
 // nothing and keeps nothing. With ?emulate, a made-up Quest (iwer) stands in for a real one, for trials/quest-hands.mjs.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -86,7 +86,7 @@ const load = (u: string) => new Promise<{ scene: THREE.Group; animations: THREE.
 const models: Partial<Record<Side, Model>> = {};
 
 async function makeSide(side: Side): Promise<void> {
-  const [ctl, hand] = await Promise.all([load(`models/controller-${side}.glb`), load(`models/hand-${side}.glb`)]);
+  const [ctl, hand] = await Promise.all([load(`/hands/kit/controller-${side}.glb`), load(`/hands/kit/hand-${side}.glb`)]);
   const group = new THREE.Group();
   group.name = `held-${side}`;
   group.add(ctl.scene, hand.scene);
@@ -305,7 +305,7 @@ async function start() {
     const clips = models.right?.clips.join(", ") ?? "";
     say(`models: both sides loaded; clips [${clips}]`);
   } catch (err) {
-    say(`models: couldn't be loaded (${err instanceof Error ? err.message : String(err)}). Run scripts/quest-hands.mjs on the laptop first.`);
+    say(`models: couldn't be loaded (${err instanceof Error ? err.message : String(err)}). Build the sites first: npm run build.`);
     return;
   }
   const xr = navigator.xr;
