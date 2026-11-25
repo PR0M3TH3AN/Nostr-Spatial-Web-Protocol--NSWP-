@@ -152,7 +152,7 @@ export function createScores(opts: ScoresOptions): Scores {
       const b = boardOf(id);
       const who = opts.hand.pubkey();
       if (!world || !b) return { ok: false, said: "This world has no such board." };
-      if (!who) return { ok: false, said: "Sign in here to post a score: it is under You." };
+      if (!who) return { ok: false, said: "Sign in to post a score." };
       const mine = best(id);
       if (mine === null) return { ok: false, said: "You have no score here yet." };
       const kept = of(who);
