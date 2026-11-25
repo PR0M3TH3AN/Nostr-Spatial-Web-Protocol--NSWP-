@@ -6294,12 +6294,7 @@ var NSWP = (() => {
     /** Handshake messages older or newer than this are ignored. */
     signalMaxAgeSec: 60,
     maxSdpChars: 2e4,
-    maxNameChars: 48,
-    /**
-     * How many lobbies a world's default room may run to: "lobby", "lobby-2", … "lobby-32". A newcomer told a lobby
-     * is full goes on to the next (protocol/06-rooms.md, "Lobbies that fill"). With 8 to a lobby, 256 people.
-     */
-    lobbies: 32
+    maxNameChars: 48
   };
   function roomTopic(worldUrl, roomName) {
     const u = new URL(worldUrl);
@@ -6334,7 +6329,6 @@ ${roomName}`)));
         return o.v === 1;
       case "welcome":
       case "bye":
-      case "full":
         return true;
       case "offer":
       case "answer":
