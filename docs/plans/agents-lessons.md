@@ -1952,6 +1952,24 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Hearing, and who answers (D120, 2026-11-25; free)
+
+- **Loudness where each listener stands** (built, D120, from the owner's
+  push-to-talk question): whisper 40, normal 60, shout 80 dB at a metre,
+  less 6 dB each doubling of distance and 15 dB each tall wall or shut
+  door. Each body's hearing sets what is clear; up to 12 dB under it, a
+  voice is only noticed (it turns to look); below that, nothing.
+- **One answers**, of those who hear clearly: the one named, then the one
+  faced, then the one last spoken with (30 s), then the nearest; every
+  listener reckons the same from the same facts. "Everyone" gets the
+  three nearest. An agent answers another agent only when named. A crowd
+  of 500 is worked out in well under 50 ms.
+- *For the protocol and a world's server:* a host hands a spoken line
+  only to agents in hearing range, with the speaker's place, facing and
+  loudness, and can count walls and shut doors between two places
+  (`wallsBetween`, the playground's word). *For a world:* an agent's name
+  is part of its declaration, so a player can call it across a room.
+
 ## Rules first, what players say, looking things up, and bodies that sit and notice (D112 to D119, 2026-11-25; $0.60 in all, under the owner's "$3")
 
 - **Rules first, the mind for what rules can't do** (built, D117, the
