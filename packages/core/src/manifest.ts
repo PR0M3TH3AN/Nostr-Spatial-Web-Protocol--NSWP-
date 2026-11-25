@@ -305,13 +305,13 @@ export function doorFor(manifest: Manifest, url: string): { naddr?: string; url:
  * keys that may sell it (its publishers). A world its manifest names no listing for is free: `listings` is empty.
  * Null where the manifest lists no world at that address at all, so nothing can be said of it.
  */
-export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean; byInvitation: boolean; guests: boolean } | null {
+export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean; byInvitation: boolean; takesGuests: boolean } | null {
   const here = normalizeUrl(url);
   const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id]!.entry.url) === here);
   if (d === undefined) return null;
   const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
   const w = manifest.worlds[d]!;
-  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, guests: w.guests !== false };
+  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, takesGuests: w.guests !== false };
 }
 
 export interface FetchManifestResult {

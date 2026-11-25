@@ -166,10 +166,10 @@ describe("access: what a paid world says it is entered by", () => {
 
   it("a manifest names them too, each sold by a key it lets announce that world", () => {
     const r = parseManifest(manifest([A, B]));
-    expect(r.ok && accessFor(r.value, "https://world.example/")).toEqual({ d: "a-world", listings: [A, B], sellers: [SELLER], keepers: null, namedOnly: false, byInvitation: false, guests: true });
+    expect(r.ok && accessFor(r.value, "https://world.example/")).toEqual({ d: "a-world", listings: [A, B], sellers: [SELLER], keepers: null, namedOnly: false, byInvitation: false, takesGuests: true });
     expect(r.warnings).toEqual([]);
     const free = parseManifest(manifest(undefined));
-    expect(free.ok && accessFor(free.value, "https://world.example/")).toEqual({ d: "a-world", listings: [], sellers: [SELLER], keepers: null, namedOnly: false, byInvitation: false, guests: true });
+    expect(free.ok && accessFor(free.value, "https://world.example/")).toEqual({ d: "a-world", listings: [], sellers: [SELLER], keepers: null, namedOnly: false, byInvitation: false, takesGuests: true });
     expect(free.warnings).toEqual([]);
     // An address the file lists no world at: nothing can be said of it.
     expect(r.ok && accessFor(r.value, "https://world.example/other")).toBeNull();

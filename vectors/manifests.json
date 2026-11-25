@@ -1,5 +1,5 @@
 {
-  "description": "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail. Where a manifest vector gives `guests`, it is whether guest accounts may come in, as `accessFor` gives it.",
+  "description": "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail. Where a manifest vector gives `takesGuests`, it is whether guest accounts may come in, as `accessFor` gives it (from the manifest's `\"guests\": false`).",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -685,7 +685,7 @@
           "namedOnly": false,
           "byInvitation": false
         },
-        "guests": false
+        "takesGuests": false
       }
     },
     {
@@ -724,7 +724,7 @@
           "namedOnly": false,
           "byInvitation": false
         },
-        "guests": true
+        "takesGuests": true
       }
     },
     {

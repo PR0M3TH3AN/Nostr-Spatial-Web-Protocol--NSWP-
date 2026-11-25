@@ -5037,7 +5037,7 @@ var NSWP = (() => {
       return null;
     const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
     const w = manifest.worlds[d];
-    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, guests: w.guests !== false };
+    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, takesGuests: w.guests !== false };
   }
 
   // packages/core/dist/layout.js
@@ -9683,7 +9683,7 @@ postMessage({ t: "started" });
       retries = 0;
       worldName = access.d;
       namedOnly = access.namedOnly;
-      takesGuests = access.guests;
+      takesGuests = access.takesGuests;
       listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
       const named2 = file?.worlds?.[access.d]?.access;
       const meant = opts.listings ? opts.listings.length > 0 : Array.isArray(named2) ? named2.length > 0 : named2 !== void 0;
@@ -10695,8 +10695,8 @@ postMessage({ t: "started" });
       __publicField(this, "turnedAway", /* @__PURE__ */ new Set());
       /** Whether this room shows only people whose pass checks out: so where it is by invitation, too. */
       __publicField(this, "namedOnly");
-      /** Whether guest accounts may be in this room (`JoinOptions.guests`). */
-      __publicField(this, "guests");
+      /** Whether guest accounts may be in this room (`JoinOptions.takesGuests`). */
+      __publicField(this, "takesGuests");
       /** Where the world is by invitation, who may be in its rooms; null where it isn't. */
       __publicField(this, "invited", null);
       /** In a room that shows only named people: the members shown, by session key, and what arrived for each before. */
@@ -10819,7 +10819,7 @@ postMessage({ t: "started" });
       for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
       this.invited = opts.invited ? new Set([...opts.invited].filter((k) => /^[0-9a-f]{64}$/.test(k))) : null;
       this.namedOnly = opts.namedOnly === true || this.invited !== null;
-      this.guests = opts.guests !== false;
+      this.takesGuests = opts.takesGuests !== false;
     }
     /** Who may be in this world's rooms, as its gate last read the owner's allow list. Anyone here not on it is let go at once. */
     setInvited(keys) {
@@ -11168,7 +11168,7 @@ postMessage({ t: "started" });
         return;
       }
       if (this.ownerBlocked.has(checked.value.pubkey) || this.invited && !this.invited.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
-      if (checked.value.guest && !this.guests) return this.turnAway(peer.member.pubkey);
+      if (checked.value.guest && !this.takesGuests) return this.turnAway(peer.member.pubkey);
       peer.passUntil = checked.value.expiresAt;
       Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || (checked.value.guest ? guestName(checked.value.pubkey) : shortNpub(checked.value.pubkey)) });
       if (checked.value.guest) peer.member.guestAccount = true;
@@ -52187,7 +52187,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var pageGate = null;
   var rulesWatchers = /* @__PURE__ */ new Set();
   function pageRules() {
-    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited, guests: pageGate.takesGuests } : { blocked: [], namedOnly: false, invited: null, guests: true };
+    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited, takesGuests: pageGate.takesGuests } : { blocked: [], namedOnly: false, invited: null, takesGuests: true };
   }
   function onPageRules(fn) {
     rulesWatchers.add(fn);
@@ -53167,9 +53167,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
       if (identity && invitedOnly && !invitedOnly.includes(identity.pass.pubkey)) throw new Error("this world is by invitation, and its owner hasn't invited you.");
       const asGuest = !!identity && identity.pass.tags.some((t) => t[0] === "nswp:guest" && t[1] === "1");
-      if (asGuest && rules.guests === false) throw new Error("this world doesn't take guests. Secure your account to come in.");
+      if (asGuest && rules.takesGuests === false) throw new Error("this world doesn't take guests. Secure your account to come in.");
       const avatar = identity ? await (typeof d.avatar === "function" ? d.avatar() : d.avatar !== void 0 ? d.avatar : drawsModels() ? ownLookNote() : null) : null;
-      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, ...avatar ? { avatar } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly, ...rules.guests === false ? { guests: false } : {} });
+      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, ...avatar ? { avatar } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly, ...rules.takesGuests === false ? { takesGuests: false } : {} });
       session2 = s;
       if (!offsetApplied) {
         offsetApplied = true;

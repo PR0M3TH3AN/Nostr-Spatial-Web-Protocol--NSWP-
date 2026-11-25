@@ -80,7 +80,7 @@ describe("guestName", () => {
 
 describe("a world that takes no guests", () => {
   it("lets a guest account go from its rooms, and keeps an account", () => {
-    const s = new RoomSession({ world: WORLD, relays: [], guests: false });
+    const s = new RoomSession({ world: WORLD, relays: [], takesGuests: false });
     const inside = s as unknown as { createPeer(pubkey: string): { member: import("../src/room.js").Member }; wirePoseChannel(peer: unknown, ch: unknown): void; checkPass(peer: unknown, text: string): void; turnedAway: Set<string> };
     const arrive = (n: number, extra: string[][]) => {
       const session = getPublicKey(key(200 + n));

@@ -5,10 +5,10 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 ## Next
 
 - **A world may take no guests: `"guests": false`** (core `manifest.ts`; SDK `front-room.ts`, `ui/identity.ts`, `presence.ts`, `room.ts`; `protocol/01-worlds.md`, `protocol/06-rooms.md`; `vectors/manifests.json`; the engine script). The owner, 2026-11-25, of BitLogin's guest accounts: "a world may refuse guests". Part 3 of the kit's half; names given 2026-11-25.
-  - **In a world's own entry of its announcement,** `"guests": false`: only exactly `false` is kept, and anything else is ignored with a warning. Left out, guests may come in. `accessFor` gives `guests`.
-  - **Its rooms let a guest account go** (`JoinOptions.guests: false`): someone whose pass says `nswp:guest` is turned away once it checks out, as someone not invited is.
+  - **In a world's own entry of its announcement,** `"guests": false`: only exactly `false` is kept, and anything else is ignored with a warning. Left out, guests may come in. `accessFor` gives `takesGuests`.
+  - **Its rooms let a guest account go** (`JoinOptions.takesGuests: false`): someone whose pass says `nswp:guest` is turned away once it checks out, as someone not invited is.
   - **A guest pressing Join there is told,** and not joined: "Couldn't join: this world doesn't take guests. Secure your account to come in."
-  - **The world gate says so as `takesGuests`.** Its `guests` was already the invitation list.
+  - **One word for it in the kit, `takesGuests`:** on the world gate (whose `guests` is the invitation list), from `accessFor`, and on `JoinOptions` (absent or true, guests come in). The announcement's own word stays `"guests": false`.
   - `named_only` is unchanged: a guest's pass checks out. A world that wants secured accounts only says `"guests": false`.
   - The visitor's client still asks for the family's guest everywhere: the guest is the family's, made once, and refusing it in one world makes nobody else.
   - **Tried:**

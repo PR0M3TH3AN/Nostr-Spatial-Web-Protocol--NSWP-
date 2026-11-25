@@ -569,7 +569,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     retries = 0;
     worldName = access.d;
     namedOnly = access.namedOnly;
-    takesGuests = access.guests;
+    takesGuests = access.takesGuests;
     listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
     // Whether it meant to be paid: it named something, here or in its own file, whether or not that held up.
     const named = (file as { worlds?: Record<string, { access?: unknown }> } | null)?.worlds?.[access.d]?.access;
