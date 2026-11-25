@@ -1853,6 +1853,105 @@ for the session and stopped after.
   companion (goes between worlds with its owner). See
   `docs/backlog/ai-keys-and-agents.md`.
 
+## The owner plays a cast member, and two things he asked for while playing (D101 to D103, 2026-11-24 and 25)
+
+He played the cast member in the trial world on his "Yes, build and run"
+(quoted about $0.11, at most $0.15): Haiku talking, ElevenLabs speaking
+through the trial's key server (widened to pass speech, with its own cap,
+on his word), JEV choosing steps. A standing rule from him the same
+night: "lets make all our decisions in a way that thinkgs about an agent
+at scale in large worlds with other live players and agents around. NPCs
+and other things going on".
+
+- **A chat model told what its body can't do will say so; told nothing,
+  it says the wrong thing** (shown, paid: D101): before the body's
+  abilities were put in its instructions, Haiku told the player it
+  couldn't switch on the lamp while its body did.
+- **What a world knows can be a tree, and what reaches the mind is found
+  cheapest first** (built, free: D102). Asked about the weather, the
+  cast member rightly didn't know; the owner: "So games will need to
+  describe everything... thousands of possable things to talk about. So
+  that tree idea comes back to mind." A world declares a tree of what it
+  knows, checked like its other declarations; words are looked up by
+  code first, then JEV picks one level of branches at a time, then a
+  look (a cheap text view, then a picture read by a model that sees,
+  slow and costly, last), then "I don't know". Not yet in the trial
+  world; its measurement not yet quoted. *For a world:* a knowledge tree
+  with live parts the world updates (the weather, who is here).
+- **Idle routines are data a world and a cast member's owner set, run by
+  plain code** (built, free: D103), in the owner's words "default idle
+  animations and routines... If they dont have a routine then they
+  should have a spot or a few spots they like to hang out at... set by
+  the worlds/the owner that created the cast member". A routine is a
+  loop or timed stops; without one, weighted favourite spots; while
+  waiting, small acts the world draws (look round, glance at the player,
+  sit, lean). It starts after 20 s with no order and stops at once when
+  one comes, staggered between agents, with no model. *For the kit:* a
+  figure's own poses could answer those acts; design by names given.
+
+## What his play found: a mind that promised, and a wave nobody drew (D104 and D105, 2026-11-25; free)
+
+His run in all: 49 of 80 requests and 2,204 of 3,000 speech characters,
+inside the quote. Then: "ok im done and going to bed so do whatever you
+want to do with the browser game".
+
+- **A refused task must reach the mind before it speaks** (shown, free:
+  D104). From his "it says it will but it will not" on "follow me": the
+  chat model's task was right ("Follow [player]."), but the task check
+  refused any task naming only the player, so follow, come and wave never
+  reached the body while the mind promised them. Now the task runs first,
+  and the mind is told what its body is really doing before it talks.
+  *For the protocol:* the mind speaks after the body has answered.
+- **A world draws an agent's gestures where its figure has none** (shown,
+  free: D105). From his "waving didnt work": the wave ran, but the kit's
+  figure has hands and no arms, so nothing drew it. The agent now asks
+  its world to draw a wave, and the trial page raises the figure's hand.
+  *For the kit:* a wave or a few named poses on the figure would let
+  every world draw an agent's acts the same way; design by names given.
+- **Idle spots and the knowledge tree are in the trial world** (shown,
+  free: D105): left alone it stood at the table, then walked to the
+  bench; the mind looks things up in the world's tree before it talks.
+  Not yet seen with the paid mind.
+
+## Overnight, free: a refusal before acting, one cast turn for every world, the tree measured (D106, 2026-11-25)
+
+- **An agent refuses an impossible placement before it takes anything**
+  (shown, free: D106): "put the red box on the bench" is refused with the
+  box left with the visitor, because walking to a thing now says whether
+  it holds things. *For a world:* say whether each thing holds others.
+- **One cast turn, shared by any world** (built, free: D106): the task
+  first, to the body; then what the world knows, looked up; then the
+  mind, told the body's abilities, what is here, what its body is doing
+  or why it can't, and the recent talk. Asides in single asterisks are no
+  longer spoken. *For the protocol:* the shape a kit that hosts cast
+  members would name; no name is given now.
+- **A world's knowledge tree answers most questions by words alone**
+  (shown, free: D106): 19 of 20 right, none wrong, none invented where the
+  world says nothing. The miss ("should I bring an umbrella?") shares no
+  word with the weather, which is what JEV's branches are for. The same
+  hand wrote the tree and the questions.
+
+## 917 orders for the NPC tier, and big places for the cast member (D107 and D108, 2026-11-25; free)
+
+- **Orders written from each world's own declarations find faults a
+  hand-picked set doesn't** (shown, free: D107): 917 orders across seven
+  worlds, plainly and as people put them. The first run got 287 of the
+  451 put as people put them. Six general faults mended ("grab it for
+  me" kept the thing; "can I have" refused; "set it down on" put it on
+  the floor; "don't switch on" switched it on; a "can" that asks matched
+  a watering can; a 40-thing cap in the world check). Now 917 of 917, held
+  in the gate.
+- **A model told about a big place gets a cut list, not the room**
+  (shown, free: D108): at most 40 things, what the words name first, then
+  the nearest, the visitor always. *For the kit and the protocol:* a rule
+  for any host handing a world's state to a model; it matters at scale.
+- **Give each thing at least one word that is its alone** (shown, free:
+  D108): "switch on the left lamp, then bring the cube" did the lamp
+  only, because a kind rule set the cube aside; a word that is one
+  thing's own is how a joined order finds it. *For a world and items.*
+- A world may now declare up to 500 things and 500 walls (a guard, not a
+  size); larger worlds come in areas.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
