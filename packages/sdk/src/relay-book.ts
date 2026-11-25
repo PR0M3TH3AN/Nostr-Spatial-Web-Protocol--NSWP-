@@ -294,7 +294,7 @@ export async function relaysOf(who: string, o: { usual: string[]; mine?: boolean
  *   not found is never kept: it is asked for again next time.
  * - `mine`, the visitor's own note on their own device: where nothing was found, the rest of their listed relays
  *   (up to `RELAY_PICK.listed`) are asked in waves of `RELAY_PICK.wave`, each waited for `RELAY_PICK.waveMs`; then
- *   each relay that ran out of time is asked once more, waited for `RELAY_PICK.lateMs`. `onWave` is told as each wave
+ *   each relay that ran out of time is asked once more, waited for `RELAY_PICK.lateMs`. `onWave` is told as each wave begins (its number, and how many of their own relays are asked with it, of how many)
  *   begins. Their newest note, found or `mine.kept` on the device, is put back where it is missing (`RELAY_PICK.mend`).
  *   Anyone else's note gets the first look and no more: no waves, nothing put back.
  * - "none" only once every relay there was to ask was asked, and at least half of those asked answered to the end,
@@ -306,7 +306,7 @@ export async function relaysOf(who: string, o: { usual: string[]; mine?: boolean
 export async function askOwn(
   filter: Filter,
   who: string,
-  o: { usual: string[]; mine?: { kept?: NostrEvent | null } | false; query?: typeof queryRelays; publish?: typeof publishEvent; timeoutMs?: number; now?: () => number; onWave?: (wave: number) => void; onNewer?: (got: AskedOwn) => void },
+  o: { usual: string[]; mine?: { kept?: NostrEvent | null } | false; query?: typeof queryRelays; publish?: typeof publishEvent; timeoutMs?: number; now?: () => number; onWave?: (wave: number, asked: number, of: number) => void; onNewer?: (got: AskedOwn) => void },
 ): Promise<AskedOwn> {
   const query = o.query ?? queryRelays;
   const now = o.now ?? (() => Date.now());
@@ -334,14 +334,17 @@ export async function askOwn(
   if (mine && events.size === 0) {
     // The rest of their relays, in waves, best first.
     const rest = openOf(own, "read", now()).filter((u) => !asked.has(u));
+    // How many of their own relays are asked, with this wave, of how many: for a line that says what is going on.
+    const askedOfOwn = () => own.filter((u) => asked.has(u)).length;
     for (let i = 0, wave = 1; i < rest.length && events.size === 0; i += RELAY_PICK.wave, wave++) {
-      o.onWave?.(wave);
-      await ask(rest.slice(i, i + RELAY_PICK.wave), RELAY_PICK.waveMs);
+      const batch = rest.slice(i, i + RELAY_PICK.wave);
+      o.onWave?.(wave, askedOfOwn() + batch.length, own.length);
+      await ask(batch, RELAY_PICK.waveMs);
     }
     // Then once more, waited for longer, each that ran out of time.
     const late = [...asked.entries()].filter(([, a]) => a.said === "timeout").map(([url]) => url);
     for (let i = 0, wave = 1; i < late.length && events.size === 0; i += RELAY_PICK.wave, wave++) {
-      o.onWave?.(wave);
+      o.onWave?.(wave, askedOfOwn(), own.length);
       await askFirst(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, RELAY_PICK.graceMs, query, now, asked, events, pending);
     }
   }

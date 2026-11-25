@@ -339,3 +339,41 @@ describe("a newer note from a slower relay", () => {
     expect(n.sent.some((s) => s.id === newer.id)).toBe(true);
   });
 });
+
+describe("a look that goes on in waves", () => {
+  const timedNet = (relays: Record<string, Relay>) => {
+    const n = net(relays);
+    const answer = n.query;
+    n.query = (urls: string[], filter: Filter, ms = 4000) =>
+      new Promise((done) => {
+        const r = relays[urls[0]!];
+        const ranOut = !r || !!r.down || (r.late ?? 0) > ms;
+        setTimeout(() => void answer(urls, filter, ranOut ? -1 : ms).then(done), ranOut ? ms : (r.late ?? 0));
+      });
+    return n;
+  };
+  beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] }));
+  afterEach(() => vi.useRealTimers());
+
+  it("says how far it has looked while it goes, and stops saying so once it is done", async () => {
+    const mine = own(23);
+    const bag = bagNote([LANTERN]);
+    // Half of their relays never answer; the bag is on the twentieth.
+    const over: Record<string, Partial<Relay>> = { [USUAL[0]!]: { kept: [listNote(mine)] }, [mine[19]!]: { kept: [bag] } };
+    for (let i = 0; i < 23; i += 2) if (i !== 19) over[mine[i]!] = { kept: [], down: true };
+    const n = timedNet(all([...USUAL, ...mine], over));
+    const b = createBag({ me: () => me, relays: USUAL, storage: memory(), now: () => Date.now(), query: n.query, publish: n.publish });
+    const seen: { asked: number; of: number }[] = [];
+    b.onChange(() => {
+      const far = b.looking();
+      if (far) seen.push(far);
+    });
+    void b.load();
+    for (let i = 0; i < 600 && !b.items(); i++) await vi.advanceTimersByTimeAsync(50);
+    expect(b.items()).toEqual([LANTERN]);
+    expect(seen.length).toBeGreaterThan(1);
+    expect(seen.every((x) => x.of === 23)).toBe(true);
+    expect(seen.map((x) => x.asked)).toEqual([...seen.map((x) => x.asked)].sort((p, q) => p - q));
+    expect(b.looking()).toBeNull();
+  });
+});
