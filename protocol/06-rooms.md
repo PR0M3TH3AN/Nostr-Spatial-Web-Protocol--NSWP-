@@ -79,8 +79,9 @@ by name is one room, and never moves anyone on.
   leave.
 - **A full room says so, once.** When a room is full for a member and a
   joining `hello` (with `first`) comes from someone not in it, the member with
-  the lowest session key of those it is connected to answers `full`; the
-  others say nothing. In a full room that is one member.
+  the lowest session key of those it is connected to sends a `hello` of its
+  own and then answers `full`; the others say nothing. In a full room that is
+  one member.
 - **Who joined first stays.** Where that member is connected to someone whose
   joining `hello` was signed after the newcomer's (by `created_at`, then by
   the higher session key), less than 15 seconds ago, it tells that one `full`
@@ -89,6 +90,10 @@ by name is one room, and never moves anyone on.
 - **Told `full` in a lobby,** a member says `bye` to anyone it is connected to
   there and joins the next lobby on the same relays, with a joining `hello`.
   At the last lobby, or in a room by name, it stays.
+- **`full` is taken only while it may be:** within 15 seconds of joining that
+  lobby, and only from someone whose `hello` was heard there (one that comes
+  before their `hello` waits for it, within the same 15 seconds). Past that,
+  it is ignored, so nobody settled in a lobby can be sent on by anyone.
 
 ## The connection
 

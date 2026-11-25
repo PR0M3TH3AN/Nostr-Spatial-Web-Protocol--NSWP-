@@ -54,9 +54,13 @@ function room(o: { name?: string; others?: string[] } = {}) {
   for (const pubkey of o.others ?? []) inside.createPeer(pubkey).open = true;
   return { s, inside };
 }
-/** What this session said to `to`, read as `to` would read it. */
+/** What this session said to `to` alone (not its hellos to everyone), read as `to` would read it. */
 const saidTo = (topic: string, toKey: Uint8Array) =>
-  sent.filter((f) => f[0] === "EVENT").map((f) => openSignal(f[1], toKey, topic)).filter(Boolean).map((x) => x!.message.t);
+  sent
+    .filter((f) => f[0] === "EVENT" && (f[1] as { tags: string[][] }).tags.some((t) => t[0] === "p" && t[1] === getPublicKey(toKey)))
+    .map((f) => openSignal(f[1], toKey, topic))
+    .filter(Boolean)
+    .map((x) => x!.message.t);
 /** Keys that sort above any session key, so this visitor is the lowest of them. */
 const high = (n: number) => `${"f".repeat(60)}${n.toString(16).padStart(4, "0")}`;
 
@@ -75,6 +79,9 @@ describe("a full lobby", () => {
     sent = [];
     await r.inside.onEvent(buildHello(r.s.topic, joiner, now(), { first: true }));
     expect(saidTo(r.s.topic, joiner)).toEqual(["full"]);
+    // With a hello of its own first, so the newcomer has heard who told them.
+    const events = sent.filter((f) => f[0] === "EVENT").map((f) => f[1] as { content: string; tags: string[][] });
+    expect(events.map((e) => (e.tags.some((t) => t[0] === "p") ? "to one" : JSON.parse(e.content).t))).toEqual(["hello", "to one"]);
     // A hello that isn't a joining one (every 20 seconds) isn't answered.
     sent = [];
     await r.inside.onEvent(buildHello(r.s.topic, key(10), now() - 1));
@@ -114,6 +121,7 @@ describe("someone told a lobby is full", () => {
     const statuses: string[] = [];
     r.s.on("status", (st) => statuses.push(st));
     const member = key(20);
+    await r.inside.onEvent(buildHello(r.s.topic, member, now()));
     sent = [];
     await r.inside.onEvent(buildSignal(r.s.topic, member, getPublicKey(r.inside.key), { t: "full" }));
     expect(r.s.name).toBe("lobby-2");
@@ -130,13 +138,53 @@ describe("someone told a lobby is full", () => {
   });
 
   it("stays in a room by name, and at the last lobby", async () => {
+    const told = async (r: ReturnType<typeof room>, by: Uint8Array) => {
+      await r.inside.onEvent(buildHello(r.s.topic, by, now()));
+      await r.inside.onEvent(buildSignal(r.s.topic, by, getPublicKey(r.inside.key), { t: "full" }));
+    };
     const named = room({ name: "our-party" });
-    await named.inside.onEvent(buildSignal(named.s.topic, key(21), getPublicKey(named.inside.key), { t: "full" }));
+    await told(named, key(21));
     expect(named.s.name).toBe("our-party");
     const last = room({ name: "lobby" });
-    for (let n = 2; n <= 32; n++) await last.inside.onEvent(buildSignal(last.s.topic, key(100 + n), getPublicKey(last.inside.key), { t: "full" }));
+    for (let n = 2; n <= 32; n++) await told(last, key(100 + n));
     expect(last.s.name).toBe("lobby-32");
-    await last.inside.onEvent(buildSignal(last.s.topic, key(200), getPublicKey(last.inside.key), { t: "full" }));
+    await told(last, key(200));
     expect(last.s.name).toBe("lobby-32");
   });
 });
+
+describe("a full, taken only while it may be", () => {
+  it("is ignored by someone settled in a lobby, whoever sends it: a stranger or a member", async () => {
+    const r = room({ others: [high(1)] });
+    vi.setSystemTime(Date.now() + 16_000);
+    const member = key(30);
+    await r.inside.onEvent(buildHello(r.s.topic, member, now()));
+    await r.inside.onEvent(buildSignal(r.s.topic, member, getPublicKey(r.inside.key), { t: "full" }));
+    await r.inside.onEvent(buildSignal(r.s.topic, key(31), getPublicKey(r.inside.key), { t: "full" }));
+    expect(r.s.name).toBe("lobby");
+    expect(r.inside.peers.size).toBe(1);
+  });
+
+  it("is taken from someone not yet heard only once their hello comes, and only while it still may be", async () => {
+    const r = room();
+    const member = key(32);
+    await r.inside.onEvent(buildSignal(r.s.topic, member, getPublicKey(r.inside.key), { t: "full" }));
+    expect(r.s.name).toBe("lobby");
+    await r.inside.onEvent(buildHello(r.s.topic, member, now()));
+    expect(r.s.name).toBe("lobby-2");
+    // In the next lobby, a "full" whose sender's hello comes too late is not taken.
+    const other = key(33);
+    await r.inside.onEvent(buildSignal(r.s.topic, other, getPublicKey(r.inside.key), { t: "full" }));
+    vi.setSystemTime(Date.now() + 16_000);
+    await r.inside.onEvent(buildHello(r.s.topic, other, now()));
+    expect(r.s.name).toBe("lobby-2");
+  });
+
+  it("is never taken from a stranger never heard", async () => {
+    const r = room();
+    await r.inside.onEvent(buildSignal(r.s.topic, key(34), getPublicKey(r.inside.key), { t: "full" }));
+    vi.setSystemTime(Date.now() + 20_000);
+    expect(r.s.name).toBe("lobby");
+  });
+});
+

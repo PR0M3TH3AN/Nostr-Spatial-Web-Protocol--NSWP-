@@ -10615,6 +10615,7 @@ postMessage({ t: "started" });
   var RECORDING_HOLD_MS = 6e3;
   var CONNECT_TIMEOUT_MS = 25e3;
   var RETRY_AT_MS = 15e3;
+  var FULL_WINDOW_S = 15;
   var SILENT_TIMEOUT_MS = 8e3;
   var NAMED_WAIT_MS = 7e3;
   var GATHER_TIMEOUT_MS = 2500;
@@ -10695,6 +10696,10 @@ postMessage({ t: "started" });
       __publicField(this, "world");
       /** Which lobby this is, where it is the world's default room ("lobby" is 1); null for a room by name. */
       __publicField(this, "lobby", null);
+      /** Whose hello this visitor has heard in this lobby: a "full" is taken only from one of them. */
+      __publicField(this, "heardHello", /* @__PURE__ */ new Set());
+      /** Who said "full" before their hello was heard: taken if their hello comes while it still may be. */
+      __publicField(this, "fullBefore", /* @__PURE__ */ new Set());
       /** When each member's joining hello was signed, in seconds: who joined before whom, for a full lobby. */
       __publicField(this, "joinedAtOf", /* @__PURE__ */ new Map());
       /** This visitor's own pass, as it is said to the others, and when it stops. */
@@ -10922,6 +10927,11 @@ postMessage({ t: "started" });
         switch (message.t) {
           case "hello":
           case "welcome": {
+            if (message.t === "hello") {
+              if (this.heardHello.size > 500) this.heardHello.clear();
+              this.heardHello.add(from);
+              if (this.fullBefore.has(from) && this.mayMoveOn()) return this.moveOn(this.lobby + 1);
+            }
             if (existing) return;
             const at = raw.created_at;
             if (message.t === "hello" && message.first === true && typeof at === "number") {
@@ -10955,7 +10965,9 @@ postMessage({ t: "started" });
             this.drop(from, true);
             return;
           case "full":
-            if (this.lobby !== null && this.lobby < ROOM_LIMITS.lobbies) this.moveOn(this.lobby + 1);
+            if (!this.mayMoveOn()) return;
+            if (this.heardHello.has(from)) return this.moveOn(this.lobby + 1);
+            if (this.fullBefore.size < 50) this.fullBefore.add(from);
             return;
         }
       } catch (err) {
@@ -11478,6 +11490,10 @@ postMessage({ t: "started" });
      * Whether this visitor is the one who tells a newcomer that this full room is full: the member with the lowest
      * session key of those it is connected to, so a newcomer hears it once, not from everyone here.
      */
+    /** Whether a "full" may still send this visitor on: in a lobby before the last, and only just joined it. */
+    mayMoveOn() {
+      return this.lobby !== null && this.lobby < ROOM_LIMITS.lobbies && Math.floor(Date.now() / 1e3) - this.joinedAt <= FULL_WINDOW_S;
+    }
     answersForFull() {
       for (const p of this.peers.values()) if (p.open && p.member.pubkey < this.self.pubkey) return false;
       return true;
@@ -11493,10 +11509,11 @@ postMessage({ t: "started" });
       let last = null;
       for (const p of this.peers.values()) {
         const t = this.joinedAtOf.get(p.member.pubkey);
-        if (t === void 0 || now - t > 15 || !later(p.member.pubkey, t)) continue;
+        if (t === void 0 || now - t > FULL_WINDOW_S || !later(p.member.pubkey, t)) continue;
         if (!last || t > last.at || t === last.at && p.member.pubkey > last.pubkey) last = { pubkey: p.member.pubkey, at: t };
       }
       const go2 = last ? last.pubkey : from;
+      this.publish(buildHello(this.topic, this.key));
       this.publish(buildSignal(this.topic, this.key, go2, { t: "full" }));
       if (last) this.drop(last.pubkey, true);
     }
@@ -11517,6 +11534,8 @@ postMessage({ t: "started" });
       this.newer.clear();
       this.attempts.clear();
       this.joinedAtOf.clear();
+      this.heardHello.clear();
+      this.fullBefore.clear();
       this.lobby = n;
       this.name = name;
       this.topic = roomTopic(this.world, name);
