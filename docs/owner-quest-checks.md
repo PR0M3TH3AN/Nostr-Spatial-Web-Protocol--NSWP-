@@ -136,8 +136,10 @@ whether the icons on the doors, or anything else, are too small to read.
 ## 7. BitBrowser's first build (not a check: a set-up, in its own session)
 
 The first BitBrowser build for the Quest is ready to install. It needs the
-Quest in developer mode, a USB cable to this laptop, and the debugging
-prompt accepted in the headset. Then say yes to installing **in the
+Quest in developer mode, a connection to a computer, and the debugging
+prompt accepted in the headset. This laptop's USB ports don't work for it
+today (their USB 2 half is switched off at every boot), so it is a USB 3 data
+cable in one of its USB-C ports, or another computer. Then say yes to installing **in the
 BitBrowser session**, not here. That session checks the headset shows up,
 and that no Wolvic is on it, before it installs anything.
 
@@ -169,6 +171,44 @@ the headset.
 - Still open, only if you want it answered: which profile your controllers report (touch-plus or a
   v2). The kit draws the same hands for either, so nothing waits on it. The trial page that reads it
   out is kept (`trials/pages/quest-hands/`) for a day you want to run it.
+
+## 10. A window over VR, in BitBrowser (five minutes; once its build is on the headset)
+
+**Why:** in VR no browser shows a page's own windows, so BitLogin's sign-in
+can't appear while you're in a world. BitBrowser's first try at fixing that
+(its `docs/trusted-panel.md`) shows a window a page opens from inside VR as
+a panel in front of you, with the world still running behind it and your
+controllers drawn over it. It is built and has never run on a headset.
+
+**Needs:** BitBrowser's panel build installed on the Quest
+(`bitbrowser-panel-m1-2026-11-25.apk`, from the BitBrowser session; how it
+gets onto the headset is being worked out), this laptop on and awake, and
+the Quest on the home network. The page is served from the laptop only; it is
+not on the internet and is never deployed.
+
+1. On the Quest, open **BitBrowser** (it shows as Wolvic, in the app library
+   under Unknown sources), not the Quest's own browser.
+2. Go to `https://192.168.68.84:4301/trial-pages/bitbrowser-panel/`. The
+   first time, accept the certificate warning as for check 1.
+3. Press **Enter VR**. The room is one colour that slowly changes.
+4. Pull the **trigger**. A white window should open in front of you.
+5. Try its text box, then its **Close** button with the trigger. Then open
+   it again and close it with the left controller's **Menu button** (≡).
+6. Leave VR and read the log on the page.
+
+**Say:**
+
+- whether the window appeared in VR, or you were dropped out of VR, or
+  nothing happened;
+- whether the room kept changing colour behind it;
+- whether your controllers were drawn over the window, under it, or not at
+  all;
+- whether you could read its text without leaning in, and whether it was too
+  high, low, near or far;
+- whether Close and the Menu button each closed it;
+- the log's lines (a photo of the page is fine).
+
+Say it in the BitBrowser session or here; either passes it on.
 
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 

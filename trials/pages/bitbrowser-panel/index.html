@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BitBrowser: a window over a VR session</title>
+<link rel="icon" href="data:,">
+<!--
+  One page for the owner's Quest 3S, opened in BitBrowser (the BitBrowser repository, docs/trusted-panel.md): does a
+  window a page opens from inside VR appear as a panel in front of the running session? Enter VR and pull the trigger:
+  the page opens a window. The room behind changes colour slowly, so it can be seen to keep drawing.
+
+  A trial's page: answered by the local service under the Gallery's local copy at /trial-pages/bitbrowser-panel/, with
+  the Gallery's own headers, and never part of any site's build (scripts/trial-pages.mjs). Nothing is stored or sent.
+-->
+<style>
+  html, body { margin: 0; background: #040b10; color: #eef5fb; font: 500 19px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  button { font: inherit; font-size: 22px; padding: 12px 24px; border-radius: 12px; border: 1px solid #58c8f0; background: #0e1a26; color: #eef5fb; }
+  pre { margin: 16px 0 0; padding: 12px; background: rgba(6, 14, 22, .85); border: 1px solid #23364a; border-radius: 12px; font-size: 15px; white-space: pre-wrap; }
+</style>
+<main>
+  <h1>A window over a VR session</h1>
+  <p>Enter VR, then pull the trigger. A window should open in front of you while the room keeps changing colour
+    behind it. Close it with its own Close button, or with the left controller's Menu button.</p>
+  <p><button id="enter">Enter VR</button></p>
+  <pre id="log"></pre>
+</main>
+<script src="panel.js"></script>
