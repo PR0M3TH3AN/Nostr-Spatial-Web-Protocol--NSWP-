@@ -16,6 +16,13 @@ export interface SignInOffer {
   label(): string;
   /** Start signing in, exactly as You's row does. */
   press(): void;
+  /**
+   * Signed in as a guest account (protocol/10-identity.md, "A guest"): signed in, but what a guest may not do (follow,
+   * write, show, post, buy) asks them to secure it first. The same place decides as `wanted`.
+   */
+  guest(): boolean;
+  /** Open their sign-in address's page on "Secure this account", where the visitor's client can show it. */
+  secure(): void;
 }
 
 const offers = new WeakMap<Controls, SignInOffer>();
@@ -36,10 +43,10 @@ export function signInHere(controls: Controls, section: string): UiAction {
     section,
     icon: "key",
     tone: "primary",
-    label: () => offer()?.label() ?? "Sign in",
-    short: "Sign in",
+    label: () => (offer()?.guest() ? "Secure this account" : (offer()?.label() ?? "Sign in")),
+    short: () => (offer()?.guest() ? "Secure" : "Sign in"),
     hidden: () => !offer()?.wanted(),
-    act: () => offer()?.press(),
+    act: () => (offer()?.guest() ? offer()?.secure() : offer()?.press()),
   };
 }
 
@@ -49,7 +56,18 @@ export function signInHere(controls: Controls, section: string): UiAction {
  * Where nobody can sign in here, it only says why. The kit's own; not part of the package's entries.
  */
 export function signInFirst(controls: Controls, line: string): void {
-  controls.say(line);
   const offer = offers.get(controls);
+  // A guest account is signed in already: what needs more asks them to secure it, in one press too.
+  if (offer?.guest()) {
+    controls.say("Secure this account first.");
+    offer.secure();
+    return;
+  }
+  controls.say(line);
   if (offer?.wanted()) offer.press();
+}
+
+/** Whether these controls are signed in as a guest account (`SignInOffer.guest`). The kit's own; not in any entry. */
+export function guestHere(controls: Controls): boolean {
+  return !!offers.get(controls)?.guest();
 }

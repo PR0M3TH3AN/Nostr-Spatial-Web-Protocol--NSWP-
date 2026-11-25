@@ -491,6 +491,9 @@ kit's own Achievements and Scores tabs use it while something waits on
 signing in. And a press of the kit's that needs signing in, made signed out
 (Follow, Write, Show, Post, joining a room only for people who are signed
 in), says why and starts the sign-in there and then.
+For a guest account the same row and the same presses say "Secure this account"
+(first), and open the sign-in address's page on it (`"secure"`), where the
+visitor's client draws it.
 
 When who they are here changes, the HUD says so once at the top centre of
 the view: their picture and name under "Signed in as", for a few seconds, and

@@ -4,6 +4,19 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **What a guest is told: "Secure this account first"** (SDK `ui/sign-in-here.ts`, `ui/identity.ts`, `client-frame.ts`, `achieving.ts`, `scoring.ts`, `following.ts`, `messaging.ts`, `front-room.ts`). Part 5, the last, of the kit's half of guest accounts. BitLogin signs only notes, reactions and the bag for a guest (its `prepareForGuest`); the rest wants the account secured, which keeps the same key and everything it has.
+  - **`ClientPanelMode` gains `"secure"`** (given): the client opens the sign-in address's panel on "Secure this account" (BitLogin's mode). BitPortal's cast for it can go.
+  - **Under You, a guest is told who they are** as they are signed in: "You're a guest. Every world in BitPortal knows it's the same guest. This account lives in this browser only: secure it, under You, to keep it." The row says "You're a guest on this device. Secure this account", and opens it.
+  - **Where a tab needs more than a guest may do,** its row says "Secure this account" and opens it: Achievements ("Secure this account to show the 3 you have earned"), Scores, Following and Messages (shown to a guest account now, with that row and a line saying why). A press that needs more (Follow, Write, Show, Post, Buy) says "Secure this account first." and opens it, in the same press.
+  - **Where no client frames the world,** only BitLogin's page inside BitPortal can see this browser's guest, so it says to secure it from BitPortal's menu. In a headset, it says to leave the headset view for a moment.
+  - What a guest is is decided in one place, the sign-in offer, beside whether a sign-in is wanted.
+  - **Tried:** `sign-in-here.test.ts`, with a stand-in signer unlocked as a guest:
+    - the row offers Secure and opens it, never signing in or out;
+    - a press that needs more asks to secure first;
+    - You says what they are;
+    - Achievements and Scores ask to secure, and show nothing and post nothing;
+    - an account is no guest.
+  - **Not tried:** BitLogin's real panel on "Secure this account" through BitPortal.
 - **Items for guests: a world's `"guest_items": false`, and an item's `["guests", "no"]`** (core `item.ts`, `manifest.ts`; SDK `hold.ts`, `presence.ts`, `front-room.ts`, `ui/identity.ts`; `protocol/17-items.md`, "Guests"; `protocol/01-worlds.md`; `vectors/items.json`, `vectors/manifests.json`). The owner, 2026-11-25: a guest should "have access to a bag with the free items that the worlds allow". Part 4 of the kit's half of guest accounts; the two words given 2026-11-25.
   - **A guest account holds and uses an item where both the world and its maker let it,** as anyone does otherwise. Its bag is started with BitPortal's starter set.
   - **The world:** `"guest_items": false` in its own entry of its announcement keeps guests from its items, though they may come in. Only exactly `false` is kept. It is carried as `guestItems` (from `accessFor`, on the world gate, and in `pageRules`).

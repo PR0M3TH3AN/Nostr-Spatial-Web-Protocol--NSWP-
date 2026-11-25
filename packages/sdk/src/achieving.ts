@@ -9,7 +9,7 @@
 import type { AchievementHolders } from "@nswp/core";
 import type { Achievements } from "./achievements.js";
 import type { Controls, UiAction } from "./ui/model.js";
-import { signInFirst, signInHere } from "./ui/sign-in-here.js";
+import { guestHere, signInFirst, signInHere } from "./ui/sign-in-here.js";
 
 export interface AchievingOptions {
   achievements: Achievements;
@@ -57,7 +57,9 @@ export function addAchievementControls(controls: Controls, opts: AchievingOption
       note: () => `You have earned ${earned.length} of ${a.list.length} here. What you earn is kept on this device until you show it. Showing it says publicly that you were here, and what you did. Nothing checks what anyone shows.`,
     });
     // Its first row says to sign in, while they aren't, to show what they earned: the press is right there.
-    if (earned.length > 0 && !opts.signedIn()) add(signInHere(controls, "achievements"));
+    // A guest account can't show them (its sign-in address signs no such note for a guest): asked to secure it first.
+    const guest = guestHere(controls);
+    if (earned.length > 0 && (!opts.signedIn() || guest)) add(signInHere(controls, "achievements"));
     add({
       id: "achievements-show",
       icon: "check",
@@ -65,7 +67,9 @@ export function addAchievementControls(controls: Controls, opts: AchievingOption
       label: () =>
         earned.length === 0
           ? "Nothing earned here yet"
-          : !opts.signedIn()
+          : guest
+            ? `Secure this account to show the ${earned.length} you have earned`
+            : !opts.signedIn()
             ? `Sign in to show the ${earned.length} you have earned`
             : waiting === 0
               ? `All ${earned.length} you have earned ${earned.length === 1 ? "is" : "are"} shown as yours`
@@ -73,7 +77,7 @@ export function addAchievementControls(controls: Controls, opts: AchievingOption
       short: "Show",
       act: async () => {
         if (earned.length === 0) return controls.say("Earn one first: it is kept on this device until you show it.");
-        if (!opts.signedIn()) return signInFirst(controls, "Sign in to show what you have earned.");
+        if (!opts.signedIn() || guestHere(controls)) return signInFirst(controls, "Sign in to show what you have earned.");
         const done = await a.show();
         controls.say(done.said);
         look(true);

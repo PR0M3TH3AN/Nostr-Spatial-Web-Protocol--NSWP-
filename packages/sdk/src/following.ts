@@ -16,7 +16,7 @@ import type { PersonLines } from "./person-lines.js";
 import { showsPictures } from "./picture.js";
 import { createProfiles, type Profiles } from "./profiles.js";
 import type { Controls, UiAction } from "./ui/model.js";
-import { signInFirst } from "./ui/sign-in-here.js";
+import { guestHere, signInFirst, signInHere } from "./ui/sign-in-here.js";
 
 /** What follows and unfollows someone for the visitor (three.ts gives a world's; a visitor's own client gives its own). */
 export interface FollowingHand {
@@ -89,7 +89,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
       if (done.ok && adding) void profiles.fetch([pubkey]);
       refresh();
     };
-    if (!f.pubkey()) return signInFirst(controls, "Sign in to follow people.");
+    if (!f.pubkey() || guestHere(controls)) return signInFirst(controls, "Sign in to follow people.");
     if (f.allowed()) return void now();
     say(f.ask(() => void now()));
   };
@@ -100,7 +100,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
    */
   const byKey = async (typed?: string) => {
     const me = f.pubkey();
-    if (!me) return signInFirst(controls, "Sign in to follow people.");
+    if (!me || guestHere(controls)) return signInFirst(controls, "Sign in to follow people.");
     let text = typed ?? "";
     const keyboard = opts.presenting?.() ? (opts.keyboard?.() ?? null) : null;
     if (typed !== undefined) {
@@ -144,6 +144,8 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
       note: () =>
         !me
           ? "Sign in to see who you follow."
+          : guestHere(controls)
+            ? "Secure this account to follow people. Who you follow is yours, public, and the same in every Nostr app."
           : !allowed
             ? "Who you follow is yours, and the same in every Nostr app. This place hasn't been let see to it: say so below, and your sign-in address asks you once."
             : follows === null
@@ -171,8 +173,9 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
         };
       },
     });
-    // A guest has no list: the tab has nothing in it, and isn't shown.
+    // A guest of one visit has no list: the tab has nothing in it, and isn't shown. A guest account is asked to secure it.
     if (!me) return;
+    if (guestHere(controls)) return add(signInHere(controls, "following"));
     if (!allowed) {
       add({
         id: "following-let",
