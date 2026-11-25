@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.90.0
+
 - **Every reader and sender of a visitor's own notes is on the relay book's rules, and a relay that never answers holds nothing up** (core `RELAY_PICK.graceMs`; SDK `relay-book.ts`: `askOwn`, `relaysOf`; `people.ts`, `saves.ts`, `scores.ts`, `achievements.ts`, `room-controls.ts`, `look-models.ts`, `messages.ts`; `docs/controls-kit.md`). The second of the two relay pull requests (#531 did the Bag), with the orchestrator's three points first. The owner: "Yes please do the fix so its more consistent across all worlds and all users."
   - **A look held up by one relay.** A person's relay list was asked of every usual relay and waited for all of them, up to six seconds: one that connected and never answered held every look of every person's note for six, with the note in hand at 0.3 s. Now the list is asked of the best of the usual relays (one known not to answer isn't chosen) and taken once one has given it and the rest have had a second (`RELAY_PICK.graceMs`), or once all have answered; six stays the most. Each step of a look is done the same way once something is found. **Measured** by the test's clock, the note and the list on a usual relay at 300 ms: with another usual relay never answering, 6050 ms on 0.89.0's code and under 1.5 s now; with the dead one among those asked, 6050 ms and about 1.3 s.
   - **A wrapped private message is never put back,** whoever asks: it goes only where its reader said. On 0.89.0's code it was put back on two relays in the test.
