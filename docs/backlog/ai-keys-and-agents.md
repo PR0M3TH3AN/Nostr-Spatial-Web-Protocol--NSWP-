@@ -215,6 +215,15 @@ its memory as sealed notes. The same sheet for both, filled to different
 depths. Set out in `docs/plans/agents-lessons.md`, "What the protocol would
 have to settle".
 
+## Keys in BitLogin, and the NPC tier as the fallback (the owner, 2026-11-25)
+
+In the playground's session: "We will also need bitlogin for the API key
+storage" (the first half of this entry, unchanged). And his rule, built
+there as D110: with no key, or the credit run out, a cast member or a
+companion carries on as an NPC and sends nothing more. So what an agent
+needs from BitLogin is only whether each key is set; the key itself never
+leaves BitLogin. Nothing of BitLogin changes yet.
+
 ## Three tiers, named (the owner, 2026-11-24)
 
 He described the free rules as "more of a normal video game NPC than a
