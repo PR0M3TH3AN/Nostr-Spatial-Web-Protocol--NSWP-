@@ -21,6 +21,7 @@ import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { PANORAMA_VIEWS, paintPanorama, panoramaWidth, type PanoramaPainter } from "./panorama.js";
 import { offerHeadset, whenSessionGranted, type HeadsetOffer } from "./ui/headset.js";
+import { hostVrAside } from "./ui/vr-aside.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { accountAction, filesAction, libraryAction, figureAction, identityAction, identityHost, identitySection, signerAction, type Leaving } from "./ui/identity.js";
@@ -264,6 +265,36 @@ export async function addViewControls(
   // at all. Few do, and none between two sites: everywhere else, nothing happens.
   whenSessionGranted(() => void enter());
   propose();
+  // Out of VR for a moment, for BitLogin's own screens, and back in one press (ui/vr-aside.ts).
+  const title = () => controls.view().title || "this world";
+  const back = (waiting: Promise<void>) => {
+    if (!supported) return;
+    answered();
+    offer = offerHeadset(title(), () => void enter(), answered, { back: true, waiting });
+    d.onOffer?.(true);
+  };
+  hostVrAside(controls, {
+    presenting,
+    end: async () => {
+      await d.renderer.xr.getSession()?.end();
+    },
+    back,
+    openFromHere: (open) => {
+      answered();
+      offer = offerHeadset(
+        title(),
+        () => {
+          answered();
+          const opened = open();
+          if (opened.shown) back(opened.gone);
+          else controls.say("Your browser didn't let BitLogin open. Allow this site to open windows, and press again.");
+        },
+        answered,
+        { open: true },
+      );
+      d.onOffer?.(true);
+    },
+  });
   if (supported && d.arrived && !presenting()) {
     offer = offerHeadset(d.arrived.title, () => void enter(), answered);
     d.onOffer?.(true);

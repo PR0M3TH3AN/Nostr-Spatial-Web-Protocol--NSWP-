@@ -83,6 +83,14 @@ export interface WorldSigner {
    */
   unlock(): boolean;
   /**
+   * Sign in from the visitor's phone, for a headset (BitLogin's "Way 1"): its own page, `<sign-in address>/headset/`,
+   * opened as a window of its own from the visitor's press, never the client's panel, whose address bar would be the
+   * world's. It finds this signer through its opener, so no "noopener". `opened`: whether the window opened (false:
+   * the browser refused, or nobody can sign in here). `done`: once it has closed, the signer is asked how it stands,
+   * once, and this says whether they are signed in now. Closed without pairing, they are as they were.
+   */
+  signInFromPhone(): { opened: boolean; done: Promise<boolean> };
+  /**
    * Put a note of a careful kind to the visitor themselves: their profile
    * (0), a deletion (5) or their relay list (10002). The signer signs none
    * of these on a world's word: the sign-in address shows the visitor what
@@ -282,6 +290,7 @@ const NONE: WorldSigner = {
   retry: () => false,
   copy: null,
   unlock: () => false,
+  signInFromPhone: () => ({ opened: false, done: Promise.resolve(false) }),
   propose: () => Promise.resolve(null),
   wallet: () => Promise.resolve(null),
   pay: () => Promise.resolve(null),
@@ -631,6 +640,28 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     },
     unlock() {
       return state !== "none" && showPage();
+    },
+    signInFromPhone() {
+      const nothing = { opened: false, done: Promise.resolve(false) };
+      if (state === "none" || state === "unlocked" || !windowAt) return nothing;
+      let win: Window | null = null;
+      try {
+        win = window.open(`${new URL(windowAt).origin}/headset/`, "bitlogin-headset", "popup");
+      } catch {
+        win = null;
+      }
+      if (!win) return nothing;
+      const opened = win;
+      const done = new Promise<boolean>((ok) => {
+        const look = setInterval(() => {
+          if (!opened.closed || disposed) return;
+          clearInterval(look);
+          // No word comes back from that page: the signer is asked how it stands now, once, and answers in a moment.
+          tell({ t: "state", id: `s${++n}` });
+          setTimeout(() => ok(state === "unlocked"), 1500);
+        }, 400);
+      });
+      return { opened: true, done };
     },
     propose(note) {
       const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };

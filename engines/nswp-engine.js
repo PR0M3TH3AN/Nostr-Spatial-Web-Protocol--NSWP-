@@ -7556,7 +7556,7 @@ ${roomName}`)));
   function fileAt(host, sha2562, hint2 = "") {
     return `${host}${sha2562}${fileExtension(hint2)}`;
   }
-  function onFileHost(url, hosts) {
+  function onFileHost(url, hosts2) {
     let href;
     try {
       const u = new URL(url);
@@ -7566,23 +7566,23 @@ ${roomName}`)));
     } catch {
       return false;
     }
-    return hosts.some((host) => href.startsWith(host));
+    return hosts2.some((host) => href.startsWith(host));
   }
   function parseFileHostList(events2, pubkey) {
     const newest2 = events2.filter((e) => e.kind === FILE_HOST_LIST_KIND && e.pubkey === pubkey && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
     if (!newest2)
       return [];
-    const hosts = [];
+    const hosts2 = [];
     for (const tag2 of newest2.tags) {
       if (tag2[0] !== "server")
         continue;
       const host = cleanFileHost(tag2[1]);
-      if (host && !hosts.includes(host))
-        hosts.push(host);
-      if (hosts.length >= FILE_HOST_LIMITS.list)
+      if (host && !hosts2.includes(host))
+        hosts2.push(host);
+      if (hosts2.length >= FILE_HOST_LIMITS.list)
         break;
     }
-    return hosts;
+    return hosts2;
   }
 
   // packages/core/dist/play.js
@@ -9407,6 +9407,55 @@ postMessage({ t: "started" });
     };
   }
 
+  // packages/sdk/src/ui/vr-aside.ts
+  var VR_ASIDE = ["sign-in", "secure", "wallet", "files", "buy", "allow"];
+  var hosts = /* @__PURE__ */ new WeakMap();
+  function hostVrAside(controls2, host) {
+    hosts.set(controls2, host);
+  }
+  var VR_ASIDE_WORDS = "This opens BitLogin outside VR for a moment. Press Back into VR when you're done.";
+  var TOLD_KEY = "nswp:vr-aside-told";
+  var toldBefore = () => {
+    try {
+      if (globalThis.localStorage?.getItem(TOLD_KEY)) return true;
+      globalThis.localStorage?.setItem(TOLD_KEY, "1");
+    } catch {
+    }
+    return false;
+  };
+  function outOfVr(controls2, open3, why) {
+    if (!VR_ASIDE.includes(why)) throw new Error(`outOfVr: ${why} is not one of VR_ASIDE`);
+    const host = hosts.get(controls2);
+    if (!host || !host.presenting()) return open3();
+    if (!toldBefore()) controls2.say(VR_ASIDE_WORDS);
+    const opened = open3();
+    void host.end().then(() => opened.shown ? host.back(opened.gone) : host.openFromHere(open3));
+    return opened;
+  }
+  function whenScreenGone(panel) {
+    return new Promise((done) => {
+      if (panel) {
+        let seen = false;
+        const finish = () => {
+          stop();
+          clearTimeout(cap);
+          done();
+        };
+        const stop = onClientSignIn((open3) => {
+          if (open3) seen = true;
+          else if (seen) finish();
+        });
+        const cap = setTimeout(finish, 6e5);
+        return;
+      }
+      const back = () => {
+        removeEventListener("focus", back);
+        done();
+      };
+      setTimeout(() => addEventListener("focus", back), 300);
+    });
+  }
+
   // packages/sdk/src/front-room.ts
   var GATE_TIMES = { grace: 120, look: 300, goodFor: 86400 };
   var LISTS_KEY = "nswp:owner-lists";
@@ -9957,13 +10006,19 @@ postMessage({ t: "started" });
         controls2.say("Asking again what this costs.");
         return void gate2.check();
       }
-      if (opts.presenting?.()) return controls2.say(`${gate2.host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
       if (gate2.buying) return controls2.say(`${gate2.host} is still asking. Answer there.`);
       controls2.say(`${gate2.host} is asking: ${offer.name}, ${offer.words}. Say yes there, and the way opens.`);
-      void gate2.buy(offer.listing).then((bought) => {
-        if (bought) controls2.say(`Bought: ${offer.name}. The way is open ${untilWords(gate2.until)}.`);
-        else controls2.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
-      });
+      outOfVr(
+        controls2,
+        () => {
+          const buying = gate2.buy(offer.listing).then((bought) => {
+            if (bought) controls2.say(`Bought: ${offer.name}. The way is open ${untilWords(gate2.until)}.`);
+            else controls2.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
+          });
+          return { shown: true, gone: buying };
+        },
+        "buy"
+      );
     };
     const showing2 = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer" && gate2.reason !== "blocked" && gate2.reason !== "not-invited";
     for (let i = 0; i < ACCESS_MOST; i++) {
@@ -10627,10 +10682,10 @@ postMessage({ t: "started" });
     const mine = {
       pubkey,
       hosts: [],
-      asked: askWell({ kinds: [FILE_HOST_LIST_KIND], authors: [pubkey], limit: 4 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).then((got) => parseFileHostList(got.events, pubkey)).catch(() => []).then((hosts) => {
-        mine.hosts = hosts;
+      asked: askWell({ kinds: [FILE_HOST_LIST_KIND], authors: [pubkey], limit: 4 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).then((got) => parseFileHostList(got.events, pubkey)).catch(() => []).then((hosts2) => {
+        mine.hosts = hosts2;
         if (own === mine) for (const fn of watchers4) fn();
-        return hosts;
+        return hosts2;
       })
     };
     own = mine;
@@ -10655,9 +10710,9 @@ postMessage({ t: "started" });
       return null;
     }
   }
-  function addressesFor(sha2562, hint2, hosts = fileHosts(), anywhereOn = filesAnywhere()) {
-    const at = hosts.map((host) => fileAt(host, sha2562, hint2));
-    const useHint = !!hint2 && (anywhereOn || onFileHost(hint2, hosts));
+  function addressesFor(sha2562, hint2, hosts2 = fileHosts(), anywhereOn = filesAnywhere()) {
+    const at = hosts2.map((host) => fileAt(host, sha2562, hint2));
+    const useHint = !!hint2 && (anywhereOn || onFileHost(hint2, hosts2));
     return [...new Set(useHint ? [hint2, ...at] : at)];
   }
   async function fetchByHashSaying(sha2562, hint2, opts = {}) {
@@ -13515,6 +13570,9 @@ postMessage({ t: "started" });
   var GIVE_UP_MS = 12e3;
   function offerHeadset(title, enter, stay, opts = {}) {
     const asked2 = opts.asked === true;
+    const back = opts.back === true;
+    const opening = opts.open === true;
+    let waiting3 = !!opts.waiting;
     const scrim = document.createElement("div");
     scrim.id = "nswp-enter";
     scrim.setAttribute("role", "dialog");
@@ -13526,12 +13584,13 @@ postMessage({ t: "started" });
     const go2 = document.createElement("button");
     go2.type = "button";
     go2.id = "nswp-enter-vr";
-    go2.textContent = "Launch";
+    go2.textContent = opening ? "Open BitLogin" : back ? "Back into VR" : "Launch";
     Object.assign(go2.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
     const hint2 = document.createElement("p");
     hint2.id = "nswp-enter-hint";
     hint2.setAttribute("aria-live", "polite");
-    hint2.textContent = asked2 ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
+    const ready2 = opening ? "Press anywhere to open BitLogin, then come back here." : back ? "Press anywhere, with anything, to go back into VR." : asked2 ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
+    hint2.textContent = waiting3 ? "Back into VR, as soon as BitLogin is done." : ready2;
     Object.assign(hint2.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
     const flat = document.createElement("button");
     flat.type = "button";
@@ -13544,7 +13603,7 @@ postMessage({ t: "started" });
     let gaveUp;
     const presses = ["pointerup", "touchend", "keydown"];
     const onPress = (e) => {
-      if (!up) return;
+      if (!up || waiting3) return;
       const key = e.key;
       if (e.type === "keydown") {
         if (key === "Escape") return void stay();
@@ -13569,6 +13628,18 @@ postMessage({ t: "started" });
       hint2.textContent = "That press didn't start VR. Press again, anywhere.";
     };
     flat.addEventListener("click", stay);
+    const dim = (on3) => {
+      go2.disabled = on3;
+      scrim.style.opacity = on3 ? "0.55" : "1";
+      hint2.textContent = on3 ? "Back into VR, as soon as BitLogin is done." : ready2;
+    };
+    if (opts.waiting) {
+      dim(true);
+      void opts.waiting.then(() => {
+        waiting3 = false;
+        if (up) dim(false);
+      });
+    }
     for (const type of presses) addEventListener(type, onPress, true);
     holdFullscreen(true);
     document.body.append(scrim);
@@ -49512,7 +49583,7 @@ void main() {
     const query = opts.query ?? queryRelays;
     const now = opts.now ?? (() => Date.now());
     const viewer = opts.viewer ?? (() => arrival.identity()?.pubkey ?? null);
-    const hosts = { ...opts.relays ? { relays: opts.relays } : {}, query, now };
+    const hosts2 = { ...opts.relays ? { relays: opts.relays } : {}, query, now };
     const refused = /* @__PURE__ */ new Set();
     const described = /* @__PURE__ */ new Map();
     const settled = /* @__PURE__ */ new Map();
@@ -49526,7 +49597,7 @@ void main() {
     const file = (named2, most) => {
       let got = files2.get(named2.sha256);
       if (!got) {
-        const asking = fetchByHashSaying(named2.sha256, named2.url, { most, viewer: viewer(), hosts, ...opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {} }).then(({ bytes, wrong }) => {
+        const asking = fetchByHashSaying(named2.sha256, named2.url, { most, viewer: viewer(), hosts: hosts2, ...opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {} }).then(({ bytes, wrong }) => {
           if (bytes) refused.delete(named2.sha256);
           else if (keptElsewhere(named2.url)) refused.add(named2.sha256);
           else if (!wrong) forgetSoon(files2, named2.sha256, asking);
@@ -51646,6 +51717,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     retry: () => false,
     copy: null,
     unlock: () => false,
+    signInFromPhone: () => ({ opened: false, done: Promise.resolve(false) }),
     propose: () => Promise.resolve(null),
     wallet: () => Promise.resolve(null),
     pay: () => Promise.resolve(null),
@@ -51938,6 +52010,27 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       },
       unlock() {
         return state !== "none" && showPage();
+      },
+      signInFromPhone() {
+        const nothing = { opened: false, done: Promise.resolve(false) };
+        if (state === "none" || state === "unlocked" || !windowAt) return nothing;
+        let win = null;
+        try {
+          win = window.open(`${new URL(windowAt).origin}/headset/`, "bitlogin-headset", "popup");
+        } catch {
+          win = null;
+        }
+        if (!win) return nothing;
+        const opened = win;
+        const done = new Promise((ok) => {
+          const look = setInterval(() => {
+            if (!opened.closed || disposed) return;
+            clearInterval(look);
+            tell2({ t: "state", id: `s${++n}` });
+            setTimeout(() => ok(state === "unlocked"), 1500);
+          }, 400);
+        });
+        return { opened: true, done };
       },
       propose(note) {
         const asked2 = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
@@ -52288,7 +52381,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       controls2.signal("signer");
     });
     onHereAs(() => controls2.signal("signer"));
-    const signedOut = () => signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`;
+    const signedOut = () => (
+      // In a headset, signing in is from their phone: the owner's words for the press.
+      opts.presenting?.() && !signer.asking && !signer.unanswered ? "Sign In using Phone" : signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`
+    );
     const signIn2 = () => {
       const host = signer.host ?? "your own client";
       if (signer.asking) return;
@@ -52296,13 +52392,26 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
         return controls2.say(unansweredWords(signer));
       }
-      if (opts.presenting?.()) return controls2.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+      if (opts.presenting?.()) {
+        outOfVr(
+          controls2,
+          () => {
+            const phone = signer.signInFromPhone();
+            return { shown: phone.opened, gone: phone.done.then(() => void 0) };
+          },
+          "sign-in"
+        );
+        return;
+      }
       const here = signer.panel;
       if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
       else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
     };
     const secure = () => {
-      if (opts.presenting?.()) return controls2.say(`${signer.host ?? "Your sign-in address"} has to show this itself, and that can't be seen from inside a headset. Leave the headset view for a moment, secure your account, and come back in.`);
+      if (opts.presenting?.()) {
+        outOfVr(controls2, () => ({ shown: askClientForSignIn("secure"), gone: whenScreenGone(true) }), "secure");
+        return;
+      }
       if (askClientForSignIn("secure")) return controls2.say(`${signer.host ?? "Your sign-in address"} is open on "Secure this account", here.`);
       controls2.say(`Secure this account from BitPortal's menu: only ${signer.host ?? "your sign-in address"}'s page there can see this guest.`);
     };
@@ -52344,8 +52453,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       hidden: () => !signer.panel,
       act: () => {
         const host = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return controls2.say(`${host} shows your account itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-        if (!askClientForSignIn("account")) controls2.say(`${host} couldn't be shown here just now.`);
+        const shown4 = outOfVr(controls2, () => ({ shown: askClientForSignIn("account"), gone: whenScreenGone(true) }), "wallet").shown;
+        if (!shown4 && !opts.presenting?.()) controls2.say(`${host} couldn't be shown here just now.`);
       }
     };
   }
@@ -52361,8 +52470,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       hidden: () => !signer.panel,
       act: () => {
         const host = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return controls2.say(`${host} shows your files itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-        if (!askClientForSignIn("files")) controls2.say(`${host} couldn't be shown here just now.`);
+        const shown4 = outOfVr(controls2, () => ({ shown: askClientForSignIn("files"), gone: whenScreenGone(true) }), "files").shown;
+        if (!shown4 && !opts.presenting?.()) controls2.say(`${host} couldn't be shown here just now.`);
       }
     };
   }
@@ -52378,8 +52487,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       hidden: () => !signer.panel,
       act: () => {
         const host = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return controls2.say(`${host} shows what you have bought itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-        if (!askClientForSignIn("library")) controls2.say(`${host} couldn't be shown here just now.`);
+        const shown4 = outOfVr(controls2, () => ({ shown: askClientForSignIn("library"), gone: whenScreenGone(true) }), "wallet").shown;
+        if (!shown4 && !opts.presenting?.()) controls2.say(`${host} couldn't be shown here just now.`);
       }
     };
   }
@@ -52432,7 +52541,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var AGAIN_MS2 = 4e3;
   function createLookModels(opts = {}) {
     const viewer = opts.viewer ?? (() => arrival.identity()?.pubkey ?? null);
-    const hosts = { ...opts.relays ? { relays: opts.relays } : {}, ...opts.query ? { query: opts.query } : {}, ...opts.now ? { now: opts.now } : {} };
+    const hosts2 = { ...opts.relays ? { relays: opts.relays } : {}, ...opts.query ? { query: opts.query } : {}, ...opts.now ? { now: opts.now } : {} };
     const files2 = /* @__PURE__ */ new Map();
     const scenes = /* @__PURE__ */ new Map();
     const refusals = /* @__PURE__ */ new Map();
@@ -52452,7 +52561,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const key = keyOf(model2, budget);
       let got = files2.get(key);
       if (!got) {
-        const asking = fetchByHashSaying(model2.sha256, model2.url, { most: budget.bytes, viewer: viewer(), hosts, ...opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {} }).then(({ bytes: b, wrong }) => {
+        const asking = fetchByHashSaying(model2.sha256, model2.url, { most: budget.bytes, viewer: viewer(), hosts: hosts2, ...opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {} }).then(({ bytes: b, wrong }) => {
           if (!b) {
             if (keptElsewhere(model2.url)) refusals.set(model2.sha256, "elsewhere");
             else {
@@ -56796,6 +56905,31 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       hidden: () => portal.airlockFor() === null,
       act: () => tell({ type: atHome ? "doors" : "home" })
     });
+    const backOffer = (o2, press) => {
+      headsetOffer?.remove();
+      headsetOffer = offerHeadset(c.view().title || "this world", press, () => {
+        headsetOffer?.remove();
+        headsetOffer = null;
+      }, o2);
+    };
+    hostVrAside(c, {
+      presenting: () => vr.presenting,
+      end: () => new Promise((done) => {
+        tell({ type: "vr", enter: false });
+        const from = Date.now();
+        const look = setInterval(() => {
+          if (vr.presenting && Date.now() - from < 3e3) return;
+          clearInterval(look);
+          done();
+        }, 100);
+      }),
+      back: (waiting3) => backOffer({ back: true, waiting: waiting3 }, () => tell({ type: "vr", enter: true })),
+      openFromHere: (open3) => backOffer({ open: true }, () => {
+        const opened = open3();
+        if (opened.shown) backOffer({ back: true, waiting: opened.gone }, () => tell({ type: "vr", enter: true }));
+        else c.say("Your browser didn't let BitLogin open. Allow this site to open windows, and press again.");
+      })
+    });
     if (identityHost()) {
       c.addSection(identitySection());
       c.add(
@@ -59088,12 +59222,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return;
       }
       if (state === "no-inbox") {
-        const hosts = m.offered().map((r) => r.replace(/^wss:\/\//, ""));
+        const hosts2 = m.offered().map((r) => r.replace(/^wss:\/\//, ""));
         add({
           id: "messages-setup",
           icon: "check",
           tone: "primary",
-          label: `Have messages reach me at ${hosts.join(", ")}`,
+          label: `Have messages reach me at ${hosts2.join(", ")}`,
           act: async () => {
             const done = await m.setUp();
             say3(done.said);
@@ -59224,11 +59358,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       const where = signer.host ?? "your sign-in address";
       if (signer.offers && !signer.offers.includes(what)) return `${where} doesn't let a world ${to} yet. It can be done at your home.`;
-      if (opts.presenting?.()) return `This world needs your say before it can ${to}, once. ${where} asks that itself, which can't be seen from in here. Step out of the headset and press this again.`;
       waitingFor.set(what, { then, at: Date.now() });
       signer.want([...signer.more, what]);
       const here = signer.panel;
-      return signer.unlock() ? here ? `This world needs your say before it can ${to}: once. ${where} is asking, here.` : `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
+      const inVr = !!opts.presenting?.();
+      const shown4 = outOfVr(controls2, () => ({ shown: signer.unlock(), gone: whenScreenGone(here) }), "allow").shown;
+      if (inVr) return `This world needs your say before it can ${to}: once. ${where} asks it outside VR for a moment.`;
+      return shown4 ? here ? `This world needs your say before it can ${to}: once. ${where} is asking, here.` : `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
     };
     const signedInHere = () => signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null;
     const worldFollows = () => ({
@@ -59260,11 +59396,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let tipping = null;
     const sendTip = (to, name, sats) => {
       const host = notes2.host?.() ?? worldSigner().host ?? "your sign-in address";
-      if (opts.presenting?.() ?? presence3.presenting) return tell2(`${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
       tipping = null;
       tell2(`${host} is asking: ${sats} sats to ${name}. Say yes there, and it goes.`);
       if (!tipper) return;
-      void tipper({ sats, ...to ? { to } : {} }).catch(() => false).then((went) => tell2(went ? `${sats} sats went to ${name}.` : `The tip to ${name} didn't go.`));
+      outOfVr(
+        controls2,
+        () => {
+          const going = tipper({ sats, ...to ? { to } : {} }).catch(() => false).then((went) => tell2(went ? `${sats} sats went to ${name}.` : `The tip to ${name} didn't go.`));
+          return { shown: true, gone: going };
+        },
+        "buy"
+      );
       refresh();
     };
     const tipRows = (key, section, to, name, ask) => {
@@ -59854,9 +59996,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const removeNote = async (id2) => {
       const host = notes2.host?.() ?? "your sign-in address";
-      if (presence3.presenting) return { ok: false, said: `Not deleted: ${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press Delete again.` };
       const key = notes2.pubkey?.();
-      const signed = await notes2.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id2], ["k", "1"]] }).catch(() => null);
+      let asked2 = Promise.resolve(null);
+      outOfVr(
+        controls2,
+        () => {
+          asked2 = (notes2.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id2], ["k", "1"]] }) ?? Promise.resolve(null)).catch(() => null);
+          return { shown: true, gone: asked2.then(() => void 0) };
+        },
+        "allow"
+      );
+      const signed = await asked2;
       const names = signed ? signed.tags.filter((t) => t[0] === "e" || t[0] === "a") : [];
       const note = signed && verifyEvent(signed) && signed.kind === DELETION_KIND && (!key || signed.pubkey === key) && names.length === 1 && names[0][1] === id2 ? signed : null;
       if (!note) return { ok: false, said: `Not deleted: ${host} didn't sign it. Either you said no there, or it can't do this yet.` };
@@ -60071,7 +60221,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           const why = notes2.unanswered?.();
           if (why) return tell2(why);
           const host = notes2.host?.() ?? "your sign-in address";
-          if (presence3.presenting) return tell2(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+          if (presence3.presenting) return signInFirst(controls2, "Sign in first to send out a post.");
           const here = !!notes2.panel?.();
           wantsFeed = !!notes2.unlock?.();
           tell2(

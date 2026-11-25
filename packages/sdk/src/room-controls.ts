@@ -10,6 +10,7 @@ import { askOwn, relaysOf, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
+import { outOfVr, whenScreenGone } from "./ui/vr-aside.js";
 import { signInFirst } from "./ui/sign-in-here.js";
 import { filesAnywhere, setFilesAnywhere } from "./file-hosts.js";
 import { chatSwitch, modelsSwitch, picturesSwitch } from "./visitor-switches.js";
@@ -215,12 +216,15 @@ export function addRoomControls(
     const where = signer.host ?? "your sign-in address";
     // A sign-in address that says what it offers, and doesn't offer this: its window would have nothing to ask.
     if (signer.offers && !signer.offers.includes(what)) return `${where} doesn't let a world ${to} yet. It can be done at your home.`;
-    if (opts.presenting?.()) return `This world needs your say before it can ${to}, once. ${where} asks that itself, which can't be seen from in here. Step out of the headset and press this again.`;
     waitingFor.set(what, { then, at: Date.now() });
     // Everything they have let it do already is asked for again beside it: an answer is for the whole of it.
     signer.want([...signer.more, what]);
     const here = signer.panel;
-    return signer.unlock() ? (here ? `This world needs your say before it can ${to}: once. ${where} is asking, here.` : `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.`) : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
+    // In a headset, out of VR for a moment for it, and back in one press (ui/vr-aside.ts).
+    const inVr = !!opts.presenting?.();
+    const shown = outOfVr(controls, () => ({ shown: signer.unlock(), gone: whenScreenGone(here) }), "allow").shown;
+    if (inVr) return `This world needs your say before it can ${to}: once. ${where} asks it outside VR for a moment.`;
+    return shown ? (here ? `This world needs your say before it can ${to}: once. ${where} is asking, here.` : `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.`) : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
   };
   const signedInHere = () => (signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null);
   const worldFollows = (): RoomFollows => ({
@@ -257,14 +261,20 @@ export function addRoomControls(
   let tipping: string | null = null;
   const sendTip = (to: string | null, name: string, sats: number): void => {
     const host = notes.host?.() ?? worldSigner().host ?? "your sign-in address";
-    // A headset draws nothing but the world, so the page that asks them can't be seen from in one.
-    if (opts.presenting?.() ?? presence.presenting) return tell(`${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
     tipping = null;
     tell(`${host} is asking: ${sats} sats to ${name}. Say yes there, and it goes.`);
     if (!tipper) return;
-    void tipper({ sats, ...(to ? { to } : {}) })
-      .catch(() => false)
-      .then((went) => tell(went ? `${sats} sats went to ${name}.` : `The tip to ${name} didn't go.`));
+    // Money is BitLogin's own screen to ask: in a headset, out of VR for a moment for it (ui/vr-aside.ts).
+    outOfVr(
+      controls,
+      () => {
+        const going = tipper({ sats, ...(to ? { to } : {}) })
+          .catch(() => false)
+          .then((went) => tell(went ? `${sats} sats went to ${name}.` : `The tip to ${name} didn't go.`));
+        return { shown: true, gone: going };
+      },
+      "buy",
+    );
     refresh();
   };
   /** The rows for tipping someone: one to say so, and under it the amounts, shown only once it is pressed. */
@@ -964,10 +974,19 @@ export function addRoomControls(
    */
   const removeNote = async (id: string): Promise<{ ok: boolean; said: string }> => {
     const host = notes.host?.() ?? "your sign-in address";
-    // A headset draws nothing but the world, so the page that asks them can't be seen from in one.
-    if (presence.presenting) return { ok: false, said: `Not deleted: ${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press Delete again.` };
     const key = notes.pubkey?.();
-    const signed = await notes.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id], ["k", "1"]] }).catch(() => null);
+    // Put to them on their sign-in address's own page: in a headset, out of VR for a moment for it (ui/vr-aside.ts).
+    // Asked in the press itself, so that a window it needs may open.
+    let asked: Promise<NostrEvent | null> = Promise.resolve(null);
+    outOfVr(
+      controls,
+      () => {
+        asked = (notes.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id], ["k", "1"]] }) ?? Promise.resolve(null)).catch(() => null);
+        return { shown: true, gone: asked.then(() => undefined) };
+      },
+      "allow",
+    );
+    const signed = await asked;
     // Whatever signed it, what is sent on is checked first: a real signature, by them, deleting this post and nothing else.
     const names = signed ? signed.tags.filter((t) => t[0] === "e" || t[0] === "a") : [];
     const note = signed && verifyEvent(signed) && signed.kind === DELETION_KIND && (!key || signed.pubkey === key) && names.length === 1 && names[0]![1] === id ? signed : null;
@@ -1203,8 +1222,8 @@ export function addRoomControls(
         const why = notes.unanswered?.();
         if (why) return tell(why);
         const host = notes.host?.() ?? "your sign-in address";
-        // A headset draws nothing but the world, so no window can open in one.
-        if (presence.presenting) return tell(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+        // In a headset, signing in is the sign-in row's own: from their phone, out of VR for a moment (ui/vr-aside.ts).
+        if (presence.presenting) return signInFirst(controls, "Sign in first to send out a post.");
         const here = !!notes.panel?.();
         wantsFeed = !!notes.unlock?.();
         tell(

@@ -52,13 +52,19 @@ const GIVE_UP_MS = 12_000;
  * screen: with the link, or Escape. Whoever put it up takes it down (`remove`), once a session has started or
  * they have chosen to stay.
  */
-export function offerHeadset(title: string, enter: () => void, stay: () => void, opts: { asked?: boolean } = {}): HeadsetOffer {
+export function offerHeadset(title: string, enter: () => void, stay: () => void, opts: { asked?: boolean; back?: boolean; open?: boolean; waiting?: Promise<void> } = {}): HeadsetOffer {
   // Why it is up. Arriving from a headset: they left a session to come here, and this is the way back in. Asked
   // for (`asked`): they pressed "Enter VR" in a menu their client draws above this page. That press was not in this
   // page, and a browser starts a headset session only at a press that is: so this page asks for one of its own.
   // Either way the press here says "Launch", so the two presses of that second way each have their own name
   // (the owner, 2026-11-23: "Enter VR", then "Launch").
   const asked = opts.asked === true;
+  // Back from BitLogin's screen, out of VR for a moment (ui/vr-aside.ts): "Back into VR", pressable once that screen
+  // has gone (`waiting`). Or, where the browser wouldn't open a window from inside VR, "Open BitLogin" (`open`): one
+  // press here opens it.
+  const back = opts.back === true;
+  const opening = opts.open === true;
+  let waiting = !!opts.waiting;
   const scrim = document.createElement("div");
   scrim.id = "nswp-enter";
   scrim.setAttribute("role", "dialog");
@@ -70,13 +76,14 @@ export function offerHeadset(title: string, enter: () => void, stay: () => void,
   const go = document.createElement("button");
   go.type = "button";
   go.id = "nswp-enter-vr";
-  go.textContent = "Launch";
+  go.textContent = opening ? "Open BitLogin" : back ? "Back into VR" : "Launch";
   // Large, for whoever does aim at it. Nobody has to: the page behind it does the same.
   Object.assign(go.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
   const hint = document.createElement("p");
   hint.id = "nswp-enter-hint";
   hint.setAttribute("aria-live", "polite");
-  hint.textContent = asked ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
+  const ready = opening ? "Press anywhere to open BitLogin, then come back here." : back ? "Press anywhere, with anything, to go back into VR." : asked ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
+  hint.textContent = waiting ? "Back into VR, as soon as BitLogin is done." : ready;
   Object.assign(hint.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
   const flat = document.createElement("button");
   flat.type = "button";
@@ -90,7 +97,7 @@ export function offerHeadset(title: string, enter: () => void, stay: () => void,
   let gaveUp: ReturnType<typeof setTimeout> | undefined;
   const presses = ["pointerup", "touchend", "keydown"] as const;
   const onPress = (e: Event) => {
-    if (!up) return;
+    if (!up || waiting) return;
     const key = (e as KeyboardEvent).key;
     if (e.type === "keydown") {
       if (key === "Escape") return void stay();
@@ -121,6 +128,19 @@ export function offerHeadset(title: string, enter: () => void, stay: () => void,
     hint.textContent = "That press didn't start VR. Press again, anywhere.";
   };
   flat.addEventListener("click", stay);
+  // Dimmed while BitLogin's screen is up: a press then is that screen's, and this takes none until it has gone.
+  const dim = (on: boolean) => {
+    go.disabled = on;
+    scrim.style.opacity = on ? "0.55" : "1";
+    hint.textContent = on ? "Back into VR, as soon as BitLogin is done." : ready;
+  };
+  if (opts.waiting) {
+    dim(true);
+    void opts.waiting.then(() => {
+      waiting = false;
+      if (up) dim(false);
+    });
+  }
   for (const type of presses) addEventListener(type, onPress, true);
   // A browser gives one press to one thing. While this is up, the press is for the headset, not the screen.
   holdFullscreen(true);
