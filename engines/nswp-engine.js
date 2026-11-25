@@ -7197,6 +7197,7 @@ ${roomName}`)));
       room: { has, joined: has && room3.joined === true, mic: has && typeof room3.mic === "boolean" ? room3.mic : null, count: has ? n : 0 },
       headset: { supported: headset2.supported === true, presenting: headset2.supported === true && headset2.presenting === true },
       named: s.named === true,
+      guest: s.named === true && s.guest === true,
       signIn: MENU_SIGN_IN.includes(s.signIn) ? s.signIn : "none",
       holding: id(s.holding) ?? "",
       items: cleanItemsRule(s.items),

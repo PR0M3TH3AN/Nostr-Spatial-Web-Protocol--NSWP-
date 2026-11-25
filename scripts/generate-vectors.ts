@@ -1592,7 +1592,7 @@ const files: Record<string, unknown> = {
 
 // ---- The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
 {
-  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, signIn: "none", holding: "", items: "allowed", hum: false };
+  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, guest: false, signIn: "none", holding: "", items: "allowed", hum: false };
   const bare = (over: Record<string, unknown> = {}) => ({ title: "", level: "full", keys: true, state: STATE, target: [], loading: null, sections: [], ...over });
   const row = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, ...more });
   const kept = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, kind: "button", ...more });
@@ -1606,7 +1606,7 @@ const files: Record<string, unknown> = {
         level: "quiet",
         corner: "top-right",
         keys: true,
-        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, signIn: "ready", holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, guest: true, signIn: "ready", holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
         target: ["A painting", "Oil on board, 1911"],
         loading: { fraction: 0.4, words: "The east wing" },
         sections: [
@@ -1618,7 +1618,7 @@ const files: Record<string, unknown> = {
         title: "The Gallery",
         level: "quiet",
         keys: true,
-        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, signIn: "ready", holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, guest: true, signIn: "ready", holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
         target: ["A painting", "Oil on board, 1911"],
         loading: { fraction: 0.4, words: "The east wing" },
         sections: [
@@ -1629,6 +1629,7 @@ const files: Record<string, unknown> = {
       },
     },
     { name: "nothing_said", why: "An empty description is a world with no name and no tabs.", world: {}, expect: bare() },
+    { name: "a_guest_nobody_named", why: "`guest` is said of who the world has: where it has nobody (`named` false), it is not taken.", world: { state: { named: false, guest: true } }, expect: bare() },
     { name: "not_a_description", why: "Text, a list or nothing is no description.", world: ["room"], expect: null },
     {
       name: "the_visitors_own_tabs",

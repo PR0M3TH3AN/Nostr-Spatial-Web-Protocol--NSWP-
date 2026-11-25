@@ -60,7 +60,7 @@ controls.addSection({ id: "help", label: "Help", icon: "help", note: helpWords("
 // words, made from the facts the world says. A real client opens its sign-in address's panel; this one only notes
 // that it was asked.
 const asked: string[] = [];
-controls.add(...signInRows(below, { ask: () => void asked.push("ask") }));
+controls.add(...signInRows(below, { ask: () => void asked.push("ask"), secure: () => void asked.push("secure") }));
 
 // The Bag is the client's own tab, drawn by the kit's own code in this page, which isn't a world. With `?bag=`
 // the visitor is someone made up whose bag holds one real item, by its address (the trial gives the dart

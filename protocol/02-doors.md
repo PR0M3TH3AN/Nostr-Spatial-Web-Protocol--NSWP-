@@ -582,6 +582,8 @@ Plain data. Nothing in it is run, and every word is shown as text.
 - `state`: the things every place has and only the world can run.
   `room` (`has`, `joined`, `mic`, `count`), `headset` (`supported`,
   `presenting`), `named` (whether this world has the visitor's name),
+  `guest` (whether who it has is a guest account, [NSWP-10](10-identity.md),
+  "A guest"; only where `named`),
   `signIn` (where the world's own way of signing in stands: `none`,
   `ready`, `asking` or `unanswered`),
   `holding` (the address of what is in their hand), `items` (the
@@ -625,10 +627,11 @@ describes the visitor's tabs has them left out as before.
 **You is the client's alone.** A world never puts a row there: a sign-in
 row under a world's name, naming a host, is exactly what a visitor should
 never be taught to trust. The world says facts (`state.named`,
-`state.signIn`), and the client words its own rows from them: "Sign in to
-<the world>", "Asking your sign-in address…", "Your sign-in address
-didn't answer", "Signed in. Sign out here". A world never supplies those
-words.
+`state.guest`, `state.signIn`), and the client words its own rows from
+them: "Sign in to <the world>", "Asking your sign-in address…", "Your
+sign-in address didn't answer", "Signed in. Sign out here"; and to a guest
+account, who they are as a guest, "Secure this account" and "Sign in to an
+account". A world never supplies those words.
 
 **The Bag is the client's alone too.** What is in the visitor's hand is
 the world's to say (`state.holding`), with its rule for what is carried

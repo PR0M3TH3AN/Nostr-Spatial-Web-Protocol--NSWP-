@@ -16,7 +16,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
     - You says what they are;
     - Achievements and Scores ask to secure, and show nothing and post nothing;
     - an account is no guest.
-  - **Not tried:** BitLogin's real panel on "Secure this account" through BitPortal.
+  - **The world says `guest` to its client** (core `menu.ts`: `state.guest`, only where `named`; `sites/shared/world.ts`; `protocol/02-doors.md`; `vectors/menu-words.json`). The shell's "Secure this account" row then shows over a world, even in a fresh browser that went straight there.
+  - **The client's own You rows for the world in its frame** (`signInRows`) word a guest account as one: "You're a guest. Every world in BitPortal knows it's the same guest. This account lives in this browser only.", then "Secure this account" (the client's new `secure`) and "Sign in to an account". Before, a guest read "Signed in to The Grove. Sign out here", the words for an account (BitPortal's live check of 0.92.0).
+  - **`trials/live.mjs`:** the room inside the shell draws no menu of its own now, so its Sign in is pressed in the shell's own menu in the top page (`.shell-menu`: Menu, then You, then "Sign in, at bitlogin.network"), with BitLogin's panel expected in the top page and no window. It passes once BitPortal 251 is live.
+  - **Tried as well:** `sign-in-rows.test.ts`:
+    - to a guest: who they are, Secure, and Sign in to an account, with no Sign out;
+    - to an account and to nobody: as before;
+    - no Secure where the client has none.
+    `vectors/menu-words.json`: a guest named, and `guest` with nobody named, not taken.
+  - **Not tried:** BitLogin's real panel on "Secure this account" through BitPortal; `trials/live.mjs` itself, which reads the live sites and waits for BitPortal 251.
 - **Items for guests: a world's `"guest_items": false`, and an item's `["guests", "no"]`** (core `item.ts`, `manifest.ts`; SDK `hold.ts`, `presence.ts`, `front-room.ts`, `ui/identity.ts`; `protocol/17-items.md`, "Guests"; `protocol/01-worlds.md`; `vectors/items.json`, `vectors/manifests.json`). The owner, 2026-11-25: a guest should "have access to a bag with the free items that the worlds allow". Part 4 of the kit's half of guest accounts; the two words given 2026-11-25.
   - **A guest account holds and uses an item where both the world and its maker let it,** as anyone does otherwise. Its bag is started with BitPortal's starter set.
   - **The world:** `"guest_items": false` in its own entry of its announcement keeps guests from its items, though they may come in. Only exactly `false` is kept. It is carried as `guestItems` (from `accessFor`, on the world gate, and in `pageRules`).

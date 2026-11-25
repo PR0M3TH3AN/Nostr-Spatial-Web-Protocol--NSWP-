@@ -58,19 +58,28 @@ for (const [name, opts, start] of [["desktop", { viewport: { width: 1440, height
   const openRow = async (t, label) => { await frame().evaluate((t) => window[t].hud.setOpen(true, "you"), t); await page.waitForTimeout(700); await page.frameLocator("#view").locator("nswp-hud").getByRole("button", { name: label }).first().click(); const up = await until(async () => { const p = await panel(); return p && !p.waiting ? p : null; }, 12000); await page.waitForTimeout(3000); return up; };
   const closePanel = async () => { const pf = panelFrame(); const x = pf?.getByRole("button", { name: /close|×/i }).first(); if (x && (await x.count())) await pf.evaluate(() => void setTimeout(() => [...document.querySelectorAll("button")].find((b) => /close|×/i.test(b.getAttribute("aria-label") ?? b.textContent))?.click(), 0)).catch(() => null); if (!(await until(async () => (await panel()) === null, 4000))) { closedOutside++; await page.mouse.click(5, 5); await until(async () => (await panel()) === null, 4000); } await page.waitForTimeout(600); };
   const says = async () => (await panelFrame()?.evaluate(() => document.body.innerText.replace(/\s+/g, " ").trim().slice(0, 260)).catch(() => null)) ?? null;
-  // ---- the room's own rows, and its Sign in: BitLogin's real panel, no window.
-  await until(async () => (await rowsOf("__bitportalTest"))?.some((l) => /^Sign in, at bitlogin\.network$/.test(l)), 40000);
-  r[`${name} room rows`] = await rowsOf("__bitportalTest");
+  // ---- the room's Sign in: BitLogin's real panel, no window. The room inside the shell draws no menu of its own
+  // (BitPortal 251): the visitor's menu is the shell's, in the top page (`.shell-menu`), and its You has the Sign in.
+  const shellMenu = page.locator(".shell-menu");
+  const shellRows = () => shellMenu.getByRole("button").allTextContents().catch(() => []);
+  await until(async () => (await shellMenu.count()) > 0, 40000);
   if (name === "desktop") {
-    const up = await openRow("__bitportalTest", /^Sign in, at /);
-    want("desktop 2 the room's Sign in shows BitLogin's panel, and opens no window", [!!up, up?.src, popups.length, await sheet()], [true, `${SIGNIN}/connect/panel/`, 0, null]);
+    await shellMenu.getByRole("button", { name: /^Menu, M$/ }).first().click();
+    await page.waitForTimeout(700);
+    await shellMenu.getByRole("tab", { name: /^You$/ }).first().click();
+    await page.waitForTimeout(700);
+    r[`${name} shell rows`] = (await shellRows()).map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
+    await shellMenu.getByRole("button", { name: /^Sign in, at bitlogin\.network$/ }).first().click();
+    const up = await until(async () => { const p = await panel(); return p && !p.waiting ? p : null; }, 12000);
+    await page.waitForTimeout(3000);
+    want("desktop 2 the room's Sign in, in the shell's own menu, shows BitLogin's panel in the top page, and opens no window", [!!up, up?.src, popups.length], [true, `${SIGNIN}/connect/panel/`, 0]);
     r["desktop room panel says"] = await says();
     await page.screenshot({ path: `${SHOTS}/live-068-room-panel.png` });
     await closePanel();
-    want("desktop 2b closed, and the room's menu is back", [await panel(), await sheet()], [null, "You"]);
+    want("desktop 2b closed", await panel(), null);
     r["desktop room panel, once closed"] = await closedPanel();
     want("desktop 2c and what is left of the panel can't be seen or pressed", CLOSED.includes(r["desktop room panel, once closed"]), true);
-    await frame().evaluate(() => window.__bitportalTest.hud.setOpen(false));
+    await page.keyboard.press("Escape");
   }
   // ---- through a door, into a world: the same there.
   const doors = await frame().evaluate(() => window.__bitportalTest.doors());
