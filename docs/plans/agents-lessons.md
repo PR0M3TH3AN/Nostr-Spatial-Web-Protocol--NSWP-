@@ -1952,6 +1952,72 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Rules first, what players say, looking things up, and bodies that sit and notice (D112 to D119, 2026-11-25; $0.60 in all, under the owner's "$3")
+
+- **Rules first, the mind for what rules can't do** (built, D117, the
+  owner's: "for things that rules can do then use rules"). Paying a
+  decider to redo what the free rules do well only added faults: a paid
+  run scored 41 of 56, 11 misses on orders the rules carry out alone. Now
+  the free rules decide every step they can, and the mind is asked only
+  where they make nothing of the order. After: 55 of 56 on the batteries,
+  47 of 48 on the mind's own battery (conditions, "not this one", "the
+  other one", things named by where they are), against 14 of 48 for the
+  rules alone. *For the kit:* an agent host runs rules first and pays for
+  thinking only where they fail. At scale this is most of the saving.
+- **What players say, 37 types, tested in every world** (built, D118, the
+  owner's: "We need a reliable solution before we move on"): three runs
+  of each mind case, 244 of 246, none failing twice; then 88 of 88. The
+  free rules were mended where an NPC fails too: a question is not an
+  order ("is the lamp on?" had switched it on); "us" and "gimme" mean
+  "me"; "it" is the thing last used; a lone "on" is no verb. The list is
+  the playground's `docs/WHAT-PLAYERS-SAY.md`. *For worlds:* the same
+  list is the test of any agent a world carries.
+- **Looking things up before replying** (built, D119, the owner's ask):
+  the mind may ask for every thing here, a search, a look, deeper
+  knowledge, or a question for the player, at most two a turn. Used in 8
+  of 281 turns, and every "it", "the other one" and "do the same" right,
+  58 of 58, once it is told the player's last line and the thing last
+  used. *For a host:* keep, per agent, the last thing it acted on; each
+  lookup costs one more request for every agent that asks, so at scale
+  the host should answer searches from what it already holds.
+- **Faults a paid pass found, each mended for every agent** (D112): "stop
+  following me and stay here" walked off (now a stay choice); a task that
+  names the player and a thing kept "fetch" and lost "me"; a thing put "on
+  the bench", which holds nothing, was promised and set on the floor; a
+  voice or JEV refusing for a used-up cap was asked again every line (now
+  read as a power gone, D110); a world's own words told a cast member it
+  was a test, against the holodeck line.
+- **"Here you go."** (built, D113): a body that handed something over says
+  so where it said "Done."; a mind's reply may carry a "When done:" line,
+  said only once the body reports done, in the same request.
+- **Seats, solid things and sitting** (built, D114; backlog
+  `seats-and-solid-things`): a world declares `solid`, `footprint`,
+  `facing` and `seat {height}` for a thing; bodies walk round what is
+  solid, sit from a seat's front only, and sit and stand as a person does
+  (turn, lower, feet out; lean, feet back, rise), the order the owner
+  asked for. *For the kit:* its pieces (`addBench`, `addLamp`,
+  `addPlant`) should hand these back by names given, so a world needn't
+  say them twice.
+- **Turning to look** (built, D115): a body looks at someone coming within
+  4 m in its view and away 3 s after they stand still, glances at things
+  moved or switched by others, and idles on things by how interesting
+  they are (`interest`, 0 to 1). What it is told comes first. *For a
+  host world:* tell agents when someone else moves a thing or changes its
+  state (`noteThing`, `noteState`).
+- **The free sweep** (D116): every free battery re-run on the newest code:
+  495 of 495 orders, 455 of 455 as people put them, 204 of 216 hide and
+  seek lines unchanged and the rest explained. It found one fault ("sit
+  down" with one bench) and that the playground had been running its
+  whole tests outside the machine's lock (fleet rule 14); now through it.
+- **For the protocol and the kit, from the owner's push-to-talk question**
+  (the playground's answer, on its backlog): a host hands speech only to
+  agents in hearing range, with its loudness and the speaker's place and
+  facing, so each can tell whether it was meant for it; one answerer is
+  chosen from those who hear; and one authority per world re-checks every
+  agent's action, so a companion may think on its owner's computer but
+  acts through the world's host. This is where worlds with their own
+  server (backlog) and agents at scale meet.
+
 ## The companion's free pass, paid powers that stop for everyone at once, and the holodeck line (D109 to D111, 2026-11-25; free)
 
 - **A companion looks only to see** (shown, free: D109): its eyes asked
