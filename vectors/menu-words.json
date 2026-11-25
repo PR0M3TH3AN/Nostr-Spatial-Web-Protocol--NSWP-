@@ -21,7 +21,7 @@
     "covers": 8192
   },
   "waits": {
-    "MENU_WAIT_MS": 300,
+    "MENU_WAIT_MS": 100,
     "LEAVE_MS": 1000,
     "MENU_SAVE_MS": 10000,
     "MENU_MAKING_MS": 60000,

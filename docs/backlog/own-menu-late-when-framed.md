@@ -3,7 +3,7 @@
 - **Asked:** 2026-11-24, by the orchestrator, from a measurement BitPortal
   made. Not an ask of the owner's. **A fault that is live.**
 - **Who:** the NSWP builder.
-- **State:** **decided, 2026-11-24: 100 ms, not 300; not built.** Proposed
+- **State:** **built, 2026-11-25: 100 ms, not 300. Not live.** Proposed
   below as 50. The orchestrator gave 100, on BitPortal's timing of its own
   shell that day: with the processor slowed six times a client's "has" took
   26 to 37 ms at the middle and 66 to 197 at the worst, so 50 would lose now

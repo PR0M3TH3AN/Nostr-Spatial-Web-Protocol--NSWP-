@@ -334,12 +334,13 @@ place, above the world, and a world's drawing can never be above it.
 - **Not framed:** the world loads its own menu at once. Nothing changes from today.
 - **Framed, and the client answers `has: true`:** the world never loads its menu. The
   client answers `here` at once, as it already does for the screen.
-- **Framed, and nothing is said within about 300 ms:** the world loads its own menu.
+- **Framed, and nothing is said within about 100 ms** (300 until 2026-11-25)**:** the world loads its own menu.
   A client that doesn't know these words (or isn't one) changes nothing.
   **But the world is that much late for every visitor,** measured by BitPortal
   on 2026-11-24. **Decided that day (the orchestrator): 100 ms, not 300,** and
   the world still waits: it does not draw its own menu at once and step it
-  aside. Not yet built. The times at each wait, and why not drawing at once,
+  aside. **Built 2026-11-25** (`MENU_WAIT_MS` is 100; `trials/menu-soon.mjs`
+  says the middles of the three cases). The times at each wait, and why not drawing at once,
   are in `docs/backlog/own-menu-late-when-framed.md`.
   - *Why 100 and not 50.* BitPortal timed its shell from hearing a place's
     `here` to the place's page having the answer, 20 loads each, the Grove at
@@ -653,7 +654,7 @@ each saying to sign in (section 14, question 4).
 | The description's fields | `title`, `level`, `corner`, `keys`, `state`, `target`, `loading`, `sections`; a row's `bar` and `picture` |
 | What `state` holds | `room` (`has`, `joined`, `mic`, `count`), `headset` (`supported`, `presenting`), `named`, `holding`, `items` |
 | The limits | `MENU_LIMITS` (`sections` 12, `rows` 60, `allRows` 200, `label` 120, `picture` 256, `bytes` 65536, `ownTabs` 2, `say` 200) |
-| How long a framed world waits for a client | `MENU_WAIT_MS` (300 as built; 100 decided 2026-11-24, section 6, to be built) |
+| How long a framed world waits for a client | `MENU_WAIT_MS` (100; it was 300 until 2026-11-25, section 6) |
 | How long the client waits for a world to leave by itself | `LEAVE_MS` (1000) |
 | The kit's entry for the menu | `nswp-sdk/menu` |
 | The menu, and the port | `mountMenu(port)`, `WorldPort` |
