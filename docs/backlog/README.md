@@ -87,6 +87,10 @@ up to the deploy in one command.
 Seemless AI subscription."): `ai-credits-subscription`, a subscription for
 agents' AI use, sold and counted by BitUnlock.
 
+**After BitLogin's family release and the kit's half of it** (the owner,
+2026-11-25: "Yes, do that"): `worlds-open-in-their-home-client`, our worlds
+opening inside the portal at load, so signing in is never a popup.
+
 New asks from the owner still go in the day they are asked; where one is
 urgent (a live fault), it goes first.
 
@@ -176,3 +180,4 @@ urgent (a live fault), it goes first.
 | [starter-world-as-a-3d-website](starter-world-as-a-3d-website.md) | The starter world as a walk through every feature | not briefed | asked |
 | [bitgate](bitgate.md) | BitGate deciding who may sell, be paid, and be shown | BitGate | briefed |
 | [private-worlds-by-invitation](private-worlds-by-invitation.md) | A world by invitation: its owner's own list of who may come in, and who may not | NSWP builder (kit); BitGate (the list's shape); BitPortal (client) | building (block list and by-invitation live since kit 0.78.1; the owner's screen merged, NSWP 319, tried against BitLogin's real signer; the sealed kind and BitPortal hiding doors left) |
+| [worlds-open-in-their-home-client](worlds-open-in-their-home-client.md) | Our worlds open inside the portal at load, so signing in is BitLogin's panel, never a popup, on desktop and phone; a world names its home client, and one that names none keeps BitLogin's window; no remote kit script | NSWP builder (kit); BitPortal (its shell); the template | asked; agreed by the owner 2026-11-25, after `family` |
