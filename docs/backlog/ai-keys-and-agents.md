@@ -215,6 +215,27 @@ its memory as sealed notes. The same sheet for both, filled to different
 depths. Set out in `docs/plans/agents-lessons.md`, "What the protocol would
 have to settle".
 
+## Three tiers, named (the owner, 2026-11-24)
+
+He described the free rules as "more of a normal video game NPC than a
+agent. Which is fine. We need them." Offered three names for the tiers,
+he said "Yes, use those":
+
+1. **NPC:** the free rules over skills, items, senses and a body, no
+   model. Plays in any room that declares its things and uses items (on
+   the range it shoots, reloads and takes cover). Can't talk beyond fixed
+   lines, plan, or understand undeclared words. For crowds, guards,
+   shopkeepers, opponents, seekers; the floor under the other two.
+2. **Cast member:** an NPC with JEV choosing its steps and the chat model
+   talking, inside one world that declares itself (the record under its
+   host's key above).
+3. **Companion:** a cast member that goes between worlds with its owner,
+   with its own eyes, memory and sheet (the lasting agent above).
+
+These are the words for the tiers in the docs and with him. As words a
+world or the kit would carry (what kind of agent a place allows or
+provides), they are names to be given later (fleet rule 11).
+
 ## The chat model to aim at (the owner, 2026-11-24)
 
 Shown OpenRouter's list as read that night (GPT-6 Luna $0.10 a million
@@ -225,9 +246,12 @@ both. I think that looks like a good one". (The list puts Haiku at the
 same price as Luna; the orchestrator said so.) So Claude Haiku 5.5,
 through OpenRouter, with its thinking off by default (the playground's
 D93), is the companion's chat model to aim at, with DeepSeek kept beside
-it to compare. Not yet measured on the agents' own tasks: a small paid
-run, Haiku against DeepSeek, quoted to him in the playground's session
-first.
+it to compare. Measured the same night on his "Yes, run it" (the
+playground's D99, half a cent): Haiku named the right thing for an order
+7 of 10 against DeepSeek's 5, made up no cue against one, and played
+along with more game lines (3 of 8 fully against none), at 1.5 s a reply
+against 1.1. Both declined villainous lines with the gentle default
+character. Haiku is the companion's default there now (D98).
 
 ## A body's own tongue, and feeling cues (the owner, 2026-11-24)
 
