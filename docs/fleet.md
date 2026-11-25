@@ -130,6 +130,19 @@ the same way. The orchestrator says what is live.
     the trials without the graphics card only where the change touches
     drawing or timing, and takes the author's other counts on that head as
     reported.
+15. **Nothing lives only on this laptop** (the owner, 2026-11-25: "lets
+    do a push of all our code to main. So nothing is lost if this laptop
+    died", and "we are running hot and id hate to loose our work in
+    progress over a drive failure or something"). At every stopping point,
+    and at least at the end of every turn that changed files, a session
+    commits what it has (a WIP commit is fine) and pushes its branch to
+    GitHub. **Branches only, never `main`** for this: BitLogin's `main`
+    deploys bitlogin.network, and NSWP's and BitPortal's take only what
+    passed the gate. A branch whose GitHub copy has moved on is pushed
+    under a new name (`backup/<branch>-<date>`), never forced. Before a
+    push, `git status` is read so no `.env`, key, trial picture or
+    downloaded file goes in. A pushed branch may make a preview; that is
+    fine, and it is not a deploy.
 
 ## What a bigger fleet taught us
 
