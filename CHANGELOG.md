@@ -4,6 +4,16 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The 3D artist's hands are the kit's own, for a Quest's controllers** (SDK `held-hands.ts`, `input.ts`; `packages/sdk/assets/hands/`; `scripts/build-sites.mjs`; `sites/shared/world.ts`; `docs/controls-kit.md`; `docs/owner-quest-checks.md`, check 9; `trials/kit-hands.mjs`). The owner, 2026-11-25: "dont wait for me to test the local controler and hands. Use the live game as the testing ground. Ill let you know if they feel off".
+  - **In a headset, a Quest's controllers** are drawn as a see-through blue hand holding a see-through controller, each side: bitportal-art c30f660, with the smaller trigger pull. A Quest's controllers are those whose profile ids start `meta-quest-` or `oculus-touch`.
+  - **They move with the controller:** the trigger pulls the index finger, the grip closes the others, and the thumb goes to A/X, B/Y, the stick, the thumb rest, or up. The controller's own trigger, grip, buttons and stick move too. The look is the artist's rim-lit glass. They are drawn last, over the menu, as hands are.
+  - **Carried with the kit, served by the world itself:** the four models are in `packages/sdk/assets/hands/`, with the WebXR Input Profiles licence (MIT, for the controllers) and `PROVENANCE.md`. The site build copies them to each world's `hands/kit/`, as the kit's sounds are copied. A world names where with `createXrInput({ handsAt })`, and the reference worlds pass `"/hands/kit/"`. Nothing is fetched from anyone else.
+  - **What it costs a world:** 6.9 KB more script (the Grove's and the Arcade's, against main's build), since the loader is already the kit's. Plus 492 KB of files, fetched only on the first Quest controller in a headset session: a visitor on a flat screen fetches none of it.
+  - **Left out, or for any other controller,** the kit's own drawing is kept. Tracked bare hands are drawn as before.
+  - **Tried:**
+    - `trials/kit-hands.mjs`, 10 of 10, in the Grove in a made-up Quest 3 (iwer) with a real mouse press on Enter VR: nothing of the hands fetched before a session; each controller with the artist's hand and controller on its grip, both seen; the four models fetched once each from the world's own `hands/kit/`; a pull of the trigger to 0.6 and a squeeze moving the controller's parts that far and the index finger with them, on that side only; no page errors.
+    - `held-hands.test.ts`: which profiles get them; the thumb's control; the four models, the licence and the provenance; each built world serving them byte for byte.
+  - **Not tried:** the owner's Quest. That is now the live site, by his word (check 9).
 ## 0.92.0
 
 - **A guest is the same guest in every world** (core `signing.ts`, `pass.ts`; SDK `signer.ts`, `room.ts`, `room-controls.ts`, `index.ts`; `protocol/10-identity.md`, "A guest"; `vectors/passes.json`; the engine script). The owner, 2026-11-25: "a guest should be the same guest in every world and they should have access to a bag with the free items that the worlds allow". BitLogin's guest accounts are live (a76ff51): a key it makes for a visitor nobody is signed in as, the same for the whole family. Parts 1 and 2 of the kit's half; names given 2026-11-25.

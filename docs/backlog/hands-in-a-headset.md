@@ -29,6 +29,10 @@
   thumb; it also writes down the profile ids and whether hands and
   controllers are tracked together (`docs/owner-quest-checks.md`, check 9).
   Nothing in the kit until the owner says yes to the look.
+  **Then, by the owner's word of 2026-11-25** ("Use the live game as the
+  testing ground"): the kit's own drawing for a Quest's controllers in every
+  world (`held-hands.ts`, `handsAt`), built, not merged; for kit 0.93.0. The
+  Godot add-on keeps its own drawing for now.
 
 ## Three parts
 
