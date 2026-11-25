@@ -1952,6 +1952,32 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Push-to-talk in the browser, and the FPS arena's first skills (D121, D122, 2026-11-25; free)
+
+- **Push-to-talk heard in the visitor's own browser** (built, D121, the
+  owner's choice): Whisper tiny.en runs on the device, so nothing said
+  leaves it. About 41 MB, fetched once. *For a world shipping it:* the
+  model and its runtime are served by the site itself, never fetched from
+  another party's server while someone plays, and the site's content
+  policy needs `'wasm-unsafe-eval'`.
+- **The FPS arena** (built, D122, the owner's "lets start the FPS next"):
+  tall walls and low cover; fighters with the kit's health, a clip, a
+  person's turn rate and spread, eyes (30 m, 110 degrees) and ears. Sight
+  is one shared line-of-sight query, and shots and steps are sounds heard
+  through walls by loudness (D120). Each skill offers scored choices and
+  the free rules take the best, measured on and off over the same 30
+  rounds: **Listen** (turn to a hidden shooter) 30 of 30 against 0;
+  **Track** (follow one gone through a gap) 30 of 30 against 2; **Assess**
+  (shoot the one aiming first, never a friend in line) 30 of 30 with no
+  friendly hits, against 145 friendly hits without it. Fifty fighters
+  take 0.52 ms a step.
+- *For the kit:* line of sight and sound as shared world queries, worked
+  out once and read by every agent; that is what keeps a crowd cheap.
+  *For worlds:* cover declared as data (tall and low), and a shot that
+  hits the first body in its way, or friendly fire can't be judged. *For
+  the protocol:* a skill offers scored choices; an NPC takes the best, and
+  a cast member's mind sees the top few.
+
 ## Hearing, and who answers (D120, 2026-11-25; free)
 
 - **Loudness where each listener stands** (built, D120, from the owner's
