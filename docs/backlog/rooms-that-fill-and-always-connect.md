@@ -11,7 +11,9 @@
   that order; TURN priced (below), set up only on the owner's word. Part 2
   (said when it fails, `unreached`) merged 2026-11-25 (444a549), not live;
   part 4 (`ROOM_RELAYS`, eight) merged (16baaa2), not live; part 3 (lobbies
-  that fill, `full`) built, not merged.
+  that fill, `full`) merged (8a4bbef), not live. Part 1 (TURN): the Worker
+  `services/ice/` and the kit's `iceFrom` built, not merged; not deployed,
+  which is the owner's (its README).
 
 ## What was seen (the orchestrator, 2026-11-25, listening only)
 

@@ -10611,6 +10611,27 @@ postMessage({ t: "started" });
   var PLAY_WORD = /^(shot|hit|did|st|tint):/;
   var PLAY_SAID = { burst: 40, perSecond: 30 };
   var DEFAULT_ICE = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+  var ICE_FROM = null;
+  var ICE_FROM_WAIT_MS = 3e3;
+  async function askIce(url) {
+    try {
+      const res = await fetch(url, { credentials: "omit", cache: "no-store", signal: AbortSignal.timeout(ICE_FROM_WAIT_MS) });
+      if (!res.ok) return null;
+      const got = await res.json();
+      if (!Array.isArray(got.iceServers) || typeof got.ttl !== "number" || !(got.ttl >= 60)) return null;
+      const servers = [];
+      for (const s of got.iceServers.slice(0, 8)) {
+        const urls = (Array.isArray(s?.urls) ? s.urls : []).filter((u) => typeof u === "string" && u.length < 200 && /^(stun|turns?):[^\s]+$/.test(u)).slice(0, 8);
+        if (!urls.length) continue;
+        const turn = urls.some((u) => u.startsWith("turn"));
+        if (turn && (typeof s.username !== "string" || typeof s.credential !== "string")) continue;
+        servers.push(turn ? { urls, username: s.username, credential: s.credential } : { urls });
+      }
+      return servers.length ? { servers, ttl: Math.min(got.ttl, 86400) } : null;
+    } catch {
+      return null;
+    }
+  }
   var HELLO_EVERY_MS = 2e4;
   var RECORDING_HOLD_MS = 6e3;
   var CONNECT_TIMEOUT_MS = 25e3;
@@ -10668,6 +10689,9 @@ postMessage({ t: "started" });
       __publicField(this, "waiting", /* @__PURE__ */ new Map());
       __publicField(this, "maxMembers");
       __publicField(this, "iceServers");
+      /** Where TURN servers are asked for (`JoinOptions.iceFrom`), or null. */
+      __publicField(this, "iceFrom");
+      __publicField(this, "iceTimer");
       __publicField(this, "sockets", /* @__PURE__ */ new Map());
       __publicField(this, "peers", /* @__PURE__ */ new Map());
       __publicField(this, "seen", /* @__PURE__ */ new Set());
@@ -10775,6 +10799,7 @@ postMessage({ t: "started" });
       this.relays = opts.relays ?? [...ROOM_RELAYS];
       this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
       this.iceServers = opts.iceServers ?? DEFAULT_ICE;
+      this.iceFrom = opts.iceFrom === void 0 ? ICE_FROM : opts.iceFrom;
       for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
       for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
       this.invited = opts.invited ? new Set([...opts.invited].filter((k) => /^[0-9a-f]{64}$/.test(k))) : null;
@@ -11547,6 +11572,31 @@ postMessage({ t: "started" });
       }
       this.emit("status", this.status);
     }
+    /**
+     * Ask for TURN servers (`iceFrom`), and use them beside the room's own STUN: for connections made from now on, and,
+     * when they are asked for again before they run out, for those already made (`setConfiguration`). Where none come,
+     * what the room had is kept, and nothing more is asked. Asked again at four fifths of what they are good for.
+     *
+     * @internal Called by `room.join`; not for a world.
+     */
+    async askForIce() {
+      if (!this.iceFrom || this.closed) return;
+      const got = await askIce(this.iceFrom);
+      if (this.closed) return;
+      if (got) {
+        const own2 = this.iceServers.filter((s) => !s.username);
+        const stun = own2.length ? own2 : DEFAULT_ICE;
+        this.iceServers = [...stun, ...got.servers.filter((s) => s.username)];
+        for (const peer of this.peers.values()) {
+          try {
+            peer.pc.setConfiguration({ iceServers: this.iceServers });
+          } catch {
+          }
+        }
+      }
+      clearTimeout(this.iceTimer);
+      if (got) this.iceTimer = setTimeout(() => void this.askForIce(), got.ttl * 800);
+    }
     sweep() {
       const now = Date.now();
       for (const [pubkey, peer] of this.peers) {
@@ -11611,6 +11661,7 @@ postMessage({ t: "started" });
         }
       }
       this.closed = true;
+      clearTimeout(this.iceTimer);
       clearInterval(this.screenTimer);
       clearInterval(this.watchTimer);
       clearInterval(this.tuneTimer);
@@ -11636,6 +11687,7 @@ postMessage({ t: "started" });
     async join(opts = {}) {
       if (typeof RTCPeerConnection === "undefined") throw new Error("nswp-sdk: this browser has no WebRTC support");
       const session2 = new RoomSession(opts);
+      await session2.askForIce();
       session2.start();
       return session2;
     }

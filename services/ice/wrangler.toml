@@ -1,0 +1,14 @@
+# bitblocks-ice: short-lived TURN credentials for bitblocks.network's rooms (README.md here).
+# No account id and no secret is written here: the owner sets the secrets with `wrangler secret put`, and wrangler
+# asks which account to use (or reads CLOUDFLARE_ACCOUNT_ID from his shell).
+name = "bitblocks-ice"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# Each address may ask 10 times a minute (PER_ADDRESS in src/index.ts). Where this binding isn't there, the Worker
+# counts in each isolate instead.
+[[ratelimits]]
+name = "PER_ADDRESS_LIMIT"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
