@@ -85,9 +85,20 @@ in those pages.
    `GET /` answers `{ iceServers, ttl }` for a page on a bitblocks.network
    address (its `Origin` checked; anything else refused), asking
    Cloudflare with the key it holds as two secrets, `TURN_KEY_ID` and
-   `TURN_KEY_API_TOKEN`. Credentials last 6 hours; the kit asks again
+   `TURN_KEY_API_TOKEN`. Credentials last 1 hour; the kit asks again
    before they run out (`setConfiguration`). Port-53 addresses left out.
-2. **Its own limits, since Cloudflare has no cap:** a few asks a minute
+2. **A hard stop inside the free 1,000 GB** (the owner, 2026-11-25: "so the
+   turn server is wanting my credit card. Can set a limit for it so it
+   will not go over its free tier?"). Cloudflare's spending limits cover
+   only Workers and Durable Objects, and its budget alerts warn without
+   stopping, so the stop is the Worker's: it reads this month's TURN
+   gigabytes from Cloudflare's analytics (GraphQL, with a read-only
+   analytics token the owner makes, a third secret, `CF_ANALYTICS_TOKEN`)
+   at most every 10 minutes, and past 800 GB it hands out no TURN
+   credentials, only STUN, until the month turns. Credentials last 1 hour
+   (renewed by the kit), so a stop takes hold within the hour. If the
+   analytics can't be read, it hands out none.
+   **Also its own limits:** a few asks a minute
    from one address; a daily count of credentials, past which it answers
    STUN only (rooms carry on as today) and says so in its log. The count
    is its config, the owner's to set.
@@ -97,7 +108,9 @@ in those pages.
 
 **Then the owner, in this order, each on his own word:**
 
-4. In the Cloudflare dashboard (Realtime, TURN), make a TURN key named
+4. A budget alert on the Cloudflare account at $1 (Billing, Budget
+   alerts), so any charge at all is told to him.
+   In the Cloudflare dashboard (Realtime, TURN), make a TURN key named
    `bitblocks-rooms`. Its id and token are typed by him alone, into the
    Worker's secrets (`npx wrangler secret put TURN_KEY_ID`, then
    `TURN_KEY_API_TOKEN`, in `services/ice/`), never in a chat, a file or
