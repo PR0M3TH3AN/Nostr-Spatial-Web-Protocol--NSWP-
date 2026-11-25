@@ -4,6 +4,13 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **An engine can ask what the kit's menu covers: `NSWP.cover()` and `NSWP.bounds()`** (SDK `engine-menu.ts`, `engine.ts`; the engine script, **VERSION 20**; the Godot add-on's `cover()` and `bounds()`; `docs/other-engines.md`). Names given 2026-11-24, with the covers word (NSWP-02).
+  - **`NSWP.cover()`**: what of the view the menu covers just now, as JSON, `{ top, bottom, left, right }` in CSS pixels from each edge of the page: the world's own menu where it draws one, and what its client says it covers where a client has the menu. The same answer a world made with the kit has from `cover()`, for an engine with an interface of its own to keep clear of it.
+  - **`NSWP.bounds()`**: the boxes the menu draws over the view just now, a list of `{ x, y, width, height }`: finer than `cover()`.
+  - **In Godot,** `Nswp.cover()` gives a Dictionary and `Nswp.bounds()` an Array, and both answer outside a browser (nothing covered).
+  - Engine VERSION 20, as given; seated mode, which is parked, takes the next one free when it lands (the names table says so).
+  - **Tried:** in `engine.test.ts`, both exported, both answering before there is a menu, VERSION 20, and the Godot add-on taking both from the kit's script. **Not tried:** a Godot world in a browser asking them; they hand on what the kit's kept menu answers, which `trials/menu-client.mjs`'s `covers` visit checks for a world made with the kit.
+
 ## 0.91.0
 
 - **While the Bag goes on looking through a visitor's relays, it says how far it has got** (SDK `bag.ts`, `bagging.ts`, `relay-book.ts`). From BitPortal's count on 0.90.0: with half of 23 relays never answering, "Looking for your bag." stood for 37 seconds before "empty".

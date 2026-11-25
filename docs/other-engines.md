@@ -209,6 +209,8 @@ draws its own) sees the early console go as they open. A page with no room
 | `NSWP.previewFaces(faces)` | The six views, as JSON: `faces`, six PNG files as base64. The kit paints them into the picture. Taken with nobody and nothing carried in them, and without fog or glow. |
 | `NSWP.headset(state)` | Whether a headset session can start (`supported`), whether one is running (`presenting`), and whether one just failed to start (`failed`). The menu offers the way in. Someone who left a headset to come here is offered it by the page, as in every world: a press anywhere reaches the engine as `{ type: "vr", enter: true }`. |
 | `NSWP.door(entry)` | List a door in the menu. |
+| `NSWP.cover()` | What of the view the kit's menu covers just now, as JSON: `{ top, bottom, left, right }` in CSS pixels from each edge. The world's own menu, or what its client says it covers where a client has the menu. Keep an interface of your own clear of it. Since version 20. |
+| `NSWP.bounds()` | The boxes the menu draws over the view just now, as JSON: a list of `{ x, y, width, height }`. Finer than `cover()`. Since version 20. |
 | `NSWP.view()` | Everything in the visitor's console, as JSON, for an engine that draws some of it in an interface of its own. |
 | `NSWP.run(id)` | Press one of them by its id: `home`, `fullscreen`, `sound-music`, `jump`. The same button, with the visitor's own settings and home. |
 | `NSWP.open(on)` | Bring the console up, or put it away, from a button of the engine's own. |
