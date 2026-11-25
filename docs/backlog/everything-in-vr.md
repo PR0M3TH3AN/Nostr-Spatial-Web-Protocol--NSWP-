@@ -61,6 +61,20 @@ So:
 - **The headset menu looks the same as the flat one, or better**, every
   tab in it; not a lesser menu.
 
+## Only two things leave VR (the owner, 2026-11-25)
+
+"the only thing that should force us out of VR is the initial phone
+pairing and the browsers immurrsive VR site to site limitation"
+
+So in a headset, nothing else steps out: the wallet, Files, purchases,
+sending and receiving, an Allow and securing a guest are all done in VR.
+The safer 2D way stays as the visitor's choice, never forced. The VR way
+is offered on BitLogin's own page at that first phone pairing (the one
+time they are out of VR anyway), for the family's worlds, with its risk
+said plainly, chosen by them there and changeable there. Going through a
+door to another site still leaves immersive VR for a moment, as browsers
+require (BitBrowser's work can shorten it).
+
 ## Must not
 
 - Draw BitLogin's wallet, Files or approvals in a world's page unless the
