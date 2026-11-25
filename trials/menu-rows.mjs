@@ -140,6 +140,34 @@ try {
   await page.waitForFunction(() => window.__got.some((g) => g[0] === "copy"), null, { timeout: 5000 }).catch(() => {});
   check("the row that copies writes its text, and the world is told of the press", (await page.evaluate(() => navigator.clipboard.readText())) === "npub1trialkey" && (await page.evaluate(() => window.__got.some((g) => g[0] === "copy"))), await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e))));
 
+  // ---- The menu's button is the mark, with no words (the owner, 2026-11-24: "can we use this menu icon everywhere?
+  // With no text?"). Its name is still read aloud and its key still opens it; a hint says both on hover with a mouse.
+  {
+    const button = hud.locator("button.menu");
+    const look = () => page.evaluate(() => {
+      const b = document.querySelector("nswp-hud").shadowRoot.querySelector("button.menu");
+      const hint = b.querySelector(".hint");
+      return { words: b.innerText.trim(), mark: !!b.querySelector(".mark") && getComputedStyle(b.querySelector(".mark")).display !== "none", hint: hint && getComputedStyle(hint).display !== "none" ? hint.textContent : null };
+    });
+    await page.mouse.move(5, 690);
+    const plain = await look();
+    check("the menu's button shows the mark and no words", plain.words === "" && plain.mark === true && plain.hint === null, plain);
+    check('it is found by its name, "Menu"', (await hud.getByRole("button", { name: "Menu", exact: true }).count()) >= 1 && (await button.getAttribute("aria-label")) === "Menu", await button.getAttribute("aria-label"));
+    const at = await button.boundingBox();
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+    const hovered = await page.waitForFunction(() => { const h = document.querySelector("nswp-hud").shadowRoot.querySelector("button.menu .hint"); return h && getComputedStyle(h).display !== "none" ? h.textContent : null; }, null, { timeout: 3000, polling: 50 }).then((h) => h.jsonValue(), () => null);
+    check('on hover with the mouse, a hint says "Menu, M"', hovered === "Menu, M", hovered);
+    await page.mouse.move(5, 690);
+    check("and it goes when the mouse goes", (await look()).hint === null, await look());
+    // The key still opens and closes it.
+    const wasOpen = await page.evaluate(() => window.__nswpTest.hud.open);
+    await page.keyboard.press("m");
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => window.__nswpTest.hud.open);
+    check("M still opens and closes the menu", after === !wasOpen, { wasOpen, after });
+    if (after !== wasOpen) { await page.keyboard.press("m"); await page.waitForTimeout(300); }
+  }
+
   // ---- Words said for a moment, with the menu up (as "Copied." was, just now). The sheet lies over where they stand
   // with the menu down, on all but the widest screens, so they are in the sheet: in a strip of its own, between
   // its rows and its foot. **A said line never lies over anything that can be pressed**, and nothing in the sheet

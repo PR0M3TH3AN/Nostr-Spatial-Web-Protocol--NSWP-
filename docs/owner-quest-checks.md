@@ -141,6 +141,15 @@ prompt accepted in the headset. Then say yes to installing **in the
 BitBrowser session**, not here. That session checks the headset shows up,
 and that no Wolvic is on it, before it installs anything.
 
+## 8. The Menu button is the mark (one minute; once the kit with it is live)
+
+In any world in the headset, with the menu put away: the floating Menu button, where no hand is tracked, is now the
+same tile as the corner button on a screen. A rounded glass tile, an arch lit in the world's colour on a short
+light line, and **no words**. Aim at it: its edge lights in the world's colour. Press: the menu opens.
+
+- Say: whether you can tell it is the menu from the mark alone, and whether it reads well at that size.
+- Nothing changes on the wrist: raising it opens the menu as before.
+
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 
 Live since kit 0.88.0 (deployed 2026-11-24). On a desk, in BitPortal's room

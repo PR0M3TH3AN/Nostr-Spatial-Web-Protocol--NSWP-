@@ -29,6 +29,7 @@
 import * as THREE from "three";
 import { CONSOLE_H, CONSOLE_W, createConsoleDrawing, SANS, strokeIcon } from "./console-drawing.js";
 import type { Controls } from "./ui/model.js";
+import { MARK, paintMark } from "./ui/mark.js";
 import { rgb } from "./ui/theme.js";
 
 // The layout's own numbers and rules, which were here before the drawing had a file of its own.
@@ -138,26 +139,11 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     const w = openerCanvas.width;
     const h = openerCanvas.height;
     c.clearRect(0, 0, w, h);
-    // An arch on a sill: the same small doorway the flat HUD's keys are.
-    c.beginPath();
-    c.moveTo(28, h - 44);
-    c.lineTo(28, 128);
-    c.arc(w / 2, 128, w / 2 - 28, Math.PI, 0);
-    c.lineTo(w - 28, h - 44);
-    c.closePath();
-    c.fillStyle = hot ? `rgba(${rgb(t.accent)}, 0.34)` : `rgba(${rgb(t.glass)}, 0.82)`;
-    c.fill();
-    c.lineWidth = 6;
-    c.strokeStyle = t.accent;
-    c.stroke();
-    c.fillStyle = hot ? t.accent : t.ink;
-    c.fillRect(14, h - 34, w - 28, 8);
-    c.strokeStyle = hot ? t.accent : t.ink;
-    strokeIcon(c, "menu", w / 2 - 44, 60, 88);
-    c.fillStyle = t.ink;
-    c.font = `600 40px ${SANS}`;
-    c.textAlign = "center";
-    c.fillText("Menu", w / 2, 208);
+    // The mark, with no words: the same tile and doorway as the flat menu's button (ui/mark.ts), lit while aimed at.
+    // Nothing blurs behind it here, so its glass covers more.
+    // A little room at the canvas's edge, so the tile's own edge isn't cut off.
+    const scale = Math.min((w - 8) / MARK.tile.w, (h - 8) / MARK.tile.h);
+    paintMark(c, { x: (w - MARK.tile.w * scale) / 2, y: (h - MARK.tile.h * scale) / 2, scale, accent: t.accent, ink: t.ink, glass: t.glass, lit: hot, glassAlpha: 0.86 });
     openerTexture.needsUpdate = true;
   };
 

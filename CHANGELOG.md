@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The menu's button is the mark, with no words, everywhere** (SDK `ui/hud.ts`, `ui/mark.ts`, `console.ts`; `markSvg` in `nswp-sdk/ui`; the engine script; `trials/menu-rows.mjs`, `trials/arcade-bar.mjs`; `docs/owner-quest-checks.md`). The owner, 2026-11-24, with a picture of the quiet corner button: "can we use this menu icon everywhere? With no text? Still have the color changes of course. But i love how clean it is."
+  - **The full form's pill** ("Menu", with its M) **is the quiet form's tile**: a rounded glass tile, a doorway lit in the world's accent standing on a short light line, no words. In its own place at the top right; tinted by the world's colours; its edge lit on hover and while the menu is up.
+  - **Its name is still "Menu"**, read aloud, and **M still opens it**. With a mouse, a hint says both on hover ("Menu, M", or "Menu" where the world turned the key off; the owner: "Yes, hover hint"). None on touch or in a headset. The quiet tile has the same hint.
+  - **In a headset the floating Menu button is the same mark**, painted on its canvas from the same numbers, with no words. The wrist has no button of its own and is unchanged. A check for the owner's Quest is on his page.
+  - **One shape, from one place** (`ui/mark.ts`): the menu's styles, the headset's canvas and `markSvg()` all take the mark's numbers from there. `markSvg(o?)` gives it as an SVG, in the kit's colours or a place's own (`accent`, `ink`, `glass`, and `tile` for the doorway alone), taking nothing but a colour into the picture. The files made from it, and the sites' icons, are the next pull request.
+  - **Tried:** five new checks in `trials/menu-rows.mjs` (the button shows the mark and no words; it is found by its name; on mouse hover the hint says "Menu, M"; it goes with the mouse; M still opens and closes the menu) and one in `trials/arcade-bar.mjs` (on a phone, no words and no hint after a tap); `markSvg` in `packages/sdk/test/mark.test.ts`. With the graphics card: `menu-rows` 175 of 175, `menu-client` 208 of 208, `arcade-bar` 14 of 14, `xr-console` 9 of 9, `hands-over-menu` 16 of 16 (the hands still drawn over the new button), `panel-pointer` 35 of 35.
+  - **Not tried:** a real Quest (the owner's check 8); a phone by hand; BitPortal's shell, whose own menu draws its own button.
+
 ## 0.90.0
 
 - **Every reader and sender of a visitor's own notes is on the relay book's rules, and a relay that never answers holds nothing up** (core `RELAY_PICK.graceMs`; SDK `relay-book.ts`: `askOwn`, `relaysOf`; `people.ts`, `saves.ts`, `scores.ts`, `achievements.ts`, `room-controls.ts`, `look-models.ts`, `messages.ts`; `docs/controls-kit.md`). The second of the two relay pull requests (#531 did the Bag), with the orchestrator's three points first. The owner: "Yes please do the fix so its more consistent across all worlds and all users."
