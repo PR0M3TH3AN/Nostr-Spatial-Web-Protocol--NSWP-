@@ -203,6 +203,8 @@ export function createFps(o: FpsOptions): Fps {
   let closedAt = -1;
   let shown = false;
   const looking = () => document.pointerLockElement === o.dom;
+  /** Whether this held the pointer when the browser last said: a change that changes nothing is not acted on. */
+  let lockedBefore = typeof document !== "undefined" && looking();
   const active = () => enabled && !o.presenting();
 
   // A dot in the middle of the view: what F and a click will use.
@@ -255,7 +257,14 @@ export function createFps(o: FpsOptions): Fps {
     else look();
   };
   const onLock = () => {
-    if (looking()) {
+    // A browser may tell of the same change more than once (given three times over, let go twice, seen 2026-11-24 on
+    // a quiet machine). A second "let go" after the one we asked for was read as the visitor's Escape, and brought
+    // the menu up that the visitor had just put away: their next press of the key then put it away again. Only a
+    // change from what was is acted on; the browser's own letting go, at Escape, is still the first one.
+    const now = looking();
+    if (now === lockedBefore) return;
+    lockedBefore = now;
+    if (now) {
       // The pointer has just been given. A browser takes a moment to give it, and the panel or the menu may have
       // come up in that moment: asked for as the client's menu went, with the panel said up 30 ms later, there was
       // nothing yet to let go when the panel came, and the pointer then arrived under it (found 2026-11-24 by

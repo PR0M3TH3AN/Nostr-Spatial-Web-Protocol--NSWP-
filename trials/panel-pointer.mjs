@@ -209,6 +209,28 @@ try {
   await pressOnView();
   check("the panel away again, one press on the view and the pointer is the world's", !!(await until(async () => (await now()).holdsPointer, 5000)), await now());
 
+  // A browser that tells twice that the pointer was let go, with nothing between (seen on a quiet machine): the
+  // second is no Escape of the visitor's, and brings no menu up. Said here by the page itself, with the pointer
+  // already let go and the menu down. For this the pointer is never given back (asking for it does nothing), so
+  // that putting the menu away leaves it free; the real asking is put back after.
+  {
+    await world().evaluate(() => { window.__realLock = Element.prototype.requestPointerLock; Element.prototype.requestPointerLock = function () { return Promise.resolve(); }; });
+    await page.keyboard.press("m");
+    await until(async () => { const n = await now(); return n.menuUp && !n.holdsPointer; }, 5000);
+    await page.keyboard.press("m");
+    await until(async () => !(await now()).menuUp, 3000);
+    await page.waitForTimeout(300);
+    const before = await now();
+    await world().evaluate(() => document.dispatchEvent(new Event("pointerlockchange")));
+    await page.waitForTimeout(300);
+    const after = await now();
+    check("a browser telling again that the pointer was let go, with nothing changed, brings no menu up", before.menuUp === false && before.holdsPointer === false && after.menuUp === false, { before, after });
+    await world().evaluate(() => { Element.prototype.requestPointerLock = window.__realLock; });
+    // The pointer back with the world, as the round after expects it.
+    await pressOnView();
+    await until(async () => (await now()).holdsPointer, 5000);
+  }
+
   // The same slowness with the world's own menu, and no panel at all: the menu is put away, which asks for the
   // pointer, and brought up again before the browser has given it. A pointer given with the menu up is let go at
   // once. Every asking is held back 150 ms from here on; this is the last thing this page is asked.
