@@ -10591,6 +10591,7 @@ postMessage({ t: "started" });
   var HELLO_EVERY_MS = 2e4;
   var RECORDING_HOLD_MS = 6e3;
   var CONNECT_TIMEOUT_MS = 25e3;
+  var RETRY_AT_MS = 15e3;
   var SILENT_TIMEOUT_MS = 8e3;
   var NAMED_WAIT_MS = 7e3;
   var GATHER_TIMEOUT_MS = 2500;
@@ -10658,7 +10659,8 @@ postMessage({ t: "started" });
         music: /* @__PURE__ */ new Set(),
         audio: /* @__PURE__ */ new Set(),
         said: /* @__PURE__ */ new Set(),
-        status: /* @__PURE__ */ new Set()
+        status: /* @__PURE__ */ new Set(),
+        unreached: /* @__PURE__ */ new Set()
       });
       __publicField(this, "look");
       /** The world's origin: the only place a pass shown here may have been made for. */
@@ -10693,6 +10695,8 @@ postMessage({ t: "started" });
       /** When this visitor joined, in unix seconds, and who has joined since (by a joining hello signed after it). */
       __publicField(this, "joinedAt", Math.floor(Date.now() / 1e3));
       __publicField(this, "newer", /* @__PURE__ */ new Set());
+      /** How many tries at connecting to each member there have been since they were last connected (`Peer.attempt`). */
+      __publicField(this, "attempts", /* @__PURE__ */ new Map());
       __publicField(this, "onPageHide", () => this.leave());
       const world2 = opts.world ?? `${location.origin}${location.pathname}`;
       this.origin = new URL(world2).origin;
@@ -10906,6 +10910,7 @@ postMessage({ t: "started" });
             return;
           }
           case "bye":
+            this.attempts.delete(from);
             this.drop(from, true);
             return;
         }
@@ -10924,8 +10929,11 @@ postMessage({ t: "started" });
         plays: createRate(PLAY_SAID.burst, PLAY_SAID.perSecond),
         open: false,
         lastSeen: Date.now(),
-        startedAt: Date.now()
+        startedAt: Date.now(),
+        attempt: (this.attempts.get(pubkey) ?? 0) + 1
       };
+      if (this.attempts.size > 500) this.attempts.clear();
+      this.attempts.set(pubkey, peer.attempt);
       this.peers.set(pubkey, peer);
       pc.ontrack = (e) => {
         const stream = e.streams[0] ?? new MediaStream([e.track]);
@@ -10933,7 +10941,9 @@ postMessage({ t: "started" });
         else this.emit(e.transceiver && e.transceiver === this.musicTransceiver(pc) ? "music" : "audio", peer.member, stream);
       };
       pc.onconnectionstatechange = () => {
-        if ((pc.connectionState === "failed" || pc.connectionState === "closed") && this.peers.get(pubkey) === peer) this.drop(pubkey, peer.open);
+        if (this.peers.get(pubkey) !== peer) return;
+        if (pc.connectionState === "failed" && !peer.open) this.notOpened(pubkey, peer);
+        else if (pc.connectionState === "failed" || pc.connectionState === "closed") this.drop(pubkey, peer.open);
       };
       return peer;
     }
@@ -10945,6 +10955,7 @@ postMessage({ t: "started" });
         peer.open = true;
         peer.lastSeen = Date.now();
         peer.openedAt = Date.now();
+        this.attempts.delete(peer.member.pubkey);
         this.emit("member", peer.member);
         this.introduce(ch);
       };
@@ -11404,6 +11415,21 @@ postMessage({ t: "started" });
       if (announce && peer.open) this.emit("leave", peer.member);
       this.announced.delete(pubkey);
     }
+    /**
+     * A try at connecting to someone that failed, or never opened. A first try is made again at once, afresh, by the
+     * one who makes the offer; the other answers the new offer as it comes. A later one is given up, and said
+     * (`unreached`): the room tries again at the next hello.
+     */
+    notOpened(pubkey, peer) {
+      if (this.peers.get(pubkey) !== peer || peer.open) return;
+      this.drop(pubkey, false);
+      if (this.closed) return;
+      if (peer.attempt === 1 && shouldInitiate(this.self.pubkey, pubkey)) {
+        void this.offerTo(pubkey).catch(() => this.drop(pubkey, false));
+        return;
+      }
+      if (peer.attempt >= 2) this.emit("unreached", pubkey);
+    }
     sweep() {
       const now = Date.now();
       for (const [pubkey, peer] of this.peers) {
@@ -11412,7 +11438,8 @@ postMessage({ t: "started" });
         void this.feed(peer);
         this.markTune(peer);
         void this.feedTune(peer);
-        if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
+        if (!peer.open && peer.attempt === 1 && now - peer.startedAt > RETRY_AT_MS && shouldInitiate(this.self.pubkey, pubkey)) this.notOpened(pubkey, peer);
+        else if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.notOpened(pubkey, peer);
         else if (this.namedOnly && peer.open && !this.announced.has(pubkey) && now - (peer.openedAt ?? now) > NAMED_WAIT_MS) this.turnAway(pubkey);
         else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
       }
@@ -58852,7 +58879,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const s = presence3.session;
       if (!s) return last;
       const others = s.members.length;
-      const who2 = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
+      const now = Date.now();
+      const lost = [...unreachedAt.values()].filter((at) => now - at < UNREACHED_HELD_MS).length;
+      const reached = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? lost ? "nobody else connected" : "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
+      const who2 = lost && s.status !== "no-relays" ? `${reached}, and ${lost === 1 ? "1 person" : `${lost} people`} couldn't be reached` : reached;
       const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
       return `${presence3.roomName ? "Private room" : "Open room"}: ${who2}.${as}${presence3.micOn ? " Your microphone is on." : ""}${presence3.musicOn ? ` Your music is offered to people near you: ${presence3.musicListeners === 0 ? "nobody is hearing it" : presence3.musicListeners === 1 ? "1 person is hearing it" : `${presence3.musicListeners} people are hearing it`}.` : ""}${presence3.screenOn ? ` You are sharing your screen: ${presence3.screenViewers === 0 ? "nobody is watching" : presence3.screenViewers === 1 ? "1 person is watching" : `${presence3.screenViewers} people are watching`}.` : ""}`;
     };
@@ -59293,6 +59323,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
     };
     let chatFor = null;
+    const unreachedAt = /* @__PURE__ */ new Map();
+    const UNREACHED_HELD_MS = 9e4;
     let chatStops = [];
     const CHAT_W = 768;
     const CHAT_H = 900;
@@ -59412,6 +59444,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       for (const stop of chatStops) stop();
       chatStops = [];
       chatFor = s;
+      unreachedAt.clear();
       controls2.chat.detach();
       closeChatPanel();
       if (!s) return;
@@ -59439,7 +59472,19 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             if (chatFor === s && s.members.includes(m)) controls2.chat.add({ note: true, text: `${m.name} is here.` });
           }, 1500);
         }),
-        s.on("leave", (m) => controls2.chat.add({ note: true, text: `${m.name} left.` }))
+        s.on("leave", (m) => controls2.chat.add({ note: true, text: `${m.name} left.` })),
+        // Someone here who couldn't be connected to (room.ts, `unreached`): said once for each, and counted in the
+        // room's line while they are still being tried, so "in the room" is never all it says.
+        s.on("unreached", (pubkey) => {
+          if (chatFor !== s) return;
+          const first = !unreachedAt.has(pubkey);
+          unreachedAt.set(pubkey, Date.now());
+          if (first) tell2(`Someone else is here (${guestName(pubkey)}), but your computers couldn't connect directly. Trying again.`);
+          refresh();
+        }),
+        s.on("member", (m) => {
+          if (unreachedAt.delete(m.pubkey)) refresh();
+        })
       );
     };
     onChatChange(() => {

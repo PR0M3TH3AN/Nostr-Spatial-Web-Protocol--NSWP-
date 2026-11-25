@@ -8,7 +8,8 @@
   a relay server for connections is a new hosted thing, the owner's word
   first.
 - **State:** asked; the cause found (below); the fix waits on the owner's
-  choice of relay server.
+  choice of relay server. Part 2 (said when it fails, `unreached`) built
+  2026-11-25, not merged; parts 4 and 3 next, in that order.
 
 ## What was seen (the orchestrator, 2026-11-25, listening only)
 
