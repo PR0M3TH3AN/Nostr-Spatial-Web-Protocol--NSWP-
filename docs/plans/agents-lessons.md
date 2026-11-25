@@ -1765,6 +1765,40 @@ shipped or served.
 - **Not done:** the owner seeing it move (the session's browser pane has
   no WebGPU; a picture is kept beside the page, outside the repository).
 
+## Feeling cues tried with real models, and a reply that comes at all (D92 and D93, 2026-11-24; paid twice, under $0.07)
+
+Each on the owner's "Yes, run it" in the playground's session, to the run
+as quoted. Through the playground's own local relay, started and stopped
+for the run; the scripts and audio outside every repository.
+
+- **A chat model keeps to a fixed list of cues** (shown, paid: D92):
+  every reply that came used cues, only ones on the list, at most two,
+  fitting what was said. One instruction was enough. *For the protocol:*
+  a speech line with cues travels as plain text; a voice that can't read
+  them takes them out. ElevenLabs v4 Turbo read them on the first try;
+  how they sound is the owner's ear.
+- **A talk reply should not wait on the model's hidden thinking**
+  (shown, paid: D93). Half the replies came back empty, still charged:
+  the thinking used the whole allowance. With thinking turned off, 0 of
+  10 empty, all with cues, 0.74 s a reply and about a ninth of a cent for
+  ten; with room to think, 1 of 10 empty and 2.35 s. The companion's
+  chat now asks for no thinking by default. *For the protocol:* the reply
+  a visitor waits for is fast and plain; deeper thinking belongs to a
+  slower planning call. Not yet judged: whether talk is worse without
+  thinking in a harder conversation.
+- **A test script must use the app's own speech cleaner** (shown: D92):
+  without it an action line was read aloud in three audio files.
+
+## The owner's verdict on the learned walker (D94, 2026-11-24)
+
+He watched the learned model beside the walker made by rules in his own
+browser, on this machine: "our 'Our walker, made by rules' is the way to
+go". So the learned path is closed on the numbers (D91) and on his eye,
+the seam stays where it is (the place moves the body), and learned
+motion on data that may be shipped is dropped from the list of things to
+try. The download stays private, outside every repository, until he says
+what to do with it.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

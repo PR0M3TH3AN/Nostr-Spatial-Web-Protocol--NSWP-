@@ -242,8 +242,10 @@ beside ours on this machine, nothing of it committed or shipped. Ours is
 ahead on every count (feet slide a quarter to a sixteenth as much, 60
 frames a second at twice the figures, the body staying where the place
 puts it). So the third path, learned motion on data that may be
-shipped, has not earned its place by numbers; it would have to win on
-looks, which the owner has not yet seen.
+shipped, has not earned its place by numbers. **And not on looks
+either:** the owner watched the two side by side, 2026-11-24: "our 'Our
+walker, made by rules' is the way to go". The path is closed; the walker
+made by rules is the way bodies move.
 
 ## Must not
 
