@@ -365,14 +365,27 @@ const manifestVectors = [
     manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: ["1", "2", "3", "4", "5"].map((n) => n.repeat(64)) } } }),
     expect: { valid: true, errors: [], warnings: ["too_many_keepers"], access: [], rules: { keepers: ["1", "2", "3", "4"].map((n) => n.repeat(64)), namedOnly: false, byInvitation: false } },
   },
+  {
+    name: "no_guests",
+    description: "A world that takes no guest accounts (protocol/10-identity.md, \"A guest\"): someone whose pass says nswp:guest is not let into its rooms.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, guests: false } } }),
+    expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false }, takesGuests: false },
+  },
+  {
+    name: "guests_not_false",
+    description: "Only exactly false keeps guests out: anything else is ignored with a warning, and guests may come.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, guests: "no" } } }),
+    expect: { valid: true, errors: [], warnings: ["invalid_field"], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false }, takesGuests: true },
+  },
   { name: "no_rules", description: "A world that says neither keeps no list, and its rooms are as they always were.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false } } },
-] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean; byInvitation: boolean } } }[];
+] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean; byInvitation: boolean }; takesGuests?: boolean } }[];
 for (const v of manifestVectors) {
   const r = parseManifest(v.manifest, v.byteLength === undefined ? {} : { byteLength: v.byteLength });
   if (v.expect.access !== undefined && r.ok) expectEqual(`manifest/${v.name} access`, accessFor(r.value, "https://museum.example/world")?.listings ?? null, v.expect.access);
   if (v.expect.rules !== undefined && r.ok) {
     const got = accessFor(r.value, "https://museum.example/world");
     expectEqual(`manifest/${v.name} rules`, got ? { keepers: got.keepers, namedOnly: got.namedOnly, byInvitation: got.byInvitation } : null, v.expect.rules);
+    if (v.expect.takesGuests !== undefined) expectEqual(`manifest/${v.name} takesGuests`, got?.takesGuests ?? null, v.expect.takesGuests);
   }
   expectEqual(`manifest/${v.name} valid`, r.ok, v.expect.valid);
   expectEqual(`manifest/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
@@ -1007,7 +1020,7 @@ for (const v of writingVectors) {
 
 const files: Record<string, unknown> = {
   "world-events.json": { description: "Spatial world announcements (spec §5). `errors` and `warnings` are sorted issue codes; `signatureValid` is null when the vector is unsigned.", testKeys, vectors: worldVectors },
-  "manifests.json": { description: "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail.", testKeys, manifests: manifestVectors, verification: verificationVectors },
+  "manifests.json": { description: "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail. Where a manifest vector gives `takesGuests`, it is whether guest accounts may come in, as `accessFor` gives it (from the manifest's `\"guests\": false`).", testKeys, manifests: manifestVectors, verification: verificationVectors },
   "destinations.json": { description: "Airlock destination checks (spec §6.2). Registrable domains use the Public Suffix List including its private section.", vectors: destinationVectors },
   "assertions.json": { description: "Entry assertions (spec §4.4). Verify with the given `origin`, `now` and already-`seen` event IDs.", testKeys, vectors: assertionVectors },
   "arrivals.json": { description: "Arrival context: the value of #nswp= (spec §4.4). Hostile fields are dropped with warnings, not fatal.", vectors: arrivalVectors },

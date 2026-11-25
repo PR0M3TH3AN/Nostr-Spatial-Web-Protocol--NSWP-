@@ -43,7 +43,7 @@ export interface PresenceOptions {
    * room is joined, and again when `rulesChanged()` is called. Left out, the page's own gate's (`pageRules` in
    * ui/identity.ts), taken again whenever that gate reads a change; with no gate, a room is as it always was.
    */
-  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null };
+  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null; takesGuests?: boolean };
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   /** The object that moves the visitor around; the camera is inside it. */
@@ -500,7 +500,7 @@ export function speechSprite(text: string, width = 0.8): THREE.Sprite {
 
 export function createPresence(d: PresenceOptions): Presence {
   /** The world's rules for its rooms: as given, or as this page's gate last read them. */
-  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null } => d.worldRules?.() ?? pageRules();
+  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null; takesGuests?: boolean } => d.worldRules?.() ?? pageRules();
   /** A room here takes the world's rules as they now stand. */
   const takeRules = (): void => {
     const now = rulesNow();
@@ -1178,9 +1178,12 @@ export function createPresence(d: PresenceOptions): Presence {
     if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
     if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
     if (identity && invitedOnly && !invitedOnly.includes(identity.pass.pubkey)) throw new Error("this world is by invitation, and its owner hasn't invited you.");
+    // A world that takes no guests (its announcement's `"guests": false`): a guest account is told so here.
+    const asGuest = !!identity && identity.pass.tags.some((t) => t[0] === "nswp:guest" && t[1] === "1");
+    if (asGuest && rules.takesGuests === false) throw new Error("this world doesn't take guests. Secure your account to come in.");
     // Their own look note, where they came as themselves with one and this world draws models: handed to each member.
     const avatar = identity ? await (typeof d.avatar === "function" ? d.avatar() : d.avatar !== undefined ? d.avatar : drawsModels() ? ownLookNote() : null) : null;
-    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), ...(avatar ? { avatar } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), ...(avatar ? { avatar } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly, ...(rules.takesGuests === false ? { takesGuests: false } : {}) });
     session = s;
     if (!offsetApplied) {
       offsetApplied = true;

@@ -1,5 +1,5 @@
 {
-  "description": "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail.",
+  "description": "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail. Where a manifest vector gives `takesGuests`, it is whether guest accounts may come in, as `accessFor` gives it (from the manifest's `\"guests\": false`).",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -649,6 +649,82 @@
           "namedOnly": false,
           "byInvitation": false
         }
+      }
+    },
+    {
+      "name": "no_guests",
+      "description": "A world that takes no guest accounts (protocol/10-identity.md, \"A guest\"): someone whose pass says nswp:guest is not let into its rooms.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "guests": false
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [],
+        "rules": {
+          "keepers": null,
+          "namedOnly": false,
+          "byInvitation": false
+        },
+        "takesGuests": false
+      }
+    },
+    {
+      "name": "guests_not_false",
+      "description": "Only exactly false keeps guests out: anything else is ignored with a warning, and guests may come.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "guests": "no"
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "invalid_field"
+        ],
+        "access": [],
+        "rules": {
+          "keepers": null,
+          "namedOnly": false,
+          "byInvitation": false
+        },
+        "takesGuests": true
       }
     },
     {
