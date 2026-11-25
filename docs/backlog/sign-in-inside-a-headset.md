@@ -6,8 +6,10 @@
 - **Who:** a design first (the orchestrator with BitLogin, the owner
   choosing); then BitLogin and the kit. The menus' half is
   `headset-menu-like-the-flat-one`, already designed.
-- **State:** asked; the cause is known (below); a way is proposed for the
-  owner to choose.
+- **State:** way 2 chosen by the owner, 2026-11-25 ("yeah lets build that",
+  after the phone pairing was described to him). BitLogin designs the
+  pairing first, to the orchestrator; then BitLogin builds it and the kit
+  draws the code and QR in the headset menu, by names given.
 
 ## Why it can't today
 
