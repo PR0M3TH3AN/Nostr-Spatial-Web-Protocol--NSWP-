@@ -1799,6 +1799,42 @@ motion on data that may be shipped is dropped from the list of things to
 try. The download stays private, outside every repository, until he says
 what to do with it.
 
+## The owner in the trial world, and sixteen orders by hand (D95 to D97, 2026-11-24; free)
+
+The owner tried the first trial world himself on the free rules ("its so
+cool"), then asked for "alot more testing. Id like to watch you give it
+commands in the browser". Nothing sent; the world served on 127.0.0.1
+for the session and stopped after.
+
+- **A world that keeps bodies out of its furniture has to leave a way to
+  use each piece** (shown, free: D95). The trial world keeps everyone 0.9
+  m off the table, and a body could reach half a metre, so nothing on the
+  table could ever be taken. Now a body reaches into a thing's own
+  footprint (half its size plus 0.3 m, never past arm's length), and a
+  thing on a surface into the surface's. D84's paid "cannot" was very
+  likely the same fault. *For a world and the kit:* where to stand to use
+  a thing is worth declaring; today nothing says it.
+- **The first sixteen orders by hand got 8 right; the second, after
+  general mends, 16** (shown, free: D97). The mends name no room: plurals
+  read as their singulars; "take X to Y" is placing unless Y is the
+  visitor; one carry to an order (which also mended "bring me a buoy"
+  fetching the second one); handing over or putting down only what the
+  order names; "put it down" as a choice of its own; walking to a thing
+  by its footprint; and a step's end kept even when it comes before the
+  step is recorded.
+- **A free fallback says "done" only when the world shows the order's
+  effect** (shown, free: D97). A placing order that put nothing anywhere
+  ended "Done."; now "cannot", and a named thing nothing can be done with
+  is "cannot", not "unclear". *For the protocol:* never "done" by
+  default.
+- **The free rules generalise across worlds, not across language**
+  (reasoned: D97): nothing in them names a room, so a world that names
+  its things with plain nouns and kinds, and marks what holds things,
+  gets them for free. They are the floor of the stack, not the whole
+  agent: they can't talk or think.
+- **Still weak:** "put the red box on the bench" says it cannot only after
+  taking the box from the visitor.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
