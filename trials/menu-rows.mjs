@@ -222,7 +222,20 @@ try {
   // says so once it has given up waiting). Waited for, so that what is compared is the same rows throughout.
   await page.waitForFunction(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows *")].some((e) => /didn't answer/.test(e.textContent ?? "")), null, { timeout: 30000, polling: 200 }).catch(() => {});
   for (const [at, width, height] of [["a desk's width", 1100, 700], ["a phone's width", 390, 760]]) {
+    // The window changes width with the menu up: the sheet is held one size again once it has stopped changing.
+    const wasUp = await page.evaluate(() => window.__nswpTest.hud.open);
     await widthOf(width, height);
+    if (wasUp) {
+      const held = await page.waitForFunction(() => document.querySelector("nswp-hud").shadowRoot.querySelector("section.sheet").style.height !== "", null, { timeout: 3000, polling: 50 }).then(() => true, () => false);
+      const heldAt = await page.evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector("section.sheet").style.height);
+      check(`at ${at}, after the window changed width with the menu up, the sheet is held one size again`, held, heldAt);
+      // And the other way in: put away and brought up again at the new width, it is held, at the same size.
+      await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+      await page.waitForTimeout(300);
+      await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));
+      const again = await page.waitForFunction(() => document.querySelector("nswp-hud").shadowRoot.querySelector("section.sheet").style.height || null, null, { timeout: 3000, polling: 50 }).then((h) => h.jsonValue(), () => "");
+      check(`at ${at}, put away and brought up again after the change of width, the sheet is held at the same size`, !!again && again === heldAt, { heldAt, again });
+    }
     await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));
     await noLines();
     const blank = await sayAndRead([]);
@@ -636,13 +649,22 @@ try {
     window.__nswpTest.hud.setOpen(true, "room");
     // Each time the list of rows is made anew, counted: what a drawing of the menu comes to.
     window.__drawn = 0;
-    new MutationObserver((records) => { window.__drawn += records.some((r) => r.type === "childList") ? 1 : 0; }).observe(document.querySelector("nswp-hud").shadowRoot.querySelector(".rows"), { childList: true });
+    // Each drawing of the rows, and each change asked for by anything but this trial (the music's turn to its next
+    // song, a world's own timer), in the order they came. A change that comes after a drawing is owed a drawing of
+    // its own (found 2026-11-24, when a song's turn landed 730 ms after a press and was counted as the press's
+    // second drawing); one before it is in that drawing.
+    window.__ours = false;
+    window.__seq = [];
+    new MutationObserver((records) => { if (records.some((r) => r.type === "childList")) { window.__drawn++; window.__seq.push("d"); } }).observe(document.querySelector("nswp-hud").shadowRoot.querySelector(".rows"), { childList: true });
+    window.__nswpTest.controls.subscribe(() => { if (!window.__ours) window.__seq.push("c"); });
+    /** How many drawings came, and how many changes from elsewhere came after the first of them. */
+    window.__owed = () => { const first = window.__seq.indexOf("d"); return { drawn: window.__drawn, later: first < 0 ? 0 : window.__seq.slice(first + 1).filter((x) => x === "c").length, seq: window.__seq.join("") }; };
   });
   const heldRow = hud.getByRole("button", { name: /Pressed while it changes/ }).first();
   await heldRow.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
   await page.waitForTimeout(700);
   /** Tell the menu something it shows has changed, as a counter ticking or a picture arriving does. */
-  const somethingChanges = (what) => page.evaluate((what) => { if (what) window.__held[what]++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); }, what);
+  const somethingChanges = (what) => page.evaluate((what) => { if (what) window.__held[what]++; const c = window.__nswpTest.controls; window.__ours = true; try { c.setTheme({ scale: c.theme.scale }, true); } finally { window.__ours = false; } }, what);
   const rowWords = () => page.evaluate(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].map((b) => b.textContent.trim().slice(0, 40)));
   // A row being made anew has no place for an instant; drawn without a graphics card on a busy machine, for longer.
   // It is asked for again for five seconds. If it never has a place the press can't be made, and the step that
@@ -687,15 +709,17 @@ try {
     await mouseDownOn(heldRow);
     await somethingChanges("other");
     await page.waitForTimeout(80);
-    const during = await page.evaluate(() => { window.__drawn = 0; return [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => /A row beside it 2/.test(b.textContent)); });
+    const during = await page.evaluate(() => { window.__drawn = 0; window.__seq = []; return [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => /A row beside it 2/.test(b.textContent)); });
     await page.mouse.up();
     const shown = await page.waitForFunction(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => /A row beside it 2/.test(b.textContent)), null, { timeout: 2000 }).then(() => true, () => false);
     await page.waitForTimeout(900);
-    const drawn = await page.evaluate(() => window.__drawn);
+    const owed = await page.evaluate(() => window.__owed());
     check("what changed during a press is not drawn while the press is being made", during === false, during);
     check("it is drawn as soon as the press is over", shown, await rowWords());
     // The press itself changes nothing these rows show, so one drawing is the whole of what was owed.
-    check("and drawn once: one drawing of the rows, not one for each thing that asked meanwhile", drawn === 1, drawn);
+    // One for what the press held back, and at most one more for each change asked from elsewhere after it (the
+    // music's turn): never one for each thing that asked while the press was being made.
+    check("and drawn once: one drawing of the rows, not one for each thing that asked meanwhile", owed.drawn >= 1 && owed.drawn <= 1 + owed.later, owed);
     } catch (e) { await unpressed(e, "what changed during a press is drawn once it is over"); }
   }
 
@@ -861,14 +885,14 @@ try {
     await spaceDownOn(heldRow);
     await somethingChanges("other");
     await page.waitForTimeout(80);
-    const during = await page.evaluate((n) => { window.__drawn = 0; return [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)); }, next);
+    const during = await page.evaluate((n) => { window.__drawn = 0; window.__seq = []; return [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)); }, next);
     await page.keyboard.up(" ");
     const shown = await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 2000 }).then(() => true, () => false);
     await page.waitForTimeout(900);
-    const drawn = await page.evaluate(() => window.__drawn);
+    const owed = await page.evaluate(() => window.__owed());
     check("the space bar: what changed while the bar was down is not drawn while it is down", during === false, during);
     check("the space bar: it is drawn as soon as the bar is up", shown, await rowWords());
-    check("the space bar: and drawn once", drawn === 1, drawn);
+    check("the space bar: and drawn once", owed.drawn >= 1 && owed.drawn <= 1 + owed.later, owed);
   }
   // A bar that never comes up is not waited for. Tried twice: put down once and left, as this script's keyboard
   // does it; and held as a person's keyboard holds a key, which says "down" again and again for as long as it is
