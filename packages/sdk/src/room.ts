@@ -18,7 +18,7 @@ import {
   createChatGate,
   parseSay,
   type ChatGate,
-  DEFAULT_RELAYS,
+  ROOM_RELAYS,
   getPublicKey,
   guestColor,
   guestName,
@@ -92,6 +92,7 @@ export interface JoinOptions {
   name?: string;
   /** The world this room is in. Default: this page, without query or fragment. */
   world?: string;
+  /** The relays its handshake goes through. Default `ROOM_RELAYS`, eight; a world that names its own uses those. */
   relays?: string[];
   maxMembers?: number;
   iceServers?: RTCIceServer[];
@@ -300,7 +301,8 @@ export class RoomSession {
   status: RoomStatus = "connecting";
 
   private readonly key: Uint8Array;
-  private readonly relays: string[];
+  /** The relays this room's handshake goes through: the world's own, or `ROOM_RELAYS`. */
+  readonly relays: string[];
   /** Keys this visitor won't be in a room with: session keys, and the identity keys behind names. */
   private readonly blocked = new Set<string>();
   /** Identity keys the world's owner keeps out. Never the visitor's own: never kept or carried on. */
@@ -412,7 +414,7 @@ export class RoomSession {
     }
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
     this.topic = roomTopic(world, this.name);
-    this.relays = opts.relays ?? DEFAULT_RELAYS;
+    this.relays = opts.relays ?? [...ROOM_RELAYS];
     this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
     this.iceServers = opts.iceServers ?? DEFAULT_ICE;
     for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);

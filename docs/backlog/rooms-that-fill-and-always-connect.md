@@ -9,7 +9,8 @@
   first.
 - **State:** the cause found (below); the builder builds (2), (4), (3) in
   that order; TURN priced (below), set up only on the owner's word. Part 2
-  (said when it fails, `unreached`) built 2026-11-25, not merged.
+  (said when it fails, `unreached`) merged 2026-11-25 (444a549), not live;
+  part 4 (`ROOM_RELAYS`, eight) built, not merged.
 
 ## What was seen (the orchestrator, 2026-11-25, listening only)
 
