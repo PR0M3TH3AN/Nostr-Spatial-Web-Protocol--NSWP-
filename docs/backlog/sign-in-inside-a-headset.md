@@ -38,6 +38,18 @@ headset view for a moment, sign in, and come back in."
 3. **Leave VR for a moment,** as now: the fallback where no other device
    is to hand.
 
+## Continue on phone: securing the headset's guest (asked 2026-11-25)
+
+The owner: "can we do like a "continue on phone" to secure the account that
+the headset is using?" A guest in a headset presses **"Continue on phone"**;
+after the same code and number matching, the headset hands its guest to the
+phone, which runs the ordinary "Secure this account" (login name, password,
+recovery phrase, typed and written down there). The headset is then that
+account, the same key and everything of the guest kept, never having left
+VR. BitLogin designs it first, against its pairing (feef753). It never
+merges a guest into an account the phone is already signed in to (the
+owner: no merging).
+
 ## Must not
 
 - Draw a password or recovery phrase field in a world, or pass one through

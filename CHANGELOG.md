@@ -15,6 +15,9 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
     - `room-guest.test.ts`: a guest account let go, and an account kept, where a world takes no guests; a guest let in where it says nothing.
     - `vectors/manifests.json`: `"guests": false`, and `"no"` ignored with a warning.
   - **Not tried:** the Join refusal in a real page.
+
+## 0.92.0
+
 - **A guest is the same guest in every world** (core `signing.ts`, `pass.ts`; SDK `signer.ts`, `room.ts`, `room-controls.ts`, `index.ts`; `protocol/10-identity.md`, "A guest"; `vectors/passes.json`; the engine script). The owner, 2026-11-25: "a guest should be the same guest in every world and they should have access to a bag with the free items that the worlds allow". BitLogin's guest accounts are live (a76ff51): a key it makes for a visitor nobody is signed in as, the same for the whole family. Parts 1 and 2 of the kit's half; names given 2026-11-25.
   - **Asked for with the family:** before the first sign-in, a world now sends `{ t: "want", id, family, guest: true }` (BitLogin's word). Where nobody is signed in, the signer unlocks it as the family's guest, the same in every world of it.
   - **The signer says so:** `signer.guest` is true for a guest account, false for an account, and null where locked or not said. Core reads the state's `guest` only as a boolean, and a want's `guest` only as true and only with `family`.
