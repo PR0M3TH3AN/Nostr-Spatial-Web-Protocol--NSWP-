@@ -25,6 +25,9 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
     - no Secure where the client has none.
     `vectors/menu-words.json`: a guest named, and `guest` with nobody named, not taken.
   - **Not tried:** BitLogin's real panel on "Secure this account" through BitPortal; `trials/live.mjs` itself, which reads the live sites and waits for BitPortal 251.
+
+## 0.93.0
+
 - **Items for guests: a world's `"guest_items": false`, and an item's `["guests", "no"]`** (core `item.ts`, `manifest.ts`; SDK `hold.ts`, `presence.ts`, `front-room.ts`, `ui/identity.ts`; `protocol/17-items.md`, "Guests"; `protocol/01-worlds.md`; `vectors/items.json`, `vectors/manifests.json`). The owner, 2026-11-25: a guest should "have access to a bag with the free items that the worlds allow". Part 4 of the kit's half of guest accounts; the two words given 2026-11-25.
   - **A guest account holds and uses an item where both the world and its maker let it,** as anyone does otherwise. Its bag is started with BitPortal's starter set.
   - **The world:** `"guest_items": false` in its own entry of its announcement keeps guests from its items, though they may come in. Only exactly `false` is kept. It is carried as `guestItems` (from `accessFor`, on the world gate, and in `pageRules`).
