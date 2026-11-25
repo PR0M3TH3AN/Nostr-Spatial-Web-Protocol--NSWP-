@@ -7,8 +7,8 @@
 - **Who:** the NSWP builder (the kit's rooms, `packages/sdk/src/room.ts`);
   a relay server for connections is a new hosted thing, the owner's word
   first.
-- **State:** asked; the cause found (below); the fix waits on the owner's
-  choice of relay server.
+- **State:** the cause found (below); the builder builds (2), (4), (3) in
+  that order; TURN priced (below), set up only on the owner's word.
 
 ## What was seen (the orchestrator, 2026-11-25, listening only)
 
@@ -47,6 +47,23 @@ three; they overlapped on one relay only.
    more than one relay in common between any two visitors.
 5. A trial with two visitors where the direct way is blocked: they meet
    through the relay.
+
+## TURN, priced (the orchestrator, 2026-11-25, at the owner's "Price Turn")
+
+- **Cloudflare Realtime TURN:** $0.05 a GB of data sent from Cloudflare to
+  the visitor, the first 1,000 GB a month free (shared with Cloudflare's
+  SFU); their STUN, which the kit already uses, stays free.
+- **What that buys, roughly:** only pairs that can't connect directly go
+  through it. Voice and positions are about 60 kbit/s a direction, so a
+  relayed pair talking for an hour is about 55 MB: the free 1,000 GB is
+  some 18,000 such hours a month, and past it about a third of a cent an
+  hour. A shared screen is far more (about 1 GB an hour for each watcher
+  through it).
+- **What it needs:** a Cloudflare TURN key in the owner's Cloudflare
+  account (he has one for the domain's DNS), made and typed by him; a
+  small Worker that holds it and hands a visitor credentials good for a
+  few hours (`iceFrom`); a spending alert. A new host resource: his word
+  before any of it is made.
 
 ## Must not
 
