@@ -78,7 +78,7 @@ if (inBag) {
   const askedAbout = { sha: "" };
   const refuse = async () => ({ ok: false, said: "This bag is a stand-in: it can't be changed." });
   const bagging = addBagControls(controls, {
-    bag: { items: () => [...has], load: async () => [...has], canChange: () => false, add: refuse, remove: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} } as never,
+    bag: { items: () => [...has], load: async () => [...has], canChange: () => false, add: refuse, remove: refuse, start: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} } as never,
     items,
     me: () => "e".repeat(64),
     rule: () => below.world?.state.items ?? "allowed",
