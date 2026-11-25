@@ -7,8 +7,21 @@
   with less friction."
 - **Who:** a written design first, by the BitLogin session (it holds
   accounts and keys) with the kit's half by the NSWP builder. Not briefed.
-- **State:** asked; the owner decided on 2026-11-23 that it is made automatically, and that an account too is known in every world. After the client's menu; it comes before
-  `items-for-guests`, which it largely replaces.
+- **State:** BitLogin's half live (a76ff51, 2026-11-25, on the owner's
+  "Yes, release 4425c08"): a guest per family per browser, signing notes,
+  reactions and its bag with no press, "Secure this account" keeping its
+  key, passes tagged `["nswp:guest","1"]`. BitPortal's first half (its Bag
+  over worlds) is BitPortal 246; the kit's `bag.start(items)` writes a
+  guest's first bag in one note. Next: the guest is themselves in every
+  world (below).
+- **Confirmed again, 2026-11-25:** "a guest should be the same guest in
+  every world and they should have access to a bag with the free items
+  that the worlds allow". So a guest is not Bag-only: in every world they
+  are the same guest, by their guest key's pass (its name and look the same
+  each visit), in rooms, chat, notes and reactions, as an account is; and
+  their Bag holds the free starter items, used where a world allows guests
+  to use items (`items-for-guests`). Follows, messages, the wallet, Files
+  and buying say "Secure this account first".
 
 ## What is true today
 
