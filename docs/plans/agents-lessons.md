@@ -1703,6 +1703,38 @@ Next in the owner's order for bodies. Nothing sent or spent.
   to take arm angles each frame. Design by names given; nothing asked.
 - **Not done:** reaching.
 
+## Reaching (D90, 2026-11-24; free)
+
+The last of the owner's order for bodies: the second body, arm swing,
+reaching. Nothing sent or spent.
+
+- **Where a hand goes is the world's to say** (shown, free: D90). When a
+  body uses a thing, picks one up or puts one down, the world tells it
+  where the hand meets the thing, in metres above the floor. A thing may
+  declare it; left out, it follows the thing's shape (a switch on a post
+  at 1.0 m, a surface at 0.75, a box at half its height above what it
+  sits on). *For a world:* worth declaring for anything that isn't a
+  plain shape (a switch on a wall, a handle low on a door). *For the
+  protocol:* use, pick up and put down could carry that point; no new
+  action. No name is given or taken by its being written here.
+- **The same two-bone solve reaches** (shown, free: D90): from the
+  shoulder, the arm on the point's side, easing in and out over 0.4 s.
+  On 140 points in front and to the sides at or below the shoulder: the
+  hand on the point within 0.01 mm for all 44 in reach; the shortfall
+  said right for all 96 out of reach; no elbow pointing forward.
+- **Behind or overhead, the plain bend doesn't fit** (shown: D90): the
+  elbow points forward in 350 frames. The world turns a body to face
+  what it uses, so it isn't asked for yet.
+- **A carried thing is held out in front, and the world can draw it in
+  the hand** (shown, end to end in the trial world: D90): "put the red
+  box on the shelf" reaches to the box at 0.15 m, carries it in the hand,
+  and puts it at the shelf's declared height. *For items:* a thing that
+  can be carried could say how it is held (one hand, two, at the chest);
+  design only.
+- **The kit's own figure is sent nowhere** (D90): it keeps the arms the
+  kit draws. Its arm pieces being named stays design by names given.
+- **Not judged:** the motion close up.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

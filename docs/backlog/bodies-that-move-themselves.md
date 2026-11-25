@@ -232,6 +232,15 @@ dial; 100 figures still hold 60 frames a second with the card, at more
 drawing. The kit's own figure keeps its arms as the kit draws them. Next,
 in the owner's order: reaching.
 
+## Reaching is built (the playground's D90, 2026-11-24)
+
+With that, the order the owner set for bodies (a second body, arm swing,
+reaching) is done, free. Where a hand meets a thing is the world's to
+say, declared or worked out from the thing's shape. Next on his list,
+and his word first: the private yardstick, the model downloaded for
+measuring only on this machine, never committed or shipped (Meta's
+three.js port, CC BY-NC).
+
 ## Must not
 
 - Ship anything under a licence that forbids commercial use, or fetch any
