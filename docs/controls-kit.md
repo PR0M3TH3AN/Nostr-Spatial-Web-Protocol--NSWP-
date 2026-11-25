@@ -472,6 +472,15 @@ with no pass for that key, the kit asks their signer for one
 where `arrival.identity()` finds it; `onHereAs(fn)` says when who they are
 here has changed.
 
+A tab of yours that says to sign in can have the same press right there:
+`controls.add(signInHere(controls, "my-tab"))` (from `nswp-sdk/ui`), before
+the tab's other rows, puts a **Sign in, at bitlogin.network** row at its top,
+with the id `sign-in-my-tab`. It does what You's row does, in one press (the
+client's sign-in under a client that has one, the sign-in window otherwise),
+and isn't there once they are signed in or where no signer is named. The
+kit's own Achievements and Scores tabs use it while something waits on
+signing in.
+
 When who they are here changes, the HUD says so once at the top centre of
 the view: their picture and name under "Signed in as", for a few seconds, and
 "Signed out" the same way. It reads the card at the head of You, so a client
