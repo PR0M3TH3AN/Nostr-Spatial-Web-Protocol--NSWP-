@@ -16,7 +16,7 @@
  * is the client's own page, which this page can't read.
  */
 import { askClientForSignIn, clientSignsInAt } from "./client-frame.js";
-import { isListSubject, isOwnerListAsked, type OwnerListChange, isAchievementAsked, cleanFileBytes, cleanFileName, cleanFileType, cleanInvoice, cleanListing, cleanMessage, cleanTip, readReceipt, type Receipt, fileUrlNames, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { checkDestination, isListSubject, isOwnerListAsked, type OwnerListChange, isAchievementAsked, cleanFileBytes, cleanFileName, cleanFileType, cleanInvoice, cleanListing, cleanMessage, cleanTip, readReceipt, type Receipt, fileUrlNames, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -36,6 +36,12 @@ export interface WorldSigner {
    * null where it is locked or doesn't say. False means this visit only: the visitor is asked again next time.
    */
   readonly remembered: boolean | null;
+  /**
+   * Whether the signer took this world's whole family at the sign-in (BitLogin's `family`): true, so one sign-in
+   * carries to every world under its registrable domain; false, not taken; null where it was not asked (no domain
+   * of its own, or not https) or the signer says nothing of it, which is "not offered".
+   */
+  readonly family: boolean | null;
   /** The visitor's client, as a host to name in words, or null. */
   readonly host: string | null;
   /**
@@ -260,6 +266,7 @@ const NONE: WorldSigner = {
   picture: null,
   about: null,
   remembered: null,
+  family: null,
   host: null,
   more: [],
   offers: null,
@@ -340,6 +347,22 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let picture: string | null = null;
   let about: string | null = null;
   let remembered: boolean | null = null;
+  let family: boolean | null = null;
+  // This world's family, as BitLogin's word has it: `"https://*.<registrable domain>"` of its own origin. Asked for
+  // once, before the first sign-in (the owner, 2026-11-25: "These logins should carry. especialy when on the same
+  // domain."). None for a page with no registrable domain of its own (an address, a local name) or not on https.
+  const ownFamily = (() => {
+    try {
+      const here = new URL(location.origin);
+      if (here.protocol !== "https:") return "";
+      const seen = checkDestination(here.origin);
+      const domain = seen.ok ? seen.value.registrableDomain : null;
+      return domain ? `https://*.${domain}` : "";
+    } catch {
+      return "";
+    }
+  })();
+  let familyAsked = false;
   let more: SignerMore[] = [];
   let offers: SignerMore[] | null = null;
   // Where the signer and the window really are: the client's own addresses, or their copies on a development server.
@@ -435,6 +458,11 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     if (reply.t === "ready") {
       asking = false;
       if (state === "none") state = "locked";
+      // Before the first sign-in: that it be for this world's whole family. Asked once; an older signer says nothing.
+      if (ownFamily && !familyAsked) {
+        familyAsked = true;
+        tell({ t: "want", id: `w${++n}`, family: ownFamily });
+      }
       tell({ t: "state", id: `s${++n}` });
       return changed();
     }
@@ -449,6 +477,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       remembered = reply.unlocked ? (reply.remembered ?? null) : null;
       more = reply.unlocked ? cleanMore(reply.more) : [];
       if (reply.offers) offers = reply.offers;
+      if (typeof reply.familyTaken === "boolean") family = reply.familyTaken;
       for (const go of [...firstAnswer]) go();
       return changed();
     }
@@ -544,6 +573,9 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     },
     get about() {
       return about;
+    },
+    get family() {
+      return family;
     },
     get remembered() {
       return remembered;

@@ -6935,7 +6935,10 @@ ${roomName}`)));
         // What the visitor let this world do beyond a note and a reaction. Nothing, from a signer that doesn't say.
         ...pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {},
         // What this signer can be asked for at all, locked or not. Left out by one that doesn't say: then it is asked.
-        ...Array.isArray(d.offers) ? { offers: cleanMore(d.offers) } : {}
+        ...Array.isArray(d.offers) ? { offers: cleanMore(d.offers) } : {},
+        // Whether it took the world's whole family at the sign-in (`family`, asked with `want`). Left out by one that
+        // doesn't know the word, which is "not offered".
+        ...typeof d.familyTaken === "boolean" ? { familyTaken: d.familyTaken } : {}
       };
     }
     if (typeof d.id !== "string" || !ID.test(d.id))
@@ -51360,6 +51363,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     picture: null,
     about: null,
     remembered: null,
+    family: null,
     host: null,
     more: [],
     offers: null,
@@ -51432,6 +51436,19 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let picture2 = null;
     let about = null;
     let remembered = null;
+    let family = null;
+    const ownFamily = (() => {
+      try {
+        const here = new URL(location.origin);
+        if (here.protocol !== "https:") return "";
+        const seen = checkDestination(here.origin);
+        const domain = seen.ok ? seen.value.registrableDomain : null;
+        return domain ? `https://*.${domain}` : "";
+      } catch {
+        return "";
+      }
+    })();
+    let familyAsked = false;
     let more = [];
     let offers2 = null;
     let origin = "";
@@ -51499,6 +51516,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (reply.t === "ready") {
         asking = false;
         if (state === "none") state = "locked";
+        if (ownFamily && !familyAsked) {
+          familyAsked = true;
+          tell2({ t: "want", id: `w${++n}`, family: ownFamily });
+        }
         tell2({ t: "state", id: `s${++n}` });
         return changed();
       }
@@ -51513,6 +51534,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         remembered = reply.unlocked ? reply.remembered ?? null : null;
         more = reply.unlocked ? cleanMore(reply.more) : [];
         if (reply.offers) offers2 = reply.offers;
+        if (typeof reply.familyTaken === "boolean") family = reply.familyTaken;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -51593,6 +51615,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       },
       get about() {
         return about;
+      },
+      get family() {
+        return family;
       },
       get remembered() {
         return remembered;

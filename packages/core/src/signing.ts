@@ -195,8 +195,12 @@ export type SignerRequest =
   /**
    * This world would like to be let do more than a note and a reaction (protocol/10-identity.md, "Asking for
    * more"). It approves nothing: the signer remembers it for its own window, where the visitor is shown it.
+   * `family` asks, before the first sign-in, that it be for the world's whole family: `"https://*.<registrable
+   * domain>"`, the world's own, so one sign-in carries to every world under that domain. BitLogin's word, carried
+   * unchanged; a signer honours it only for a family it knows, judged by the browser's own origin, and says so in
+   * its state (`familyTaken`). One that doesn't know the word says nothing of it.
    */
-  | { t: "want"; id: string; more: SignerMore[] }
+  | { t: "want"; id: string; more?: SignerMore[]; family?: string }
   /**
    * Follow or unfollow one person (protocol/14-people-and-messages.md). The world hands over the newest follow
    * list it found for the visitor, or null where they have none, and the one change. The signer makes the change.
@@ -305,7 +309,7 @@ export function cleanMore(input: unknown): SignerMore[] {
  */
 export type SignerReply =
   | { t: "ready" }
-  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[]; offers?: SignerMore[] }
+  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[]; offers?: SignerMore[]; familyTaken?: boolean }
   | { t: "signed"; id: string; event: NostrEvent }
   /** Answers `find`: the `d` of this world's save in that slot. */
   | { t: "found"; id: string; d: string }
@@ -362,7 +366,7 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "save" && cleanSlot(d.slot) && fitsInSave(d.data)) return { t: "save", id: d.id, slot: cleanSlot(d.slot), data: d.data };
   if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
-  if (d.t === "want" && Array.isArray(d.more)) return { t: "want", id: d.id, more: cleanMore(d.more) };
+  if (d.t === "want" && (Array.isArray(d.more) || cleanFamily(d.family))) return { t: "want", id: d.id, ...(Array.isArray(d.more) ? { more: cleanMore(d.more) } : {}), ...(cleanFamily(d.family) ? { family: cleanFamily(d.family) } : {}) };
   if (d.t === "score" && worldCoordinate(d.world) && cleanBoard(d.board) && cleanScore(d.score) !== null) {
     const title = cleanLine(d.title, SCORE_LIMITS.title);
     return { t: "score", id: d.id, world: worldCoordinate(d.world), board: cleanBoard(d.board), score: cleanScore(d.score)!, ...(title ? { title } : {}), ...(d.format === "time" ? { format: "time" as const } : {}) };
@@ -387,6 +391,11 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
 }
 
 /** Read what the signer sent a world. Null for anything else. A signed note is checked by the caller. */
+/** A world's family as BitLogin's word has it: exactly `"https://*.<registrable domain>"`, lower case; anything else "". */
+function cleanFamily(value: unknown): string {
+  return typeof value === "string" && value.length <= 260 && /^https:\/\/\*\.[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(value) ? value : "";
+}
+
 export function readSignerReply(data: unknown): SignerReply | null {
   const d = wrapped(data);
   if (!d) return null;
@@ -409,6 +418,9 @@ export function readSignerReply(data: unknown): SignerReply | null {
       ...(pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {}),
       // What this signer can be asked for at all, locked or not. Left out by one that doesn't say: then it is asked.
       ...(Array.isArray(d.offers) ? { offers: cleanMore(d.offers) } : {}),
+      // Whether it took the world's whole family at the sign-in (`family`, asked with `want`). Left out by one that
+      // doesn't know the word, which is "not offered".
+      ...(typeof d.familyTaken === "boolean" ? { familyTaken: d.familyTaken } : {}),
     };
   }
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;
