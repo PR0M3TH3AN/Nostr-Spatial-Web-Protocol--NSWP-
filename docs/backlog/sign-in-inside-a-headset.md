@@ -50,6 +50,23 @@ VR. BitLogin designs it first, against its pairing (feef753). It never
 merges a guest into an account the phone is already signed in to (the
 owner: no merging).
 
+## Where it stands (2026-11-25)
+
+- **The in-world pairing (feef753) is paused** (BitLogin 1fa173d, the
+  owner's "Yes, pause it now"): a hostile world could draw another
+  device's code and number and be handed the key.
+- **Way 1 is live** (BitLogin 6983e66, the owner's "Yes, release
+  6983e66"): the code, QR and number only on BitLogin's own
+  `bitlogin.network/headset/`, opened from the world's "Sign In using
+  Phone" in the press that leaves VR; the phone asks of every code whether
+  its address bar says bitlogin.network. The kit wires the press next
+  (`outOfVr`).
+- **Way 2, device keys, the core to be built** (the owner, "Yes, build the
+  core"): `docs/plans/headset-device-keys.md`; kinds 27305 (the grant,
+  carried) and 37312 (`nswp-devices-out`, the sign-out list) given. The
+  kit's three parts, then BitLogin's half. The Bag, scores, saves and
+  public notes stay with the phone.
+
 ## Must not
 
 - Draw a password or recovery phrase field in a world, or pass one through
