@@ -94,6 +94,10 @@ import {
   sealTemplate,
   wrapSeal,
   FOLLOWS_KIND,
+  lobbyName,
+  ROOM_LIMITS,
+  ROOM_RELAYS,
+  roomTopic,
   type EventTemplate,
   type NostrEvent,
 } from "../packages/core/src/index.js";
@@ -1872,6 +1876,24 @@ const files: Record<string, unknown> = {
 if (failures.length) {
   console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
   process.exit(1);
+}
+
+// ---- Rooms (protocol/06-rooms.md): the lobbies a world's default room fills, one at a time, and where they meet.
+{
+  const world = "https://grove.example/";
+  const lobbies = [1, 2, 3, 32].map((n) => ({ n, name: lobbyName(n), topic: roomTopic(world, lobbyName(n)!) }));
+  expectEqual("rooms/lobby names", lobbies.map((l) => l.name), ["lobby", "lobby-2", "lobby-3", "lobby-32"]);
+  expectEqual("rooms/no lobby past the last", [0, 33].map(lobbyName), [null, null]);
+  files["rooms.json"] = {
+    description:
+      "Rooms (protocol/06-rooms.md). `lobbies`: the names a world's default room fills one at a time, \"lobby\" then \"lobby-2\" and on, at most `lobbiesMost`, each with its topic for the world at `world` (the SHA-256 of \"nswp/room/spike-1\", the world's origin and path, and the name, on three lines). `noLobby`: numbers that name none. `full`: what a member of a full room sends someone joining it, before it is encrypted to them as any message to one member is. `relays`: where the kit's rooms meet when a world names none.",
+    world,
+    lobbiesMost: ROOM_LIMITS.lobbies,
+    lobbies,
+    noLobby: [0, 33],
+    full: { t: "full" },
+    relays: [...ROOM_RELAYS],
+  };
 }
 
 mkdirSync(outDir, { recursive: true });

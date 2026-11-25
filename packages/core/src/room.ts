@@ -20,6 +20,11 @@ export const ROOM_LIMITS = {
   signalMaxAgeSec: 60,
   maxSdpChars: 20000,
   maxNameChars: 48,
+  /**
+   * How many lobbies a world's default room may run to: "lobby", "lobby-2", … "lobby-32". A newcomer told a lobby
+   * is full goes on to the next (protocol/06-rooms.md, "Lobbies that fill"). With 8 to a lobby, 256 people.
+   */
+  lobbies: 32,
 } as const;
 
 /**
@@ -29,6 +34,15 @@ export const ROOM_LIMITS = {
 export function roomTopic(worldUrl: string, roomName: string): string {
   const u = new URL(worldUrl);
   return bytesToHex(sha256(utf8ToBytes(`nswp/room/spike-1\n${u.origin}${u.pathname}\n${roomName}`)));
+}
+
+/**
+ * The name of a world's `n`th lobby, counting from 1: "lobby", then "lobby-2", "lobby-3" and on, to
+ * `ROOM_LIMITS.lobbies`. Null for anything else. Only the default room fills this way; a room by name is one room.
+ */
+export function lobbyName(n: number): string | null {
+  if (!Number.isInteger(n) || n < 1 || n > ROOM_LIMITS.lobbies) return null;
+  return n === 1 ? "lobby" : `lobby-${n}`;
 }
 
 /** Of two members, the one with the lower session pubkey makes the offer. */
@@ -64,7 +78,9 @@ export type SignalMessage =
   | { t: "welcome" }
   | { t: "offer"; sdp: string }
   | { t: "answer"; sdp: string }
-  | { t: "bye" };
+  | { t: "bye" }
+  /** Said by a member of a full room to someone joining it: go on to the next lobby (or, in a room by name, it is full). */
+  | { t: "full" };
 
 function validMessage(m: unknown): m is SignalMessage {
   if (typeof m !== "object" || m === null) return false;
@@ -74,6 +90,7 @@ function validMessage(m: unknown): m is SignalMessage {
       return o.v === 1;
     case "welcome":
     case "bye":
+    case "full":
       return true;
     case "offer":
     case "answer":
