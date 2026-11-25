@@ -150,6 +150,11 @@ export interface JoinOptions {
    * anyone else is let go. Left out or null, the world isn't by invitation.
    */
   invited?: Iterable<string> | null;
+  /**
+   * False where the world takes no guests (its announcement's `"guests": false`, protocol/10-identity.md, "A
+   * guest"): someone whose pass is a guest account's is let go, as someone not invited is. Left out, guests may come.
+   */
+  guests?: boolean;
 }
 
 export type RoomStatus = "connecting" | "open" | "no-relays" | "closed";
@@ -365,6 +370,8 @@ export class RoomSession {
   private readonly turnedAway = new Set<string>();
   /** Whether this room shows only people whose pass checks out: so where it is by invitation, too. */
   readonly namedOnly: boolean;
+  /** Whether guest accounts may be in this room (`JoinOptions.guests`). */
+  private readonly guests: boolean;
   /** Where the world is by invitation, who may be in its rooms; null where it isn't. */
   private invited: Set<string> | null = null;
   /** In a room that shows only named people: the members shown, by session key, and what arrived for each before. */
@@ -492,6 +499,7 @@ export class RoomSession {
     for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
     this.invited = opts.invited ? new Set([...opts.invited].filter((k) => /^[0-9a-f]{64}$/.test(k))) : null;
     this.namedOnly = opts.namedOnly === true || this.invited !== null;
+    this.guests = opts.guests !== false;
   }
 
   /** Who may be in this world's rooms, as its gate last read the owner's allow list. Anyone here not on it is let go at once. */
@@ -898,6 +906,8 @@ export class RoomSession {
     }
     // Someone the world's owner keeps out, or hasn't invited where it is by invitation: let go the moment who they are is known.
     if (this.ownerBlocked.has(checked.value.pubkey) || (this.invited && !this.invited.has(checked.value.pubkey))) return this.turnAway(peer.member.pubkey);
+    // A guest account, where the world takes none: let go the same way.
+    if (checked.value.guest && !this.guests) return this.turnAway(peer.member.pubkey);
     peer.passUntil = checked.value.expiresAt;
     Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || (checked.value.guest ? guestName(checked.value.pubkey) : shortNpub(checked.value.pubkey)) });
     if (checked.value.guest) peer.member.guestAccount = true;

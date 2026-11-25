@@ -77,3 +77,35 @@ describe("guestName", () => {
     expect(guestName("abcd".padEnd(64, "0"))).toBe(coreGuestName("abcd".padEnd(64, "0")));
   });
 });
+
+describe("a world that takes no guests", () => {
+  it("lets a guest account go from its rooms, and keeps an account", () => {
+    const s = new RoomSession({ world: WORLD, relays: [], guests: false });
+    const inside = s as unknown as { createPeer(pubkey: string): { member: import("../src/room.js").Member }; wirePoseChannel(peer: unknown, ch: unknown): void; checkPass(peer: unknown, text: string): void; turnedAway: Set<string> };
+    const arrive = (n: number, extra: string[][]) => {
+      const session = getPublicKey(key(200 + n));
+      const peer = inside.createPeer(session);
+      const ch: Record<string, unknown> = { readyState: "open", send() {} };
+      inside.wirePoseChannel(peer, ch);
+      (ch.onopen as () => void)();
+      inside.checkPass(peer, pass(session, n, extra));
+      return session;
+    };
+    const guest = arrive(1, [["nswp:guest", "1"]]);
+    const account = arrive(2, [["name", "Alice"]]);
+    expect(inside.turnedAway.has(guest)).toBe(true);
+    expect(s.members.map((m) => m.pubkey)).toEqual([account]);
+  });
+
+  it("lets everyone in where it says nothing", () => {
+    const s = new RoomSession({ world: WORLD, relays: [] });
+    const inside = s as unknown as { createPeer(pubkey: string): { member: import("../src/room.js").Member }; wirePoseChannel(peer: unknown, ch: unknown): void; checkPass(peer: unknown, text: string): void };
+    const session = getPublicKey(key(301));
+    const peer = inside.createPeer(session);
+    const ch: Record<string, unknown> = { readyState: "open", send() {} };
+    inside.wirePoseChannel(peer, ch);
+    (ch.onopen as () => void)();
+    inside.checkPass(peer, pass(session, 9, [["nswp:guest", "1"]]));
+    expect(s.members.map((m) => m.pubkey)).toEqual([session]);
+  });
+});

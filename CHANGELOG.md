@@ -4,6 +4,17 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A world may take no guests: `"guests": false`** (core `manifest.ts`; SDK `front-room.ts`, `ui/identity.ts`, `presence.ts`, `room.ts`; `protocol/01-worlds.md`, `protocol/06-rooms.md`; `vectors/manifests.json`; the engine script). The owner, 2026-11-25, of BitLogin's guest accounts: "a world may refuse guests". Part 3 of the kit's half; names given 2026-11-25.
+  - **In a world's own entry of its announcement,** `"guests": false`: only exactly `false` is kept, and anything else is ignored with a warning. Left out, guests may come in. `accessFor` gives `guests`.
+  - **Its rooms let a guest account go** (`JoinOptions.guests: false`): someone whose pass says `nswp:guest` is turned away once it checks out, as someone not invited is.
+  - **A guest pressing Join there is told,** and not joined: "Couldn't join: this world doesn't take guests. Secure your account to come in."
+  - **The world gate says so as `takesGuests`.** Its `guests` was already the invitation list.
+  - `named_only` is unchanged: a guest's pass checks out. A world that wants secured accounts only says `"guests": false`.
+  - The visitor's client still asks for the family's guest everywhere: the guest is the family's, made once, and refusing it in one world makes nobody else.
+  - **Tried:**
+    - `room-guest.test.ts`: a guest account let go, and an account kept, where a world takes no guests; a guest let in where it says nothing.
+    - `vectors/manifests.json`: `"guests": false`, and `"no"` ignored with a warning.
+  - **Not tried:** the Join refusal in a real page.
 - **A guest is the same guest in every world** (core `signing.ts`, `pass.ts`; SDK `signer.ts`, `room.ts`, `room-controls.ts`, `index.ts`; `protocol/10-identity.md`, "A guest"; `vectors/passes.json`; the engine script). The owner, 2026-11-25: "a guest should be the same guest in every world and they should have access to a bag with the free items that the worlds allow". BitLogin's guest accounts are live (a76ff51): a key it makes for a visitor nobody is signed in as, the same for the whole family. Parts 1 and 2 of the kit's half; names given 2026-11-25.
   - **Asked for with the family:** before the first sign-in, a world now sends `{ t: "want", id, family, guest: true }` (BitLogin's word). Where nobody is signed in, the signer unlocks it as the family's guest, the same in every world of it.
   - **The signer says so:** `signer.guest` is true for a guest account, false for an account, and null where locked or not said. Core reads the state's `guest` only as a boolean, and a want's `guest` only as true and only with `family`.

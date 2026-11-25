@@ -252,6 +252,10 @@ with nobody in charge, so this is what an honest client does.
   let go as above, and so is one whose pass runs out. A visitor who is a
   guest there is told, when they press Join, that they must sign in first,
   and is not joined.
+- **No guest accounts** (`"guests": false` in the world's manifest). A
+  member whose pass is a guest account's (`nswp:guest`) is let go as above
+  as soon as it checks out. A visitor who is a guest there is told, when
+  they press Join, to secure their account first, and is not joined.
 - **Only invited people,** where the world is by invitation. As for only
   named people, and a member's pass must also name someone on the owner's
   allow list, or a keeper; anyone else is let go. When the list changes,
