@@ -20,8 +20,8 @@
   "yes": restoring what is held from the mint by a seed; its design is
   written (`docs/ecash-seed-counter.md` in BitLogin) and its tests on
   mock mints come first. **Open:** the wallet needing a refresh (below),
-  mended as local commit 4310d13 and corrected twice since (below); not
-  released, and his word is asked once the last correction has an id. Still not known: whether the cause
+  mended as local commit 4310d13 and corrected three times since
+  (below); the last, d3b2b37, released on his word ("Yes, release d3b2b37"). Still not known: whether the cause
   found is what happened to his wallet, and which line his wallet now
   shows (kept only in this browser, or kept with his account).
 
@@ -151,7 +151,25 @@ one, the orchestrator found one more door to the same fault, not run: a
 panel hidden again while its sizes are held says and keeps the bar's
 height when the hold ends. Asked for on top, so that the owner is asked
 for one commit: the ask for a9d12b7 is withdrawn as the one for 4310d13
-was, and no id is with him now.
+was.
+
+**The last correction is d3b2b37, and that is the id the owner is asked
+for.** BitLogin's test showed the door on e39ffe4 (a hide 1.6 s into
+the hold: the next showing began at 111), and a second fault beside it:
+with the hide at 0.3 s the wallet was drawn, and its opening check run,
+in a panel already hidden. In d3b2b37 a hold on sizes belongs to its own
+showing (each `show` and each `hide` is a new one), a showing no longer
+the newest neither draws nor ends its hold, and no size is said or kept
+as the last height while the panel is hidden, whoever asks. Gate exit 0,
+776 passed. Read by the orchestrator, with the whole difference against
+what is live (511e3f5): `connect.js`, `connect/index.html`, `build.mjs`,
+documents and tests. Not run: BitPortal's own shell; that count comes
+once it is live.
+
+**Released on the owner's word**, 2026-11-24, to the question whether to
+release d3b2b37: "Yes, release d3b2b37". Passed to BitLogin's session for
+exactly that commit; its seed work, committed on top the same evening
+(a mock mint and the seed, mock mints only), is not in it.
 
 Also since: BitPortal's shell answers a `ready` from a kept frame it
 holds hidden with `hide` again (its PR 231, merged as 46745b8, not
