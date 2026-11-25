@@ -11,6 +11,7 @@ import { shortNpub, type Standing, type Standings } from "@nswp/core";
 import type { Profiles } from "./profiles.js";
 import type { Scores } from "./scores.js";
 import type { Controls, UiAction } from "./ui/model.js";
+import { signInFirst, signInHere } from "./ui/sign-in-here.js";
 
 export interface ScoringOptions {
   scores: Scores;
@@ -61,6 +62,8 @@ export function addScoreControls(controls: Controls, opts: ScoringOptions): Scor
       icon: "list",
       note: () => "A score here is what someone says they made: nothing checks it. People you follow are listed first. Posting yours says publicly that you were here, and how you did.",
     });
+    // A best of theirs says to sign in, while they aren't, to post it: the press is right there.
+    if (!opts.signedIn() && scores.boards.some((b) => scores.best(b.id) !== null)) add(signInHere(controls, "scores"));
     for (const b of scores.boards) {
       const best = scores.best(b.id);
       const posted = scores.posted(b.id);
@@ -80,6 +83,7 @@ export function addScoreControls(controls: Controls, opts: ScoringOptions): Scor
         short: "Post",
         act: async () => {
           if (best === null) return controls.say("Make a score first: it is kept on this device until you post it.");
+          if (!opts.signedIn()) return signInFirst(controls, "Sign in to post a score.");
           const done = await scores.post(b.id);
           controls.say(done.said);
           if (done.ok) look(b.id, true);

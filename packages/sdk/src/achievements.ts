@@ -139,7 +139,7 @@ export function createAchievements(opts: AchievementsOptions): Achievements {
     async show() {
       const who = opts.hand.pubkey();
       if (!world) return { ok: false, said: "This world has no achievements." };
-      if (!who) return { ok: false, said: "Sign in here to show what you have earned: it is under You." };
+      if (!who) return { ok: false, said: "Sign in to show what you have earned." };
       const kept = of(who);
       const waiting = earned().filter((id) => !kept.shown.includes(id));
       if (waiting.length === 0) return { ok: true, said: earned().length ? "Everything you have earned here is already shown." : "You haven't earned anything here yet." };

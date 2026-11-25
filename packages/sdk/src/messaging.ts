@@ -17,6 +17,7 @@ import type { Profiles } from "./profiles.js";
 import { wrapWords } from "./ui/chat.js";
 import { ago } from "./ui/feed.js";
 import type { Controls, UiAction } from "./ui/model.js";
+import { signInFirst } from "./ui/sign-in-here.js";
 import { rgb } from "./ui/theme.js";
 
 /** What sends and reads private messages for the visitor (three.ts gives a world's; a visitor's own client gives its own). */
@@ -201,7 +202,7 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
 
   const write = (pubkey: string) => {
     const me = hand.pubkey();
-    if (!me) return say("Sign in to write to people: it is under You.");
+    if (!me) return signInFirst(controls, "Sign in to write to people.");
     if (pubkey === me) return;
     const go = () => void m.load().then(() => open(pubkey));
     if (hand.allowed()) return go();

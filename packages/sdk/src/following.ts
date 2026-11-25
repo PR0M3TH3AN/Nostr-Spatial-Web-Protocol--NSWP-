@@ -16,6 +16,7 @@ import type { PersonLines } from "./person-lines.js";
 import { showsPictures } from "./picture.js";
 import { createProfiles, type Profiles } from "./profiles.js";
 import type { Controls, UiAction } from "./ui/model.js";
+import { signInFirst } from "./ui/sign-in-here.js";
 
 /** What follows and unfollows someone for the visitor (three.ts gives a world's; a visitor's own client gives its own). */
 export interface FollowingHand {
@@ -88,7 +89,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
       if (done.ok && adding) void profiles.fetch([pubkey]);
       refresh();
     };
-    if (!f.pubkey()) return say("Sign in to follow people: it is under You.");
+    if (!f.pubkey()) return signInFirst(controls, "Sign in to follow people.");
     if (f.allowed()) return void now();
     say(f.ask(() => void now()));
   };
@@ -99,7 +100,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
    */
   const byKey = async (typed?: string) => {
     const me = f.pubkey();
-    if (!me) return say("Sign in to follow people: it is under You.");
+    if (!me) return signInFirst(controls, "Sign in to follow people.");
     let text = typed ?? "";
     const keyboard = opts.presenting?.() ? (opts.keyboard?.() ?? null) : null;
     if (typed !== undefined) {
