@@ -126,6 +126,9 @@ try {
     check("on a phone, a tap on the corner mark brings the menu up", up.sheetUp, up.sheetUp);
     check("on a phone, the sheet's foot stands above the bar: the bar is not under the sheet", !!up.sheet && !!up.bar && up.sheet[3] <= up.bar[1], { sheet: up.sheet, bar: up.bar });
     check('on a phone, "Keep this tab on your bar" is offered: there is a bar to keep it on', up.pin === true, up.pin);
+    // The menu's button is the mark with no words, and on a touch screen no hint shows, even after a tap on it.
+    const markHint = await page.evaluate(() => { const b = document.querySelector("nswp-hud").shadowRoot.querySelector("button.quiet"); const h = b.querySelector(".hint"); return { words: b.innerText.trim(), hint: h && getComputedStyle(h).display !== "none" }; });
+    check("on a phone, the menu's button has no words, and no hint shows after a tap on it", markHint.words === "" && markHint.hint === false, markHint);
     mkdirSync(SHOTS, { recursive: true });
     await page.screenshot({ path: join(SHOTS, "arcade-bar-phone.png") }).catch(() => undefined);
     await ctx.close();

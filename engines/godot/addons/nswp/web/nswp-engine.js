@@ -544,12 +544,12 @@ var NSWP = (() => {
       this.H = IV[7] | 0;
     }
     get() {
-      const { A, B, C, D: D2, E, F, G, H: H3 } = this;
-      return [A, B, C, D2, E, F, G, H3];
+      const { A: A2, B, C, D: D2, E, F, G, H: H3 } = this;
+      return [A2, B, C, D2, E, F, G, H3];
     }
     // prettier-ignore
-    set(A, B, C, D2, E, F, G, H3) {
-      this.A = A | 0;
+    set(A2, B, C, D2, E, F, G, H3) {
+      this.A = A2 | 0;
       this.B = B | 0;
       this.C = C | 0;
       this.D = D2 | 0;
@@ -572,22 +572,22 @@ var NSWP = (() => {
         const s1 = rotr(W22, 17) ^ rotr(W22, 19) ^ W22 >>> 10;
         SHA256_W[i] = s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16] | 0;
       }
-      let { A, B, C, D: D2, E, F, G, H: H3 } = this;
+      let { A: A2, B, C, D: D2, E, F, G, H: H3 } = this;
       for (let i = 0; i < 64; i++) {
         const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
         const T1 = H3 + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i] | 0;
-        const sigma0 = rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22);
-        const T2 = sigma0 + Maj(A, B, C) | 0;
+        const sigma0 = rotr(A2, 2) ^ rotr(A2, 13) ^ rotr(A2, 22);
+        const T2 = sigma0 + Maj(A2, B, C) | 0;
         H3 = G;
         G = F;
         F = E;
         E = D2 + T1 | 0;
         D2 = C;
         C = B;
-        B = A;
-        A = T1 + T2 | 0;
+        B = A2;
+        A2 = T1 + T2 | 0;
       }
-      A = A + this.A | 0;
+      A2 = A2 + this.A | 0;
       B = B + this.B | 0;
       C = C + this.C | 0;
       D2 = D2 + this.D | 0;
@@ -595,7 +595,7 @@ var NSWP = (() => {
       F = F + this.F | 0;
       G = G + this.G | 0;
       H3 = H3 + this.H | 0;
-      this.set(A, B, C, D2, E, F, G, H3);
+      this.set(A2, B, C, D2, E, F, G, H3);
     }
     roundClean() {
       clean(SHA256_W);
@@ -1985,9 +1985,9 @@ var NSWP = (() => {
           y = Fp.neg(y);
         return { x, y };
       } else if (length === uncomp && head === 4) {
-        const L = Fp.BYTES;
-        const x = Fp.fromBytes(tail.subarray(0, L));
-        const y = Fp.fromBytes(tail.subarray(L, L * 2));
+        const L2 = Fp.BYTES;
+        const x = Fp.fromBytes(tail.subarray(0, L2));
+        const y = Fp.fromBytes(tail.subarray(L2, L2 * 2));
         if (!isValidXY(x, y))
           throw new Error("bad point: is not on curve");
         return { x, y };
@@ -2515,9 +2515,9 @@ var NSWP = (() => {
           format = "compact";
           bytes = bytes.subarray(1);
         }
-        const L = lengths.signature / 2;
-        const r = bytes.subarray(0, L);
-        const s = bytes.subarray(L, L * 2);
+        const L2 = lengths.signature / 2;
+        const r = bytes.subarray(0, L2);
+        const s = bytes.subarray(L2, L2 * 2);
         return new Signature(Fn.fromBytes(r), Fn.fromBytes(s), recid);
       }
       static fromHex(hex, format) {
@@ -6178,28 +6178,28 @@ var NSWP = (() => {
     }
     const okm = _recycled && blocks === 1 ? prk : new Uint8Array(blocks * olen);
     const { iHash, oHash } = hmac.create(hash, prk);
-    const T = _recycled ? prk : new Uint8Array(olen);
+    const T2 = _recycled ? prk : new Uint8Array(olen);
     const worker = blocks > 1 ? _recycled?.iHash || hash.create() : void 0;
     for (let counter = 0; counter < blocks - 1; counter++) {
       HKDF_COUNTER[0] = counter + 1;
       const iWork = iHash._cloneInto(worker);
       if (counter)
-        iWork.update(T);
-      iWork.update(info).update(HKDF_COUNTER).digestInto(T);
-      oHash._cloneInto(worker).update(T).digestInto(T);
-      okm.set(T, olen * counter);
+        iWork.update(T2);
+      iWork.update(info).update(HKDF_COUNTER).digestInto(T2);
+      oHash._cloneInto(worker).update(T2).digestInto(T2);
+      okm.set(T2, olen * counter);
     }
     HKDF_COUNTER[0] = blocks;
     if (blocks > 1)
-      iHash.update(T);
-    iHash.update(info).update(HKDF_COUNTER).digestInto(T);
-    oHash.update(T).digestInto(T);
-    okm.set(T, olen * (blocks - 1));
+      iHash.update(T2);
+    iHash.update(info).update(HKDF_COUNTER).digestInto(T2);
+    oHash.update(T2).digestInto(T2);
+    okm.set(T2, olen * (blocks - 1));
     iHash.destroy();
     oHash.destroy();
     worker?.destroy();
-    if (T !== okm)
-      clean(T);
+    if (T2 !== okm)
+      clean(T2);
     clean(HKDF_COUNTER);
     if (length === okm.length)
       return okm;
@@ -49741,14 +49741,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const along = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
       const side = along.clone().cross(n).setLength(width / 2);
       const lift = n.clone().multiplyScalar(4e-3);
-      const A = new Vector3(...a).add(lift);
+      const A2 = new Vector3(...a).add(lift);
       const B = new Vector3(...b).add(lift);
       const len = along.length();
       this.quad(
-        [A.x - side.x, A.y - side.y, A.z - side.z],
+        [A2.x - side.x, A2.y - side.y, A2.z - side.z],
         [B.x - side.x, B.y - side.y, B.z - side.z],
         [B.x + side.x, B.y + side.y, B.z + side.z],
-        [A.x + side.x, A.y + side.y, A.z + side.z],
+        [A2.x + side.x, A2.y + side.y, A2.z + side.z],
         { glow: 1, ...paint2, flow: paint2.flow ?? [0, len, len, 0] },
         out
       );
@@ -54523,7 +54523,28 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     sheets.set(menu2, now);
   }
 
+  // packages/sdk/src/ui/mark.ts
+  var MARK2 = {
+    /** The tile: its size, the round of its top corners and of its bottom ones, and its edge. */
+    tile: { w: 44, h: 48, top: 22, bottom: 8, edge: 1 },
+    /** The arch: its size, where it stands in the tile, the round of its top (a half circle) and of its foot. */
+    arch: { w: 18, h: 24, x: 13, y: 11, top: 9, bottom: 2 },
+    /** The line it stands on: how far it reaches past the arch on each side, how thick, and how far below its foot. */
+    sill: { over: 3, h: 2, below: 3 },
+    /** How far the arch's glow reaches. */
+    glow: 14,
+    /** The arch's fill: the accent at the top, and at the foot. */
+    fill: { top: 0.95, foot: 0.25 },
+    /** The glow's strength, the tile's glass, and its edge when it isn't lit. */
+    glowAlpha: 0.55,
+    glass: 0.7,
+    edgeAlpha: 0.34
+  };
+
   // packages/sdk/src/ui/hud.ts
+  var T = MARK2.tile;
+  var A = MARK2.arch;
+  var L = MARK2.sill;
   var CSS2 = `
 :host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
   --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
@@ -54549,16 +54570,24 @@ svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-wi
   display: flex; align-items: center; gap: 10px; max-width: min(60vw, 420px); padding: 8px 14px 8px 10px; border-radius: 6px 14px 14px 6px;
   border-left: 2px solid rgb(var(--accent)); }
 /* The mark: a lit doorway. The arch is this kit's one shape, borrowed from the doors it leads to. */
-.mark { width: 18px; height: 24px; border-radius: 9px 9px 2px 2px; flex: none; position: relative;
-  background: linear-gradient(rgba(var(--accent), .95), rgba(var(--accent), .25)); box-shadow: 0 0 14px rgba(var(--accent), .55); }
-.mark::after { content: ""; position: absolute; left: -3px; right: -3px; bottom: -3px; height: 2px; background: rgb(var(--ink)); border-radius: 1px; }
+.mark { width: ${A.w}px; height: ${A.h}px; border-radius: ${A.top}px ${A.top}px ${A.bottom}px ${A.bottom}px; flex: none; position: relative;
+  background: linear-gradient(rgba(var(--accent), ${MARK2.fill.top}), rgba(var(--accent), ${MARK2.fill.foot})); box-shadow: 0 0 ${MARK2.glow}px rgba(var(--accent), ${MARK2.glowAlpha}); }
+.mark::after { content: ""; position: absolute; left: -${L.over}px; right: -${L.over}px; bottom: -${L.below}px; height: ${L.h}px; background: rgb(var(--ink)); border-radius: ${L.h / 2}px; }
 .id b { display: block; font-weight: 650; font-size: 1.12em; letter-spacing: .005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .id .mono { display: block; font-size: .86em; color: rgba(var(--ink), .68); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- the menu button: top right */
 .menu { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
-  pointer-events: auto; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 10px; border-radius: 12px; }
-.menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+  pointer-events: auto; display: grid; place-items: center; width: ${T.w}px; height: ${T.h}px; padding: 0; border-radius: ${T.top}px ${T.top}px ${T.bottom}px ${T.bottom}px; }
+.menu .mark { margin-bottom: ${T.h - A.h - 2 * A.y}px; }
+.menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); }
+/* The hint: on hover with a mouse, and nowhere else. Below the tile, or above it in a bottom corner; its own corner's side. */
+.hint { display: none; position: absolute; top: calc(100% + 6px); right: 0; white-space: nowrap; pointer-events: none;
+  padding: 4px 8px; border-radius: 7px; font-size: .82em; font-weight: 600; letter-spacing: .01em;
+  background: rgba(var(--glass), .94); color: rgb(var(--ink)); border: 1px solid rgba(var(--ink), .14); }
+@media (hover: hover) and (pointer: fine) { :is(.menu, .quiet):hover .hint { display: block; } }
+:host([data-corner^="bottom"]) .quiet .hint { top: auto; bottom: calc(100% + 6px); }
+:host([data-corner$="left"]) .quiet .hint { right: auto; left: 0; }
 /* Fill the screen: small, top centre, on a desk while it isn't filled. */
 .full { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; pointer-events: auto;
   display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border-radius: 10px; font-size: .9em; }
@@ -54859,8 +54888,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .close:hover { border-color: rgb(var(--ink)); }
 
 /* ---- quiet: one mark in a corner, and everything else behind it */
-.quiet { position: absolute; pointer-events: auto; display: none; width: 44px; height: 48px; place-items: center; border-radius: 22px 22px 8px 8px; }
-.quiet .mark { margin-bottom: 2px; }
+.quiet { position: absolute; pointer-events: auto; display: none; width: ${T.w}px; height: ${T.h}px; place-items: center; border-radius: ${T.top}px ${T.top}px ${T.bottom}px ${T.bottom}px; }
+.quiet .mark { margin-bottom: ${T.h - A.h - 2 * A.y}px; }
 .quiet:hover, .quiet[aria-expanded="true"] { border-color: rgb(var(--accent)); }
 :host([data-presence="quiet"]) .quiet { display: grid; }
 /* Quiet where the visitor plays by touch keeps the bar: there is no keyboard to keep for play, and nothing else to press for what it carries. */
@@ -54875,7 +54904,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 :host(:not([data-bar])) .sheet { bottom: max(72px, env(safe-area-inset-bottom)); }
 :host(:not([data-bar])) .says { bottom: max(72px, env(safe-area-inset-bottom)); }
 /* Keys the world has switched off aren't advertised. */
-:host(.no-menu-key) .menu kbd, :host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
+:host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
 
 /* Who they are signed in as, said once when it becomes so: top centre, in one place, and gone again. It is never
    pressed and never in the way: it can't be clicked, and what is under it can. */
@@ -54913,8 +54942,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* ---- a phone: the same things, closer together */
 @media (max-width: 640px) {
   .id { max-width: calc(100vw - 86px); padding: 6px 10px 6px 8px; }
-  .menu span, .menu kbd, .key .num { display: none; }
-  .menu { padding: 0 10px; }
+  .key .num { display: none; }
   .hotbar { gap: 4px; padding: 10px 8px 6px; }
   .bar .more { width: 26px; }
   .key { width: 54px; }
@@ -54966,8 +54994,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const address = el("span", { class: "mono" });
     const id2 = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
     const barShown = (presence3) => presence3 === "full" || presence3 === "quiet" && startingForm() === "touch";
-    const menu2 = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
-    const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
+    const hint2 = () => el("span", { class: "hint", "aria-hidden": "true" }, "Menu, M");
+    const menu2 = el("button", { class: "menu glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }), hint2());
+    const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }), hint2());
     const target2 = el("div", { class: "target glass", "aria-live": "polite" });
     const loadingWhat = el("span", { class: "what", "aria-live": "polite" });
     const loadingMuch = el("span", { class: "much" });
@@ -55725,8 +55754,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       host.dataset.corner = view2.corner;
       host.classList.toggle("no-menu-key", view2.keys.menu === null);
       host.classList.toggle("no-hotbar-keys", !view2.keys.hotbar);
-      const key = menu2.querySelector("kbd");
-      if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
+      const hintWords = view2.keys.menu ? `Menu, ${view2.keys.menu.toUpperCase()}` : "Menu";
+      for (const b of [menu2, quiet]) {
+        const words2 = b.querySelector(".hint");
+        if (words2 && words2.textContent !== hintWords) words2.textContent = hintWords;
+      }
       title.textContent = view2.title;
       address.textContent = view2.address;
       sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
@@ -56744,7 +56776,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const signature = JSON.stringify([view2.title, view2.address, loads, view2.sections, section, lit, t, linePage]);
       if (signature === painted) return false;
       painted = signature;
-      const A = rgb(t.accent);
+      const A2 = rgb(t.accent);
       const I = rgb(t.ink);
       const k = Math.min(1.2, t.scale);
       regions = [];
@@ -56754,17 +56786,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       g.fillStyle = `rgba(${rgb(t.glass)}, 0.86)`;
       g.fill();
       g.lineWidth = 3;
-      g.strokeStyle = `rgba(${A}, 0.55)`;
+      g.strokeStyle = `rgba(${A2}, 0.55)`;
       g.stroke();
       const top = g.createLinearGradient(80, 0, W - 80, 0);
-      top.addColorStop(0, `rgba(${A}, 0)`);
-      top.addColorStop(0.5, `rgba(${A}, 1)`);
-      top.addColorStop(1, `rgba(${A}, 0)`);
+      top.addColorStop(0, `rgba(${A2}, 0)`);
+      top.addColorStop(0.5, `rgba(${A2}, 1)`);
+      top.addColorStop(1, `rgba(${A2}, 0)`);
       g.fillStyle = top;
       g.fillRect(80, 4, W - 160, 4);
       const mark = g.createLinearGradient(0, 30, 0, 96);
-      mark.addColorStop(0, `rgba(${A}, 0.95)`);
-      mark.addColorStop(1, `rgba(${A}, 0.25)`);
+      mark.addColorStop(0, `rgba(${A2}, 0.95)`);
+      mark.addColorStop(1, `rgba(${A2}, 0.25)`);
       g.fillStyle = mark;
       g.beginPath();
       g.roundRect(40, 30, 44, 60, [22, 22, 4, 4]);
@@ -56780,7 +56812,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       g.fillText(fit(g, view2.address, loads ? (W - 300) / 2 - 16 : W - 300), 112, 96);
       if (loads) {
         g.font = `500 ${Math.round(24 * k)}px ${SANS}`;
-        g.fillStyle = `rgb(${A})`;
+        g.fillStyle = `rgb(${A2})`;
         g.textAlign = "right";
         const said2 = `${loads.words || "Still loading"}${loads.much === null ? "" : `  ${loads.much}%`}`;
         g.fillText(fit(g, said2, (W - 300) / 2 - 16), W - 172, 96);
@@ -56801,10 +56833,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         g.strokeStyle = t.ink;
         strokeIcon(g, "exit", W - 150 + 38, 26 + 16, 40);
       });
-      g.fillStyle = `rgba(${A}, 0.22)`;
+      g.fillStyle = `rgba(${A2}, 0.22)`;
       g.fillRect(28, 122, W - 56, 2);
       if (loads) {
-        g.fillStyle = `rgba(${A}, ${loads.much === null ? 0.45 : 1})`;
+        g.fillStyle = `rgba(${A2}, ${loads.much === null ? 0.45 : 1})`;
         g.fillRect(28, 121, (W - 56) * (loads.much === null ? 1 : loads.much / 100), 4);
       }
       const tabs = tabLayout(view2.sections.length);
@@ -56819,7 +56851,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           if (on3 || hot) {
             g.beginPath();
             g.roundRect(x, y, tabs.colW, h, [6, 18, 18, 6]);
-            g.fillStyle = `rgba(${A}, ${on3 ? 0.16 : 0.08})`;
+            g.fillStyle = `rgba(${A2}, ${on3 ? 0.16 : 0.08})`;
             g.fill();
           }
           if (on3) {
@@ -56849,10 +56881,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const y = 138;
         g.beginPath();
         g.roundRect(left, y, areaW, cardH - 12, [22, 22, 8, 8]);
-        g.fillStyle = `rgba(${A}, 0.08)`;
+        g.fillStyle = `rgba(${A2}, 0.08)`;
         g.fill();
         g.lineWidth = 2;
-        g.strokeStyle = `rgba(${A}, 0.5)`;
+        g.strokeStyle = `rgba(${A2}, 0.5)`;
         g.stroke();
         const face = card.picture ? faceOf(card.picture) : null;
         const cx = left + 58;
@@ -56888,7 +56920,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           g.beginPath();
           g.roundRect(tx + nameW + 16, y + 17, tagW, 34, 17);
           g.lineWidth = 2;
-          g.strokeStyle = card.proven ? `rgba(${A}, 0.9)` : `rgba(${I}, 0.35)`;
+          g.strokeStyle = card.proven ? `rgba(${A2}, 0.9)` : `rgba(${I}, 0.35)`;
           g.stroke();
           g.fillStyle = card.proven ? t.accent : `rgba(${I}, 0.8)`;
           g.fillText(card.tag, tx + nameW + 29, y + 41);
@@ -56897,7 +56929,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         g.fillStyle = `rgba(${I}, 0.7)`;
         g.fillText(fit(g, [card.sub, ...card.now].join("   "), areaW - 140), tx, y + 78);
         if (card.text) {
-          g.fillStyle = `rgba(${A}, 0.7)`;
+          g.fillStyle = `rgba(${A2}, 0.7)`;
           g.fillRect(left + 20, y + 96, 3, 48);
           g.font = `400 ${Math.round(22 * k)}px ${SANS}`;
           g.fillStyle = `rgba(${I}, 0.9)`;
@@ -56948,7 +56980,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const pager = linePages > 1 ? { id: "", label: `Page ${linePage + 1} of ${linePages}`, icon: "turn", on: null, tone: "normal", key: "", short: "", kind: "button", color: "", mark: null, faint: false } : null;
       [...items2, ...pager ? [pager] : []].forEach((item, i) => {
         const { x, y, w: cellW } = cellAt(i);
-        const tone2 = item.tone === "warn" ? rgb(t.warn) : A;
+        const tone2 = item.tone === "warn" ? rgb(t.warn) : A2;
         const toneHex = item.tone === "warn" ? t.warn : t.accent;
         const litLook = { fill: toneHex, fillAlpha: item.tone === "primary" || item.on ? 0.17 : 0.26, stroke: toneHex, strokeAlpha: 1, line: 4, corners: [18, 18, 6, 6] };
         button({ id: item === pager ? "lines-more" : `act:${item.id}`, x, y, w: cellW, h: cellH, label: item.label, lit: litLook }, (hot) => {
@@ -57007,7 +57039,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       if (noteLines.length) {
         const y = H - noteH - 14;
-        g.fillStyle = `rgba(${A}, 0.7)`;
+        g.fillStyle = `rgba(${A2}, 0.7)`;
         g.fillRect(left, y, 3, noteH - 8);
         g.font = `400 ${Math.round(24 * k)}px ${SANS}`;
         g.fillStyle = `rgba(${I}, 0.82)`;
