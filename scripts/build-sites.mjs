@@ -115,6 +115,20 @@ const sites = [...Object.keys(config.worlds).map((name) => ({ name, entry: "src/
   (s) => !only.length || only.includes(s.name),
 );
 
+// The mark, as each site's page icon: the kit's own `markSvg` (packages/sdk/src/ui/mark.ts), in the site's own accent,
+// and the kit's tile for a phone's home screen. Bundled here from the kit's source, so the icon is the same shape as
+// the menu's button by construction.
+const markModule = await build({ entryPoints: [join(root, "packages", "sdk", "src", "ui", "mark.ts")], bundle: true, write: false, format: "esm", platform: "neutral", logLevel: "silent" });
+const { markSvg } = await import(`data:text/javascript;base64,${Buffer.from(markModule.outputFiles[0].text).toString("base64")}`);
+const MARK_TILE_180 = join(root, "packages", "sdk", "assets", "mark", "mark-tile-180.png");
+/** A site's own accent, from its entry (`palette: { accent: 0xrrggbb }`), or the kit's where it has none. */
+const accentOf = (dir, entry) => {
+  const found = readFileSync(join(dir, entry), "utf8").match(/accent:\s*0x([0-9a-fA-F]{6})\b/);
+  return found ? `#${found[1].toLowerCase()}` : undefined;
+};
+const ICON_LINKS = `<link rel="icon" href="mark.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="mark-tile-180.png">`;
+
 const escape = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 /** A world's page: a stage and nothing else. Its controls come from the NSWP controls kit. */
 const page = (world) => `<!doctype html>
@@ -125,6 +139,7 @@ const page = (world) => `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <title>${escape(world.title)}</title>
 <meta name="description" content="${escape(world.summary)}">
+${ICON_LINKS}
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   #stage canvas { display: block; touch-action: none; }
@@ -191,6 +206,9 @@ for (const s of sites) {
   const world = s.world ? JSON.parse(readFileSync(join(dir, "world.json"), "utf8")) : null;
   if (world) writeFileSync(join(out, "index.html"), page(world));
   else cpSync(join(dir, "index.html"), join(out, "index.html"));
+  // Its page icon, in its own accent, and the kit's tile for a phone's home screen.
+  writeFileSync(join(out, "mark.svg"), `${markSvg({ accent: accentOf(dir, s.entry), tile: false })}\n`);
+  cpSync(MARK_TILE_180, join(out, "mark-tile-180.png"));
   if (s.world) {
     // Sound: the kit's own files, which every world starts with, and this world's own beside them.
     const sound = /\.(ogg|oga|opus|mp3|m4a|aac|wav|webm|flac|json)$/;
