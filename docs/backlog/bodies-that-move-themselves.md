@@ -236,10 +236,14 @@ in the owner's order: reaching.
 
 With that, the order the owner set for bodies (a second body, arm swing,
 reaching) is done, free. Where a hand meets a thing is the world's to
-say, declared or worked out from the thing's shape. Next on his list,
-and his word first: the private yardstick, the model downloaded for
-measuring only on this machine, never committed or shipped (Meta's
-three.js port, CC BY-NC).
+say, declared or worked out from the thing's shape. The private yardstick
+followed on his "Yes, download it" (D91): the learned walker measured
+beside ours on this machine, nothing of it committed or shipped. Ours is
+ahead on every count (feet slide a quarter to a sixteenth as much, 60
+frames a second at twice the figures, the body staying where the place
+puts it). So the third path, learned motion on data that may be
+shipped, has not earned its place by numbers; it would have to win on
+looks, which the owner has not yet seen.
 
 ## Must not
 

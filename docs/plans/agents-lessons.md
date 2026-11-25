@@ -1735,6 +1735,36 @@ reaching. Nothing sent or spent.
   kit draws. Its arm pieces being named stays design by names given.
 - **Not judged:** the motion close up.
 
+## The learned walker beside ours, measured once (D91, 2026-11-24; free, private)
+
+On the owner's "Yes, download it" in the playground's session, to the
+download as put to him: AI4Anim WebGPU (github.com/sweriko/ai4anim-webgpu
+at b539455, CC BY-NC 4.0), its source, licence and the biped and
+quadruped weights only, 42 files, 38.1 MB, each matched to GitHub's own
+hash, into a folder outside every repository. Its code was read before
+any of it ran; its install was not run; nothing ran from inside its
+folder. Only the playground's numbers are committed. Nothing of it is
+shipped or served.
+
+| On 4 m squares at 1.4 m/s | The model | Ours, by rules |
+|---|---|---|
+| Frames a second, 1 / 10 / 50 figures | 60 / 54 to 60 / 15 | 60 with 100 |
+| Planted foot's slide a metre, 1 / 10 figures | 5.3 to 6.0 cm / 20 to 21 cm | 0 to 1.3 cm |
+| Off the route it is steered along, mean (worst) | 0.27 m (0.60) with one; 0.50 m (1.92) with 50 | none: the place moves the body |
+| Cost a frame, 10 figures | 0.6 ms processor, 1.0 ms card | microseconds a figure |
+
+- **The walker made by rules is ahead on every count** (shown, free,
+  once: D91). A learned model would have to win on looks (a whole body
+  moving as a person does, in many styles), which is not counted and is
+  the owner's eye. And this one's licence forbids shipping it.
+- **A learned model moves the body itself from a goal; ours follows the
+  body the place moves** (shown: D91). Letting a model drive means the
+  world accepting the body moving itself and reading back where it is,
+  the opposite of today's seam. *For a world and the kit:* keep the seam
+  where it is; the kit's figures made by code fit the walker by rules.
+- **Not done:** the owner seeing it move (the session's browser pane has
+  no WebGPU; a picture is kept beside the page, outside the repository).
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
