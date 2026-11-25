@@ -27,6 +27,7 @@ var NSWP = (() => {
     VERSION: () => VERSION,
     arrival: () => arrival2,
     board: () => board,
+    bounds: () => bounds,
     bump: () => bump,
     capturePreview: () => capturePreview,
     changeLook: () => changeLook,
@@ -34,6 +35,7 @@ var NSWP = (() => {
     claim: () => claim,
     console: () => engineConsole,
     consolePixels: () => consolePixels,
+    cover: () => cover,
     crossing: () => crossing,
     door: () => door,
     doors: () => doors2,
@@ -56636,6 +56638,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       headsetOffer = offerHeadset(named, () => tell({ type: "vr", enter: true }), put);
     }
   }
+  function cover() {
+    return JSON.stringify(hud?.cover() ?? { top: 0, bottom: 0, left: 0, right: 0 });
+  }
+  function bounds() {
+    return JSON.stringify(hud?.bounds() ?? []);
+  }
   function view() {
     if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
     const v2 = controls.view();
@@ -60078,7 +60086,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 19;
+  var VERSION = 20;
   var KIT = KIT_VERSION;
   var read5 = (text2) => {
     try {

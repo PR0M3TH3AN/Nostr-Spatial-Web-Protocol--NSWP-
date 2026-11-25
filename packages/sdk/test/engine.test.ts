@@ -60,7 +60,7 @@ describe("what another engine takes from the kit", () => {
     // The script hands it on, and says it changed what its functions give.
     const engine = await import("../src/engine.js");
     expect(typeof engine.gate).toBe("function");
-    expect(engine.VERSION).toBe(19);
+    expect(engine.VERSION).toBe(20);
   });
 
   it("has the Godot addon take the gate from the kit's script, and open it outside a browser only in the editor", () => {
@@ -193,8 +193,23 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(19);
+    expect(engine.VERSION).toBe(20);
   });
+  it("says what of the view the kit's menu covers, and the boxes it draws, as text: nothing before there is a menu", async () => {
+    const engine = await import("../src/engine.js");
+    expect(typeof engine.cover).toBe("function");
+    expect(typeof engine.bounds).toBe("function");
+    expect(JSON.parse(engine.cover())).toEqual({ top: 0, bottom: 0, left: 0, right: 0 });
+    expect(JSON.parse(engine.bounds())).toEqual([]);
+    expect(engine.VERSION).toBe(20);
+    // The Godot addon takes both from the kit's script, and has an answer outside a browser too.
+    const addon = godot("nswp.gd");
+    expect(addon).toMatch(/^func cover\(\) -> Dictionary:$/m);
+    expect(addon).toMatch(/^func bounds\(\) -> Array:$/m);
+    expect(addon).toContain("_js.cover()");
+    expect(addon).toContain("_js.bounds()");
+  });
+
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");
     expect(JSON.parse(who())).toEqual({ guest: true, name: "", pubkey: "", picture: "", about: "" });

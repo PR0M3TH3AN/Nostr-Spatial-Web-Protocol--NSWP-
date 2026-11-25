@@ -407,6 +407,23 @@ func crossing() -> String:
 
 
 ## Who the visitor is here, now: `guest` true, or `name`, `pubkey`, `picture` and `about`.
+# What of the view the kit's menu covers just now, in CSS pixels from each edge of the page: keep an
+# interface of your own clear of it. The world's own menu, or its client's where a client has it.
+func cover() -> Dictionary:
+	if _js == null:
+		return {"top": 0, "bottom": 0, "left": 0, "right": 0}
+	var now: Variant = JSON.parse_string(str(_js.cover()))
+	return now if typeof(now) == TYPE_DICTIONARY else {"top": 0, "bottom": 0, "left": 0, "right": 0}
+
+
+# The boxes the menu draws over the view just now: each a Dictionary of x, y, width and height.
+func bounds() -> Array:
+	if _js == null:
+		return []
+	var now: Variant = JSON.parse_string(str(_js.bounds()))
+	return now if typeof(now) == TYPE_ARRAY else []
+
+
 func who() -> Dictionary:
 	if _js == null:
 		return {"guest": true, "name": "", "pubkey": "", "picture": "", "about": ""}

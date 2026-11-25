@@ -660,6 +660,25 @@ export function headset(state: string): void {
  * off). The words change as things do: "Music: low", "Fullscreen: on". Ask
  * again when a `changed` event comes.
  */
+/**
+ * What of the view the kit's menu covers just now, as JSON: `{ top, bottom, left, right }`, in CSS pixels from each
+ * edge of the page. The world's own menu where it draws one, and what its client says it covers where a client has
+ * the menu (`covers`, NSWP-02). For an engine with an interface of its own, to keep its own things clear of it, as a
+ * world made with the kit does with `cover()`. Nothing covered before the menu is made.
+ */
+export function cover(): string {
+  return JSON.stringify(hud?.cover() ?? { top: 0, bottom: 0, left: 0, right: 0 });
+}
+
+/**
+ * The boxes the kit's menu draws over the view just now, as JSON: a list of `{ x, y, width, height }` in CSS pixels.
+ * Finer than `cover()`: each mark, the bar and the sheet where they are, for an engine that would rather keep only
+ * these places clear. Empty before the menu is made.
+ */
+export function bounds(): string {
+  return JSON.stringify(hud?.bounds() ?? []);
+}
+
 export function view(): string {
   if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
   const v = controls.view();

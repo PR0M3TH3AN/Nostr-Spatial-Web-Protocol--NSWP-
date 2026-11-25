@@ -186,6 +186,6 @@ describe("the numbers a headset needs, beside the others", () => {
 
   it("come with a new version of the script, since an engine can see them", async () => {
     const engine = await import("../src/engine.js");
-    expect([engine.VERSION, typeof engine.hands]).toEqual([19, "function"]);
+    expect([engine.VERSION, typeof engine.hands]).toEqual([20, "function"]);
   });
 });
