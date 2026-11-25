@@ -73,6 +73,15 @@ A member counts as present when that channel opens. One who has been silent
 for 8 seconds is treated as gone; a connection that hasn't opened after 25
 seconds is abandoned.
 
+**A first try that doesn't open is made again once, afresh.** The one who
+offers sends a new `offer` (new candidates, new paths) when a first try
+hasn't opened after 15 seconds or has failed; the other answers it as any
+offer, dropping the try it had. A later try that fails or doesn't open in 25
+seconds is given up, and the client tells its visitor that someone is there
+who couldn't be reached, not only that they are in the room. It goes on
+trying at each `hello`. Nothing changes on the wire: it is a second `offer`,
+which every client already answers.
+
 ## What travels on the channel
 
 **Where a member is,** as binary: 88 bytes, 22 little-endian 32-bit floats.

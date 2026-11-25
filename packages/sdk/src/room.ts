@@ -168,6 +168,13 @@ interface Events {
    */
   said: (member: Member, line: SaidLine) => void;
   status: (status: RoomStatus) => void;
+  /**
+   * Someone is here, and finding each other worked, but no connection to them opened: it was tried twice (the second
+   * time afresh), and each try failed or never opened. Their session key; nothing else of them is known before a
+   * connection. Said again each time a later try fails, while they are still here, so a page can tell they are; the
+   * room goes on trying at each hello. Gone from these once they connect (`member`).
+   */
+  unreached: (pubkey: string) => void;
 }
 
 /** A few words someone wrote to the room. */
@@ -220,6 +227,8 @@ interface Peer {
   openedAt?: number;
   lastSeen: number;
   startedAt: number;
+  /** Which try at connecting to them this is, since they were last connected: the first, or a later one. */
+  attempt: number;
 }
 
 /** What may be said of an item in play, and how much of it one member may say. */
@@ -231,6 +240,11 @@ const HELLO_EVERY_MS = 20_000;
 /** How long one "I am recording" keeps the light on. It is repeated every two seconds. */
 const RECORDING_HOLD_MS = 6000;
 const CONNECT_TIMEOUT_MS = 25_000;
+/**
+ * A first try at connecting that hasn't opened by now is started again at once, by the one who makes the offer
+ * (a fresh offer: new candidates, new paths). Most first tries that will ever open have long opened by now.
+ */
+const RETRY_AT_MS = 15_000;
 const SILENT_TIMEOUT_MS = 8_000;
 /**
  * How long a member has to show a pass in a room that shows only named people. A pass is said as the channel
@@ -321,6 +335,7 @@ export class RoomSession {
     audio: new Set(),
     said: new Set(),
     status: new Set(),
+    unreached: new Set(),
   };
   private readonly look: string | null;
   /** The world's origin: the only place a pass shown here may have been made for. */
@@ -355,6 +370,8 @@ export class RoomSession {
   /** When this visitor joined, in unix seconds, and who has joined since (by a joining hello signed after it). */
   private joinedAt = Math.floor(Date.now() / 1000);
   private readonly newer = new Set<string>();
+  /** How many tries at connecting to each member there have been since they were last connected (`Peer.attempt`). */
+  private readonly attempts = new Map<string, number>();
 
   constructor(opts: JoinOptions = {}) {
     const world = opts.world ?? `${location.origin}${location.pathname}`;
@@ -602,6 +619,7 @@ export class RoomSession {
           return;
         }
         case "bye":
+          this.attempts.delete(from);
           this.drop(from, true);
           return;
       }
@@ -622,7 +640,10 @@ export class RoomSession {
       open: false,
       lastSeen: Date.now(),
       startedAt: Date.now(),
+      attempt: (this.attempts.get(pubkey) ?? 0) + 1,
     };
+    if (this.attempts.size > 500) this.attempts.clear();
+    this.attempts.set(pubkey, peer.attempt);
     this.peers.set(pubkey, peer);
     pc.ontrack = (e) => {
       const stream = e.streams[0] ?? new MediaStream([e.track]);
@@ -632,7 +653,9 @@ export class RoomSession {
       else this.emit(e.transceiver && e.transceiver === this.musicTransceiver(pc) ? "music" : "audio", peer.member, stream);
     };
     pc.onconnectionstatechange = () => {
-      if ((pc.connectionState === "failed" || pc.connectionState === "closed") && this.peers.get(pubkey) === peer) this.drop(pubkey, peer.open);
+      if (this.peers.get(pubkey) !== peer) return;
+      if (pc.connectionState === "failed" && !peer.open) this.notOpened(pubkey, peer);
+      else if (pc.connectionState === "failed" || pc.connectionState === "closed") this.drop(pubkey, peer.open);
     };
     return peer;
   }
@@ -645,6 +668,7 @@ export class RoomSession {
       peer.open = true;
       peer.lastSeen = Date.now();
       peer.openedAt = Date.now();
+      this.attempts.delete(peer.member.pubkey);
       this.emit("member", peer.member);
       this.introduce(ch);
     };
@@ -1170,6 +1194,22 @@ export class RoomSession {
     this.announced.delete(pubkey);
   }
 
+  /**
+   * A try at connecting to someone that failed, or never opened. A first try is made again at once, afresh, by the
+   * one who makes the offer; the other answers the new offer as it comes. A later one is given up, and said
+   * (`unreached`): the room tries again at the next hello.
+   */
+  private notOpened(pubkey: string, peer: Peer): void {
+    if (this.peers.get(pubkey) !== peer || peer.open) return;
+    this.drop(pubkey, false);
+    if (this.closed) return;
+    if (peer.attempt === 1 && shouldInitiate(this.self.pubkey, pubkey)) {
+      void this.offerTo(pubkey).catch(() => this.drop(pubkey, false));
+      return;
+    }
+    if (peer.attempt >= 2) this.emit("unreached", pubkey);
+  }
+
   private sweep(): void {
     const now = Date.now();
     for (const [pubkey, peer] of this.peers) {
@@ -1178,7 +1218,8 @@ export class RoomSession {
       void this.feed(peer);
       this.markTune(peer);
       void this.feedTune(peer);
-      if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
+      if (!peer.open && peer.attempt === 1 && now - peer.startedAt > RETRY_AT_MS && shouldInitiate(this.self.pubkey, pubkey)) this.notOpened(pubkey, peer);
+      else if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.notOpened(pubkey, peer);
       // A room that shows only named people lets go of a member who showed no pass in time.
       else if (this.namedOnly && peer.open && !this.announced.has(pubkey) && now - (peer.openedAt ?? now) > NAMED_WAIT_MS) this.turnAway(pubkey);
       else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);

@@ -5,7 +5,7 @@
  */
 import * as THREE from "three";
 import { mayShareScreen, screenNotHere } from "./client-frame.js";
-import { CHAT_LIMITS, cleanLightningAddress, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
+import { CHAT_LIMITS, cleanLightningAddress, DEFAULT_RELAYS, guestName, DELETION_KIND, encodeNpub, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
 import { askOwn, relaysOf, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
@@ -181,7 +181,10 @@ export function addRoomControls(
     const s = presence.session;
     if (!s) return last;
     const others = s.members.length;
-    const who = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
+    const now = Date.now();
+    const lost = [...unreachedAt.values()].filter((at) => now - at < UNREACHED_HELD_MS).length;
+    const reached = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? (lost ? "nobody else connected" : "nobody else here yet") : others === 1 ? "1 other person here" : `${others} other people here`;
+    const who = lost && s.status !== "no-relays" ? `${reached}, and ${lost === 1 ? "1 person" : `${lost} people`} couldn't be reached` : reached;
     // Say how the others see this visitor: by a name their own client vouched for, or as a guest.
     const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
     return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}${presence.musicOn ? ` Your music is offered to people near you: ${presence.musicListeners === 0 ? "nobody is hearing it" : presence.musicListeners === 1 ? "1 person is hearing it" : `${presence.musicListeners} people are hearing it`}.` : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
@@ -718,6 +721,12 @@ export function addRoomControls(
   // room already has. The controls hold the lines (ui/chat.ts); a flat screen draws them at its side, and a headset
   // on a panel of the visitor's own. Nothing is kept: leaving the room forgets all of it.
   let chatFor: RoomSession | null = null;
+  /**
+   * The people here who couldn't be connected to, and when that was last said of them. A room says it again after
+   * each failed try (about every 45 seconds while they are here), so one not heard of for a while has gone.
+   */
+  const unreachedAt = new Map<string, number>();
+  const UNREACHED_HELD_MS = 90_000;
   let chatStops: (() => void)[] = [];
   const CHAT_W = 768;
   const CHAT_H = 900;
@@ -842,6 +851,7 @@ export function addRoomControls(
     for (const stop of chatStops) stop();
     chatStops = [];
     chatFor = s;
+    unreachedAt.clear();
     controls.chat.detach();
     closeChatPanel();
     if (!s) return;
@@ -871,6 +881,18 @@ export function addRoomControls(
         }, 1500);
       }),
       s.on("leave", (m) => controls.chat.add({ note: true, text: `${m.name} left.` })),
+      // Someone here who couldn't be connected to (room.ts, `unreached`): said once for each, and counted in the
+      // room's line while they are still being tried, so "in the room" is never all it says.
+      s.on("unreached", (pubkey) => {
+        if (chatFor !== s) return;
+        const first = !unreachedAt.has(pubkey);
+        unreachedAt.set(pubkey, Date.now());
+        if (first) tell(`Someone else is here (${guestName(pubkey)}), but your computers couldn't connect directly. Trying again.`);
+        refresh();
+      }),
+      s.on("member", (m) => {
+        if (unreachedAt.delete(m.pubkey)) refresh();
+      }),
     );
   };
   onChatChange(() => {

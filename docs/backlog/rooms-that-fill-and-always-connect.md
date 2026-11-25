@@ -8,7 +8,8 @@
   a relay server for connections is a new hosted thing, the owner's word
   first.
 - **State:** the cause found (below); the builder builds (2), (4), (3) in
-  that order; TURN priced (below), set up only on the owner's word.
+  that order; TURN priced (below), set up only on the owner's word. Part 2
+  (said when it fails, `unreached`) built 2026-11-25, not merged.
 
 ## What was seen (the orchestrator, 2026-11-25, listening only)
 
