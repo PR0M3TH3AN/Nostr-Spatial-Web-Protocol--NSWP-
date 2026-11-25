@@ -6294,13 +6294,23 @@ var NSWP = (() => {
     /** Handshake messages older or newer than this are ignored. */
     signalMaxAgeSec: 60,
     maxSdpChars: 2e4,
-    maxNameChars: 48
+    maxNameChars: 48,
+    /**
+     * How many lobbies a world's default room may run to: "lobby", "lobby-2", … "lobby-32". A newcomer told a lobby
+     * is full goes on to the next (protocol/06-rooms.md, "Lobbies that fill"). With 8 to a lobby, 256 people.
+     */
+    lobbies: 32
   };
   function roomTopic(worldUrl, roomName) {
     const u = new URL(worldUrl);
     return bytesToHex(sha256(utf8ToBytes(`nswp/room/spike-1
 ${u.origin}${u.pathname}
 ${roomName}`)));
+  }
+  function lobbyName(n) {
+    if (!Number.isInteger(n) || n < 1 || n > ROOM_LIMITS.lobbies)
+      return null;
+    return n === 1 ? "lobby" : `lobby-${n}`;
   }
   function shouldInitiate(self2, other) {
     return self2 < other;
@@ -6329,6 +6339,7 @@ ${roomName}`)));
         return o.v === 1;
       case "welcome":
       case "bye":
+      case "full":
         return true;
       case "offer":
       case "answer":
@@ -10604,6 +10615,7 @@ postMessage({ t: "started" });
   var RECORDING_HOLD_MS = 6e3;
   var CONNECT_TIMEOUT_MS = 25e3;
   var RETRY_AT_MS = 15e3;
+  var FULL_WINDOW_S = 15;
   var SILENT_TIMEOUT_MS = 8e3;
   var NAMED_WAIT_MS = 7e3;
   var GATHER_TIMEOUT_MS = 2500;
@@ -10633,7 +10645,9 @@ postMessage({ t: "started" });
   var RoomSession = class {
     constructor(opts = {}) {
       __publicField(this, "self");
+      /** The room's name. For the default room it changes as a full lobby sends this visitor on: "lobby", "lobby-2", … */
       __publicField(this, "name");
+      /** Where its handshake happens (`roomTopic`): changes with the name. */
       __publicField(this, "topic");
       __publicField(this, "status", "connecting");
       __publicField(this, "key");
@@ -10678,6 +10692,16 @@ postMessage({ t: "started" });
       __publicField(this, "look");
       /** The world's origin: the only place a pass shown here may have been made for. */
       __publicField(this, "origin");
+      /** The world's address, which the room's topic is made from. */
+      __publicField(this, "world");
+      /** Which lobby this is, where it is the world's default room ("lobby" is 1); null for a room by name. */
+      __publicField(this, "lobby", null);
+      /** Whose hello this visitor has heard in this lobby: a "full" is taken only from one of them. */
+      __publicField(this, "heardHello", /* @__PURE__ */ new Set());
+      /** Who said "full" before their hello was heard: taken if their hello comes while it still may be. */
+      __publicField(this, "fullBefore", /* @__PURE__ */ new Set());
+      /** When each member's joining hello was signed, in seconds: who joined before whom, for a full lobby. */
+      __publicField(this, "joinedAtOf", /* @__PURE__ */ new Map());
       /** This visitor's own pass, as it is said to the others, and when it stops. */
       __publicField(this, "pass", null);
       /** This visitor's own look note, as it is handed to each member: only where it is their pass's key's. */
@@ -10745,6 +10769,8 @@ postMessage({ t: "started" });
         }
       }
       this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
+      this.world = world2;
+      this.lobby = this.name === "lobby" ? 1 : null;
       this.topic = roomTopic(world2, this.name);
       this.relays = opts.relays ?? [...ROOM_RELAYS];
       this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
@@ -10901,9 +10927,21 @@ postMessage({ t: "started" });
         switch (message.t) {
           case "hello":
           case "welcome": {
+            if (message.t === "hello") {
+              if (this.heardHello.size > 500) this.heardHello.clear();
+              this.heardHello.add(from);
+              if (this.fullBefore.has(from) && this.mayMoveOn()) return this.moveOn(this.lobby + 1);
+            }
             if (existing) return;
-            if (this.peers.size >= this.maxMembers - 1) return;
             const at = raw.created_at;
+            if (message.t === "hello" && message.first === true && typeof at === "number") {
+              if (this.joinedAtOf.size > 500) this.joinedAtOf.clear();
+              this.joinedAtOf.set(from, at);
+            }
+            if (this.peers.size >= this.maxMembers - 1) {
+              if (message.t === "hello" && message.first === true && typeof at === "number" && this.answersForFull()) this.tellFull(from, at);
+              if (this.peers.size >= this.maxMembers - 1) return;
+            }
             if (message.t === "hello" && message.first === true && typeof at === "number" && (at > this.joinedAt || at === this.joinedAt && from > this.self.pubkey)) this.newer.add(from);
             if (shouldInitiate(this.self.pubkey, from)) await this.offerTo(from);
             else if (message.t === "hello") this.publish(buildSignal(this.topic, this.key, from, { t: "welcome" }));
@@ -10925,6 +10963,11 @@ postMessage({ t: "started" });
           case "bye":
             this.attempts.delete(from);
             this.drop(from, true);
+            return;
+          case "full":
+            if (!this.mayMoveOn()) return;
+            if (this.heardHello.has(from)) return this.moveOn(this.lobby + 1);
+            if (this.fullBefore.size < 50) this.fullBefore.add(from);
             return;
         }
       } catch (err) {
@@ -11442,6 +11485,67 @@ postMessage({ t: "started" });
         return;
       }
       if (peer.attempt >= 2) this.emit("unreached", pubkey);
+    }
+    /**
+     * Whether this visitor is the one who tells a newcomer that this full room is full: the member with the lowest
+     * session key of those it is connected to, so a newcomer hears it once, not from everyone here.
+     */
+    /** Whether a "full" may still send this visitor on: in a lobby before the last, and only just joined it. */
+    mayMoveOn() {
+      return this.lobby !== null && this.lobby < ROOM_LIMITS.lobbies && Math.floor(Date.now() / 1e3) - this.joinedAt <= FULL_WINDOW_S;
+    }
+    answersForFull() {
+      for (const p of this.peers.values()) if (p.open && p.member.pubkey < this.self.pubkey) return false;
+      return true;
+    }
+    /**
+     * A newcomer (`from`, who signed their joining hello at `at`) finds this room full. Who stays is who joined first,
+     * then the lower key: where someone here joined after them, only a moment ago, it is that one who is told to go
+     * on, and the newcomer takes their place. Otherwise the newcomer is told.
+     */
+    tellFull(from, at) {
+      const now = Math.floor(Date.now() / 1e3);
+      const later = (k, t) => t > at || t === at && k > from;
+      let last = null;
+      for (const p of this.peers.values()) {
+        const t = this.joinedAtOf.get(p.member.pubkey);
+        if (t === void 0 || now - t > FULL_WINDOW_S || !later(p.member.pubkey, t)) continue;
+        if (!last || t > last.at || t === last.at && p.member.pubkey > last.pubkey) last = { pubkey: p.member.pubkey, at: t };
+      }
+      const go2 = last ? last.pubkey : from;
+      this.publish(buildHello(this.topic, this.key));
+      this.publish(buildSignal(this.topic, this.key, go2, { t: "full" }));
+      if (last) this.drop(last.pubkey, true);
+    }
+    /**
+     * Told that this lobby is full: say goodbye to anyone here, and go to lobby `n` on the same relays, as someone
+     * just joining it. The sockets stay open; only what they listen for changes.
+     */
+    moveOn(n) {
+      const name = lobbyName(n);
+      if (!name || this.closed) return;
+      for (const pubkey of [...this.peers.keys()]) {
+        try {
+          this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+        } catch {
+        }
+        this.drop(pubkey, true);
+      }
+      this.newer.clear();
+      this.attempts.clear();
+      this.joinedAtOf.clear();
+      this.heardHello.clear();
+      this.fullBefore.clear();
+      this.lobby = n;
+      this.name = name;
+      this.topic = roomTopic(this.world, name);
+      this.joinedAt = Math.floor(Date.now() / 1e3);
+      for (const ws of this.sockets.values()) {
+        if (ws.readyState !== WebSocket.OPEN) continue;
+        ws.send(JSON.stringify(["REQ", "room", { kinds: [ROOM_SIGNAL_KIND], "#x": [this.topic], since: Math.floor(Date.now() / 1e3) - 5 }]));
+        ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key, void 0, { first: true })]));
+      }
+      this.emit("status", this.status);
     }
     sweep() {
       const now = Date.now();
@@ -58910,7 +59014,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const who2 = lost && s.status !== "no-relays" ? `${reached}, and ${lost === 1 ? "1 person" : `${lost} people`} couldn't be reached` : reached;
       const thin = thinRelays && s.status !== "no-relays" && s.relays.length >= 2 && s.relayCount < 2 ? ` ${relaysWords(s)}` : "";
       const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
-      return `${presence3.roomName ? "Private room" : "Open room"}: ${who2}.${thin}${as}${presence3.micOn ? " Your microphone is on." : ""}${presence3.musicOn ? ` Your music is offered to people near you: ${presence3.musicListeners === 0 ? "nobody is hearing it" : presence3.musicListeners === 1 ? "1 person is hearing it" : `${presence3.musicListeners} people are hearing it`}.` : ""}${presence3.screenOn ? ` You are sharing your screen: ${presence3.screenViewers === 0 ? "nobody is watching" : presence3.screenViewers === 1 ? "1 person is watching" : `${presence3.screenViewers} people are watching`}.` : ""}`;
+      return `${presence3.roomName ? "Private room" : s.name.startsWith("lobby-") ? `Open room, ${s.name.replace(/^lobby-/, "Lobby ")}` : "Open room"}: ${who2}.${thin}${as}${presence3.micOn ? " Your microphone is on." : ""}${presence3.musicOn ? ` Your music is offered to people near you: ${presence3.musicListeners === 0 ? "nobody is hearing it" : presence3.musicListeners === 1 ? "1 person is hearing it" : `${presence3.musicListeners} people are hearing it`}.` : ""}${presence3.screenOn ? ` You are sharing your screen: ${presence3.screenViewers === 0 ? "nobody is watching" : presence3.screenViewers === 1 ? "1 person is watching" : `${presence3.screenViewers} people are watching`}.` : ""}`;
     };
     const waitingFor = /* @__PURE__ */ new Map();
     let watchingSigner = false;

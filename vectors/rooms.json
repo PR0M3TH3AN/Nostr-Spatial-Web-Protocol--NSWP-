@@ -1,0 +1,44 @@
+{
+  "description": "Rooms (protocol/06-rooms.md). `lobbies`: the names a world's default room fills one at a time, \"lobby\" then \"lobby-2\" and on, at most `lobbiesMost`, each with its topic for the world at `world` (the SHA-256 of \"nswp/room/spike-1\", the world's origin and path, and the name, on three lines). `noLobby`: numbers that name none. `full`: what a member of a full room sends someone joining it, before it is encrypted to them as any message to one member is. `relays`: where the kit's rooms meet when a world names none.",
+  "world": "https://grove.example/",
+  "lobbiesMost": 32,
+  "lobbies": [
+    {
+      "n": 1,
+      "name": "lobby",
+      "topic": "a6815f7e7f87aa05827e90c132be9314b1e74a0486452d466e21e06f04aa5c7b"
+    },
+    {
+      "n": 2,
+      "name": "lobby-2",
+      "topic": "7002b3aea86ffc694b992ab7d265a591264c0898534547b6f4af3e0c331a4b3a"
+    },
+    {
+      "n": 3,
+      "name": "lobby-3",
+      "topic": "9c0ba2ea4db1413525778202bad909e1eda2fd1a35a72a434416f8944d2ee632"
+    },
+    {
+      "n": 32,
+      "name": "lobby-32",
+      "topic": "6b98b2e4e45f6aac5254117f4ed8af4aed1fb3e04e0d08731d76fa4d91fbfd0b"
+    }
+  ],
+  "noLobby": [
+    0,
+    33
+  ],
+  "full": {
+    "t": "full"
+  },
+  "relays": [
+    "wss://nos.lol",
+    "wss://relay.primal.net",
+    "wss://relay.snort.social",
+    "wss://nostr.mom",
+    "wss://offchain.pub",
+    "wss://relay.nostr.net",
+    "wss://nostr.bitcoiner.social",
+    "wss://nostr.oxtr.dev"
+  ]
+}
