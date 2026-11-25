@@ -42,6 +42,12 @@ export interface WorldSigner {
    * of its own, or not https) or the signer says nothing of it, which is "not offered".
    */
   readonly family: boolean | null;
+  /**
+   * Whether who it is unlocked as is a guest account the signer made for the family (BitLogin's `guest`), not yet
+   * secured: true; false, an account; null where it is locked or says nothing of it. A guest has a key of its own,
+   * the same in every world of the family, and may do less (no wallet, no messages; protocol/10-identity.md).
+   */
+  readonly guest: boolean | null;
   /** The visitor's client, as a host to name in words, or null. */
   readonly host: string | null;
   /**
@@ -267,6 +273,7 @@ const NONE: WorldSigner = {
   about: null,
   remembered: null,
   family: null,
+  guest: null,
   host: null,
   more: [],
   offers: null,
@@ -348,6 +355,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let about: string | null = null;
   let remembered: boolean | null = null;
   let family: boolean | null = null;
+  let guest: boolean | null = null;
   // This world's family, as BitLogin's word has it: `"https://*.<registrable domain>"` of its own origin. Asked for
   // once, before the first sign-in (the owner, 2026-11-25: "These logins should carry. especialy when on the same
   // domain."). None for a page with no registrable domain of its own (an address, a local name) or not on https.
@@ -461,7 +469,8 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       // Before the first sign-in: that it be for this world's whole family. Asked once; an older signer says nothing.
       if (ownFamily && !familyAsked) {
         familyAsked = true;
-        tell({ t: "want", id: `w${++n}`, family: ownFamily });
+        // And that a visitor nobody is signed in as be given the family's guest: the same guest in every world of it.
+        tell({ t: "want", id: `w${++n}`, family: ownFamily, guest: true });
       }
       tell({ t: "state", id: `s${++n}` });
       return changed();
@@ -478,6 +487,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       more = reply.unlocked ? cleanMore(reply.more) : [];
       if (reply.offers) offers = reply.offers;
       if (typeof reply.familyTaken === "boolean") family = reply.familyTaken;
+      guest = reply.unlocked && typeof reply.guest === "boolean" ? reply.guest : null;
       for (const go of [...firstAnswer]) go();
       return changed();
     }
@@ -576,6 +586,9 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     },
     get family() {
       return family;
+    },
+    get guest() {
+      return guest;
     },
     get remembered() {
       return remembered;

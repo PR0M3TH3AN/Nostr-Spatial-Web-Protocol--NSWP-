@@ -6562,7 +6562,7 @@ ${roomName}`)));
     const about = cleanAbout(told);
     if (told !== about)
       c.warn("about_cleaned", "tags.about", "What they wrote about themselves was tidied or cut short before being shown.");
-    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture: picture2, about, expiresAt, id: event.id });
+    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture: picture2, about, expiresAt, id: event.id, guest: getTags(event, "nswp:guest")[0]?.[1] === "1" });
   }
 
   // packages/core/dist/save.js
@@ -6950,7 +6950,9 @@ ${roomName}`)));
         ...Array.isArray(d.offers) ? { offers: cleanMore(d.offers) } : {},
         // Whether it took the world's whole family at the sign-in (`family`, asked with `want`). Left out by one that
         // doesn't know the word, which is "not offered".
-        ...typeof d.familyTaken === "boolean" ? { familyTaken: d.familyTaken } : {}
+        ...typeof d.familyTaken === "boolean" ? { familyTaken: d.familyTaken } : {},
+        // Whether who it is unlocked as is a guest account it made (`guest`, asked with `want`), not yet secured.
+        ...pubkey && d.unlocked && typeof d.guest === "boolean" ? { guest: d.guest } : {}
       };
     }
     if (typeof d.id !== "string" || !ID.test(d.id))
@@ -10782,7 +10784,7 @@ postMessage({ t: "started" });
       const mine = opts.look ? decodeLook(opts.look) : null;
       this.look = mine?.ok ? opts.look : null;
       this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
-      if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...proven.picture ? { picture: proven.picture } : {}, ...proven.about ? { about: proven.about } : {} });
+      if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || (proven.guest ? guestName(proven.pubkey) : shortNpub(proven.pubkey)), ...proven.guest ? { guestAccount: true } : {}, ...proven.picture ? { picture: proven.picture } : {}, ...proven.about ? { about: proven.about } : {} });
       this.self.look = seenLook(this.self, mine?.ok ? mine.value : void 0);
       if (proven && opts.avatar) {
         const text2 = JSON.stringify(opts.avatar);
@@ -11153,7 +11155,9 @@ postMessage({ t: "started" });
       }
       if (this.ownerBlocked.has(checked.value.pubkey) || this.invited && !this.invited.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
       peer.passUntil = checked.value.expiresAt;
-      Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
+      Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || (checked.value.guest ? guestName(checked.value.pubkey) : shortNpub(checked.value.pubkey)) });
+      if (checked.value.guest) peer.member.guestAccount = true;
+      else delete peer.member.guestAccount;
       if (this.namedOnly && !this.announced.has(peer.member.pubkey)) {
         this.announced.add(peer.member.pubkey);
         if (peer.open) this.emit("member", peer.member);
@@ -11180,6 +11184,7 @@ postMessage({ t: "started" });
         delete peer.member.identity;
         delete peer.member.picture;
         delete peer.member.about;
+        delete peer.member.guestAccount;
         Object.assign(peer.member, { guest: true, name: guestName(peer.member.pubkey) });
         this.emit("identity", peer.member);
         this.redraw(peer);
@@ -11190,6 +11195,7 @@ postMessage({ t: "started" });
         delete this.self.picture;
         delete this.self.about;
         delete this.self.model;
+        delete this.self.guestAccount;
         this.avatar = null;
         Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
         const mine = this.look ? decodeLook(this.look) : null;
@@ -51560,6 +51566,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     about: null,
     remembered: null,
     family: null,
+    guest: null,
     host: null,
     more: [],
     offers: null,
@@ -51633,6 +51640,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let about = null;
     let remembered = null;
     let family = null;
+    let guest = null;
     const ownFamily = (() => {
       try {
         const here = new URL(location.origin);
@@ -51714,7 +51722,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (state === "none") state = "locked";
         if (ownFamily && !familyAsked) {
           familyAsked = true;
-          tell2({ t: "want", id: `w${++n}`, family: ownFamily });
+          tell2({ t: "want", id: `w${++n}`, family: ownFamily, guest: true });
         }
         tell2({ t: "state", id: `s${++n}` });
         return changed();
@@ -51731,6 +51739,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         more = reply.unlocked ? cleanMore(reply.more) : [];
         if (reply.offers) offers3 = reply.offers;
         if (typeof reply.familyTaken === "boolean") family = reply.familyTaken;
+        guest = reply.unlocked && typeof reply.guest === "boolean" ? reply.guest : null;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -51814,6 +51823,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       },
       get family() {
         return family;
+      },
+      get guest() {
+        return guest;
       },
       get remembered() {
         return remembered;
@@ -59369,7 +59381,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           if (!who3) return null;
           return {
             title: who3.name,
-            tag: who3.guest ? "Guest" : "By name",
+            // A guest account is proven by its key, and is still a guest: said so, as it is the same guest everywhere.
+            tag: who3.guest || who3.guestAccount ? "Guest" : "By name",
             proven: !who3.guest,
             // A name is not unique and a picture can be copied: the key behind them is what tells two people apart.
             sub: who3.identity ? shortNpub(who3.identity) : "Nobody has vouched for who they are.",

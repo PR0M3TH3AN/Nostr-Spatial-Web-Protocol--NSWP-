@@ -56,6 +56,7 @@ It says: "at this site, until this time, the session key speaks for me."
 | `name` | Optional. What the visitor chose to be called: one line, at most 48 characters. A client that knows their Nostr profile uses the name in it |
 | `picture` | Optional. Where their picture is: an `https` address, at most 300 characters. The one in their Nostr profile ("Pictures", below) |
 | `about` | Optional. A few words they wrote about themselves: one line of plain text, at most 280 characters. The start of the `about` in their Nostr profile ("Who someone is", below) |
+| `nswp:guest` | Optional, `"1"`. The identity is a guest account its sign-in address made, not yet secured ("A guest", below) |
 
 The client hands the world two things in the arrival context
 ([NSWP-03](03-arrival.md)): `pass`, the signed event, and `sessionKey`, the
@@ -240,6 +241,29 @@ below). The rest of this section is for a client that offers all three.
   below). Someone who isn't signed in is never sent by name.
 - **A new session key every trip.** Two passes can't be linked by their
   session keys, only by the identity that signed them.
+
+## A guest
+
+A visitor nobody is signed in as can be given a **guest account** by their
+sign-in address: a key it made for them and keeps, not yet secured with a
+login or a passkey. It is the same key in every world of the family that asked
+for it (`want` with `family` and `guest`, under "Signing from a world"), so a
+guest is the same guest wherever they go there, and their pass says so:
+`["nswp:guest", "1"]`.
+
+- **Checked like any pass,** and proven by it: a guest is drawn with their own
+  key's mark and look, can be blocked by key, and keeps their bag, in every
+  world. Their pass names nobody, so a client names them as it names a guest,
+  "Guest" and four digits, from that key.
+- **A guest may do less.** Their sign-in address signs notes, reactions and
+  their bag for them; following, messages, paying and anything private say
+  "Secure this account first". Securing keeps the same key, so nothing a guest
+  did is lost.
+- **A world knows a guest only by the pass.** It can treat guests differently:
+  refuse them, or not let them use items ([NSWP-01](01-worlds.md),
+  [NSWP-17](17-items.md)).
+- **Said plainly to the visitor:** every world they reach knows it is the same
+  guest, and the account lives in that browser only.
 
 ## Signed in everywhere
 
@@ -449,6 +473,7 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `save`, `find`, `open` | A save kept, found or opened for this world and no other: [NSWP-12](12-saves.md) |
 | `want`, with `more`: a list of names | `state`. It approves nothing: the signer remembers it for its own window ("Asking for more", below) |
 | `want`, with `family`: `"https://*.<registrable domain>"`, the world's own | `state`, with `familyTaken` true or false: whether the visitor's sign-in will be for every world under that domain, so it carries from one to the next. Asked once, before the first sign-in. A signer takes it only for a family it knows, judged by the browser's own origin; one that doesn't know the word says nothing of it, which is "not offered" |
+| `want`, with `family` and `guest: true` | `state`, with `guest` true or false once unlocked: that a visitor nobody is signed in as be given the family's guest account, made and kept by the signer, and unlocked as it. One per browser per family: it asks for the one there is, never for a second. A signer that doesn't know the word makes none and says nothing of it |
 | `propose`, with `event`: `kind`, `content`, `tags`, of kind 0, 5 or 10002 | `asking` at once; then, under the same `id`, `signed` with the whole signed note, or `refused` ("Asking the person", below) |
 | `wallet` | `asking` at once; then, under the same `id`, `wallet` with `uri`, or `refused` ("Asking the person", below) |
 | `pay`, with `invoice`: a Lightning invoice the world made | `asking` at once; then, under the same `id`, `paid`, with `preimage` where there is one, or `refused` ("Asking the person", below) |

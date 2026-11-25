@@ -4,6 +4,17 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A guest is the same guest in every world** (core `signing.ts`, `pass.ts`; SDK `signer.ts`, `room.ts`, `room-controls.ts`, `index.ts`; `protocol/10-identity.md`, "A guest"; `vectors/passes.json`; the engine script). The owner, 2026-11-25: "a guest should be the same guest in every world and they should have access to a bag with the free items that the worlds allow". BitLogin's guest accounts are live (a76ff51): a key it makes for a visitor nobody is signed in as, the same for the whole family. Parts 1 and 2 of the kit's half; names given 2026-11-25.
+  - **Asked for with the family:** before the first sign-in, a world now sends `{ t: "want", id, family, guest: true }` (BitLogin's word). Where nobody is signed in, the signer unlocks it as the family's guest, the same in every world of it.
+  - **The signer says so:** `signer.guest` is true for a guest account, false for an account, and null where locked or not said. Core reads the state's `guest` only as a boolean, and a want's `guest` only as true and only with `family`.
+  - **The pass says so:** `["nswp:guest", "1"]`, read into `VerifiedPass.guest`. Anything but "1" says nothing.
+  - **In a room, a guest account is proven by its pass.** It is drawn by its own key's mark and look, can be blocked by that key, and is marked `Member.guestAccount`. `guest` keeps meaning a guest of this visit only. Its pass names nobody, so it is called by core's `guestName` of its own key, the same in every world. The People tab tags it "Guest".
+  - **`guestName` is exported from `nswp-sdk`,** for a page that names people itself (BitPortal).
+  - **Tried:**
+    - `signer-family.test.ts`: the guest asked once with the family, the answer kept, and core's reading of both words.
+    - `room-guest.test.ts`: a guest's pass proven, named by its own key and marked; an account's not marked; a guest of the visit again once the pass runs out; `guestName` in the main entry.
+    - `vectors/passes.json`: a guest's pass, and a pass with "yes" that says nothing.
+  - **Not tried:** BitLogin's real signer making a guest; two worlds seeing the same guest.
 - **A trial page for the 3D artist's hands, in the owner's headset** (`trials/pages/quest-hands/`, `trials/quest-hands/main.ts`, `scripts/quest-hands.mjs`, `trials/quest-hands.mjs`; `docs/owner-quest-checks.md`, check 9). Nothing of the kit changed, and nothing of it goes into the kit until the owner says yes to the look.
   - **The page** draws bitportal-art's controllers and hands (c30f660, the smaller trigger pull) on each controller's grip, in the artist's reference look. The hand's clips are moved as the kit would move them: the trigger and grip from 0 to 1, and the thumb on A/X, B/Y, the stick, the thumb rest, or none. The controller's own trigger, grip, buttons and stick move too.
   - **It writes down, a line each,** each input's profile ids (whether the headset is `meta-quest-touch-plus` or a v2), the features the session was given, and whether hands and controllers are ever tracked at once. On the page, and on a panel in the headset.

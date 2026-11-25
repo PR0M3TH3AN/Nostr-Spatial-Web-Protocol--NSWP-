@@ -199,8 +199,11 @@ export type SignerRequest =
    * domain>"`, the world's own, so one sign-in carries to every world under that domain. BitLogin's word, carried
    * unchanged; a signer honours it only for a family it knows, judged by the browser's own origin, and says so in
    * its state (`familyTaken`). One that doesn't know the word says nothing of it.
+   * `guest`, with `family`, asks that a visitor nobody is signed in as be given a guest account for the family, made
+   * and kept by the signer, the same guest in every world of it (BitLogin's word, carried unchanged; its
+   * docs/guest-accounts.md, G3). It asks for one, never for a second; the signer says in its state that it is one.
    */
-  | { t: "want"; id: string; more?: SignerMore[]; family?: string }
+  | { t: "want"; id: string; more?: SignerMore[]; family?: string; guest?: true }
   /**
    * Follow or unfollow one person (protocol/14-people-and-messages.md). The world hands over the newest follow
    * list it found for the visitor, or null where they have none, and the one change. The signer makes the change.
@@ -309,7 +312,7 @@ export function cleanMore(input: unknown): SignerMore[] {
  */
 export type SignerReply =
   | { t: "ready" }
-  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[]; offers?: SignerMore[]; familyTaken?: boolean }
+  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[]; offers?: SignerMore[]; familyTaken?: boolean; guest?: boolean }
   | { t: "signed"; id: string; event: NostrEvent }
   /** Answers `find`: the `d` of this world's save in that slot. */
   | { t: "found"; id: string; d: string }
@@ -366,7 +369,7 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "save" && cleanSlot(d.slot) && fitsInSave(d.data)) return { t: "save", id: d.id, slot: cleanSlot(d.slot), data: d.data };
   if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
-  if (d.t === "want" && (Array.isArray(d.more) || cleanFamily(d.family))) return { t: "want", id: d.id, ...(Array.isArray(d.more) ? { more: cleanMore(d.more) } : {}), ...(cleanFamily(d.family) ? { family: cleanFamily(d.family) } : {}) };
+  if (d.t === "want" && (Array.isArray(d.more) || cleanFamily(d.family))) return { t: "want", id: d.id, ...(Array.isArray(d.more) ? { more: cleanMore(d.more) } : {}), ...(cleanFamily(d.family) ? { family: cleanFamily(d.family), ...(d.guest === true ? { guest: true as const } : {}) } : {}) };
   if (d.t === "score" && worldCoordinate(d.world) && cleanBoard(d.board) && cleanScore(d.score) !== null) {
     const title = cleanLine(d.title, SCORE_LIMITS.title);
     return { t: "score", id: d.id, world: worldCoordinate(d.world), board: cleanBoard(d.board), score: cleanScore(d.score)!, ...(title ? { title } : {}), ...(d.format === "time" ? { format: "time" as const } : {}) };
@@ -421,6 +424,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
       // Whether it took the world's whole family at the sign-in (`family`, asked with `want`). Left out by one that
       // doesn't know the word, which is "not offered".
       ...(typeof d.familyTaken === "boolean" ? { familyTaken: d.familyTaken } : {}),
+      // Whether who it is unlocked as is a guest account it made (`guest`, asked with `want`), not yet secured.
+      ...(pubkey && d.unlocked && typeof d.guest === "boolean" ? { guest: d.guest } : {}),
     };
   }
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;

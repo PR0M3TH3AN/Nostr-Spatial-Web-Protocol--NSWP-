@@ -125,6 +125,11 @@ export interface VerifiedPass {
   about: string;
   expiresAt: number;
   id: string;
+  /**
+   * The pass is a guest account's (`["nswp:guest", "1"]`, protocol/10-identity.md, "A guest"): a key its sign-in
+   * address made for a visitor nobody was signed in as, not yet secured. The same key in every world of its family.
+   */
+  guest: boolean;
 }
 
 /** Check a pass. Nothing about it is believed until this says so. */
@@ -180,5 +185,5 @@ export function verifyRoomPass(event: unknown, opts: VerifyPassOptions): Result<
   const told = getTags(event, "about")[0]?.[1] ?? "";
   const about = cleanAbout(told);
   if (told !== about) c.warn("about_cleaned", "tags.about", "What they wrote about themselves was tidied or cut short before being shown.");
-  return c.result({ pubkey: event.pubkey, session: session ?? "", name, picture, about, expiresAt, id: event.id });
+  return c.result({ pubkey: event.pubkey, session: session ?? "", name, picture, about, expiresAt, id: event.id, guest: getTags(event, "nswp:guest")[0]?.[1] === "1" });
 }
