@@ -6294,7 +6294,12 @@ var NSWP = (() => {
     /** Handshake messages older or newer than this are ignored. */
     signalMaxAgeSec: 60,
     maxSdpChars: 2e4,
-    maxNameChars: 48
+    maxNameChars: 48,
+    /**
+     * How many lobbies a world's default room may run to: "lobby", "lobby-2", … "lobby-32". A newcomer told a lobby
+     * is full goes on to the next (protocol/06-rooms.md, "Lobbies that fill"). With 8 to a lobby, 256 people.
+     */
+    lobbies: 32
   };
   function roomTopic(worldUrl, roomName) {
     const u = new URL(worldUrl);
@@ -6329,6 +6334,7 @@ ${roomName}`)));
         return o.v === 1;
       case "welcome":
       case "bye":
+      case "full":
         return true;
       case "offer":
       case "answer":
@@ -57367,7 +57373,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         void sendWell(kept2, { own: own2, usual: usual(), publish, query, now }).then((sent) => markSent(kept2, sent.took)).catch(() => null);
       if (bag && bag !== kept2) keep6(bag);
       if (opts.me() !== who2) return;
-      known = { who: who2, bag, answered, own: own2, at: now() };
+      known = { who: who2, bag, answered, own: own2, at: now(), none: !bag && got?.state === "none" };
       changed();
     };
     const inBag = (at) => at.bag || at.answered ? bagIn(at.bag) : null;
@@ -57424,6 +57430,35 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (sent.took < RELAY_PICK.took) return { ok: true, said: `${done} Only ${sent.took === 1 ? "1 relay has" : `${sent.took} relays have`} it so far; it is sent again the next time your bag is looked at.` };
       return { ok: true, said: done };
     };
+    let starting = null;
+    const start2 = async (itemsIn) => {
+      const who2 = opts.me();
+      if (!who2) return { ok: false, why: "signed-out", said: "Sign in to keep a bag." };
+      if (!opts.hand) return { ok: false, why: "read-only", said: "Your bag is changed at your home, not from here." };
+      if (!opts.hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change your bag." };
+      const items2 = [...new Set(itemsIn.map((i) => itemCoordinate(i)).filter(Boolean))].slice(0, BAG_LIMITS.items);
+      if (!items2.length) return { ok: false, why: "refused", said: "There was nothing to put in your bag." };
+      await load3(true);
+      const at = known && known.who === who2 ? known : null;
+      if (!at) return { ok: false, why: "unreachable", said: "Your bag couldn't be looked for, so none was started." };
+      if (at.bag) return { ok: false, why: "already", said: "You have a bag already. Nothing was put in it." };
+      if (!at.none) return { ok: false, why: "unreachable", said: "Too few of your relays answered to be sure you have no bag, so none was started." };
+      let made2 = null;
+      for (const item of items2) made2 = changeBag(made2, { add: item, now: now() / 1e3, fromNothing: made2 === null }) ?? made2;
+      if (!made2) return { ok: false, why: "refused", said: "There was nothing to put in your bag." };
+      made2 = { ...made2, created_at: Math.floor(now() / 1e3) };
+      const signed = await opts.hand.sign(made2).catch(() => null);
+      const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made2.tags);
+      if (!signed || !same) return { ok: false, why: "refused", said: "It couldn't be signed. No bag was started." };
+      keep6(signed);
+      known = { who: who2, bag: signed, answered: true, own: at.own, at: now() };
+      changed();
+      const sent = await sendWell(signed, { own: at.own, usual: usual(), publish, query, now }).catch(() => null);
+      markSent(signed, sent?.took ?? 0);
+      const many = items2.length === 1 ? "1 thing" : `${items2.length} things`;
+      if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Your bag was started with ${many}, but no relay took it yet. It is kept on this device and will be sent again.` };
+      return { ok: true, said: `Your bag is started, with ${many} in it. Anyone can see what is in it.` };
+    };
     const TINTS_KEY = "nswp:tints";
     const keptTints = () => {
       try {
@@ -57475,6 +57510,18 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       canChange: () => !!opts.hand,
       add: (item, title = "") => change2(item, true, title),
       remove: (item, title = "") => change2(item, false, title),
+      start(items2) {
+        const before = starting;
+        const run2 = (async () => {
+          if (before) await before.catch(() => null);
+          return start2(items2);
+        })();
+        starting = run2;
+        void run2.finally(() => {
+          if (starting === run2) starting = null;
+        });
+        return run2;
+      },
       onChange(fn) {
         watchers8.add(fn);
         return () => void watchers8.delete(fn);
