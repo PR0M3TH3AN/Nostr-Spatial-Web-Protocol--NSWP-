@@ -150,33 +150,25 @@ light line, and **no words**. Aim at it: its edge lights in the world's colour. 
 - Say: whether you can tell it is the menu from the mark alone, and whether it reads well at that size.
 - Nothing changes on the wrist: raising it opens the menu as before.
 
-## 9. The artist's hands, on your controllers (five minutes; asked 2026-11-25)
+## 9. The artist's hands, on your controllers (two minutes; on the live site, once the kit with them is live)
 
-**Why:** the 3D artist made a see-through hand holding a see-through controller for each side
-(bitportal-art c30f660, with the smaller trigger pull you chose). This page draws them on your
-controllers, moved by your fingers. It also writes down two things only your headset can say:
-which controller profile it reports (`meta-quest-touch-plus`, or a v2 or v3), and whether it
-tracks bare hands and controllers at the same time. Nothing goes into the kit until you say yes
-to the look.
+**Why:** the 3D artist's see-through hand holding a see-through controller, for each side (bitportal-art
+c30f660, with the smaller trigger pull you chose), is now the kit's own drawing for a Quest's
+controllers in every world. You said: "Use the live game as the testing ground. Ill let you know if
+they feel off". So there is nothing to set up: once the kit with them is live, go into any world in
+the headset.
 
-**Needs:** this laptop on and awake, serving the page, and the Quest on the home network. It is not
-on the internet and is never deployed.
+1. In any world, holding both controllers, press **Enter VR**.
+2. Look at your hands. Pull each trigger slowly, squeeze each grip, and put your thumb on A, B (X, Y
+   on the left), the stick and the thumb rest in turn.
 
-1. Put the headset on, open its browser, and go to:
-   `https://192.168.68.84:5401/trial-pages/quest-hands/`
-   (the first time, check the certificate's fingerprint as in check 1).
-2. Wait for "Ready" and the first lines below the button. Hold both controllers and press **Enter VR**.
-3. Look at your hands. Pull each trigger slowly, squeeze each grip, and put your thumb on A, B (X, Y
-   on the left), the stick and the thumb rest in turn. A panel in front of you shows what each hand is
-   doing, and every line the headset reported.
-4. Put one controller down and hold up that bare hand for a few seconds, then pick it up again.
-5. Leave VR (the Meta button). The page lists everything below the button.
-
-- Say: whether the hands and controllers **look right** (size, where they sit in your grip, the see-through
-  look), and whether each finger and the thumb **follow** you.
-- Read out the two `input:` lines' **profiles=[…]**: the first id in each is the answer to touch-plus or v2.
-- Read out whether a line says **"hands and controllers tracked together: yes"**. The last line,
-  "session ended …", says it either way.
+- Say: whether the hands and controllers **look right** (size, where they sit in your grip, the
+  see-through look), and whether each finger and the thumb **follow** you. "They feel off" is enough,
+  with what is off.
+- Bare hands (a controller put down) are drawn as before, as joints: only held hands are new.
+- Still open, only if you want it answered: which profile your controllers report (touch-plus or a
+  v2). The kit draws the same hands for either, so nothing waits on it. The trial page that reads it
+  out is kept (`trials/pages/quest-hands/`) for a day you want to run it.
 
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 

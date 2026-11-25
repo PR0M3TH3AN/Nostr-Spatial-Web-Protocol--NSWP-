@@ -26,6 +26,7 @@
 import * as THREE from "three";
 import { FADE_S, Locomotion, NO_PAD, readPad, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState, isIntense } from "./actions.js";
 import { createAlloy, type Alloy } from "./alloy.js";
+import { heldHand, wantsHeldHands, type HeldModel } from "./held-hands.js";
 import { MeshBuilder } from "./mesh.js";
 import { turnVisitor } from "./turn.js";
 import { keepComfort, MOVE_QUESTION } from "./comfort-controls.js";
@@ -85,6 +86,13 @@ export interface XrInputOptions {
   controls?: Controls;
   /** Draw controllers and hands. Default true. A world with hands of its own turns this off. */
   models?: boolean;
+  /**
+   * Where this world serves the kit's held hands (packages/sdk/assets/hands/, copied beside the page as the kit's
+   * sounds are), for example "/hands/kit/". Given, a Quest's controllers are drawn as the kit's see-through hand
+   * holding a see-through controller, moved by the trigger, grip and thumb (held-hands.ts). Left out, or where they
+   * can't be had, the kit's own drawing is kept, as for any other controller.
+   */
+  handsAt?: string;
 }
 
 export interface XrInputInfo {
@@ -162,7 +170,7 @@ export function drawnLast(root: THREE.Object3D): void {
   });
 }
 
-type Source = { handedness?: string; gamepad?: PadLike | null; hand?: unknown; targetRayMode?: string };
+type Source = { handedness?: string; gamepad?: PadLike | null; hand?: unknown; targetRayMode?: string; profiles?: readonly string[] };
 
 /** A controller, drawn the same for every make: a handle, a lit nose, and a light that answers the trigger. */
 function controllerModel(accent: THREE.Color): { group: THREE.Group; metal: Alloy; trigger: THREE.Mesh; squeeze: THREE.Mesh } {
@@ -230,12 +238,27 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     const ray = renderer.xr.getController(i);
     const grip = renderer.xr.getControllerGrip(i);
     const hand = renderer.xr.getHand(i);
-    const slot = { ray, grip, hand, source: null as Source | null, model: null as ReturnType<typeof controllerModel> | null };
+    const slot = { ray, grip, hand, source: null as Source | null, model: null as ReturnType<typeof controllerModel> | null, held: null as HeldModel | null };
     listen(ray, "connected", ((e: { data?: Source }) => {
-      slot.source = e.data ?? null;
+      const source = e.data ?? null;
+      slot.source = source;
+      // A Quest's controller, where the world serves the kit's held hands: the artist's hand and controller on its grip.
+      const side = source?.handedness;
+      if (opts.handsAt && opts.models !== false && source?.gamepad && !source.hand && (side === "left" || side === "right") && wantsHeldHands(source.profiles))
+        void heldHand(opts.handsAt, side, (root) => {
+          unpointable(root);
+          drawnLast(root);
+        }).then((held) => {
+          if (!held || slot.source !== source) return;
+          held.group.parent?.remove(held.group);
+          grip.add(held.group);
+          slot.held = held;
+        });
     }) as never);
     listen(ray, "disconnected", (() => {
       slot.source = null;
+      if (slot.held) slot.held.group.parent?.remove(slot.held.group);
+      slot.held = null;
       release(i);
     }) as never);
     for (const o of [ray, grip, hand]) if (!o.parent) rig.add(o);
@@ -511,8 +534,13 @@ export function createXrInput(opts: XrInputOptions): XrInput {
 
       slots.forEach((s, i) => {
         const kind = kindOf(s);
+        // The kit's held hand where it has one for this controller, moved as it is held; the kit's own drawing otherwise.
+        if (s.held) {
+          s.held.group.visible = kind === "controller";
+          if (s.held.group.visible) s.held.pose(s.source?.gamepad);
+        }
         if (s.model) {
-          s.model.group.visible = kind === "controller";
+          s.model.group.visible = kind === "controller" && !s.held;
           const pad = pads.find((p) => p.index === i)?.pad ?? NO_PAD;
           (s.model.trigger.material as THREE.MeshBasicMaterial).color.copy(accent).multiplyScalar(0.2 + 0.8 * pad.trigger);
           (s.model.squeeze.material as THREE.MeshBasicMaterial).color.copy(accent).multiplyScalar(0.2 + 0.8 * pad.squeeze);

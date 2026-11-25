@@ -16,8 +16,9 @@ const pw = await import(`${NSWP}/node_modules/playwright-core/index.mjs`);
 
 const SITE = "https://gallery.test";
 const PAGE = join(NSWP, "trials", "pages", "quest-hands");
+const KIT_HANDS = join(NSWP, "packages", "sdk", "assets", "hands");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".glb": "application/octet-stream" };
-if (!existsSync(join(PAGE, "hands.js")) || !existsSync(join(PAGE, "models", "hand-right.glb"))) throw new Error("Make the page's files first: node scripts/quest-hands.mjs");
+if (!existsSync(join(PAGE, "hands.js"))) throw new Error("Make the page's script first: node scripts/quest-hands.mjs");
 
 const results = {};
 const fail = [];
@@ -34,6 +35,11 @@ try {
   await ctx.route("**/*", (route) => {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+    // The kit's hands, as every world serves them.
+    if (url.origin === SITE && /^\/hands\/kit\/[a-z-]+\.glb$/.test(url.pathname)) {
+      const file = join(KIT_HANDS, url.pathname.slice("/hands/kit/".length));
+      return existsSync(file) ? route.fulfill({ status: 200, contentType: "application/octet-stream", body: readFileSync(file) }) : route.fulfill({ status: 404, body: "not here" });
+    }
     if (url.origin !== SITE || !url.pathname.startsWith("/trial-pages/quest-hands/")) {
       elsewhere.add(url.origin);
       return route.abort();

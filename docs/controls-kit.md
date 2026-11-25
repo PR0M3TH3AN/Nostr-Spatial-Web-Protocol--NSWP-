@@ -136,6 +136,15 @@ input.grabbable(mesh, { release: "return" });
   every make, with lights that answer the trigger and the grip; and a tracked
   hand as its joints. Nothing is downloaded, so no request says which headset
   someone owns. A world with hands of its own passes `models: false`.
+- **The kit's held hands, for a Quest's controllers:** pass `handsAt` with
+  where your page serves the kit's hand files, copied from
+  `packages/sdk/assets/hands/` beside it as its sounds are (the reference
+  worlds use `"/hands/kit/"`). A Quest's controllers are then drawn as a
+  see-through hand holding a see-through controller, whose fingers follow the
+  trigger, grip and thumb. About 490 KB, fetched on the first Quest
+  controller only, from your own site. Left out, or for any other
+  controller, the kit's own drawing is kept. The files' licence and where they
+  come from go with them (`LICENSE-webxr-input-profiles.md`, `PROVENANCE.md`).
 - **What is drawn never blocks pointing.** The visitor's own controller and
   fingers are skipped by rays, so they can't be "in the way" of a step.
 - **Held things are local.** What a visitor picks up moves on their screen
