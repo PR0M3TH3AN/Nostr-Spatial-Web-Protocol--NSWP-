@@ -7005,8 +7005,11 @@ ${roomName}`)));
   // packages/core/dist/menu.js
   var MENU_VERSION = 1;
   var MENU_LIMITS = {
-    /** Tabs in one description. */
-    sections: 12,
+    /**
+     * Tabs in one description: 16 (was 12 until 2026-11-25, when BitPortal's room, with a guest's tabs, had 14 and lost
+     * two without a word). Past it, the rest are left out, and said in the console (`readMenuWorld`).
+     */
+    sections: 16,
     /** Rows in one tab. */
     rows: 60,
     /** Rows in all. */
@@ -7053,6 +7056,17 @@ ${roomName}`)));
   var MENU_FILE_KINDS = ["image", "video"];
   var MENU_SAVE_TYPES = ["image/jpeg", "image/png", "image/webp", "video/webm", "video/mp4"];
   var MENU_SIGN_IN = ["none", "ready", "asking", "unanswered"];
+  var toldDropped = /* @__PURE__ */ new Set();
+  function tellDropped(rest) {
+    const ids = rest.map((r) => isObject(r) && typeof r.id === "string" ? r.id.slice(0, 40) : "(no id)");
+    const key = ids.join(",");
+    if (toldDropped.has(key))
+      return;
+    if (toldDropped.size > 50)
+      toldDropped.clear();
+    toldDropped.add(key);
+    globalThis.console?.warn?.(`nswp: this place's menu has more than ${MENU_LIMITS.sections} tabs; these are left out: ${ids.join(", ")}`);
+  }
   var TAB_NAME = /^[a-z][a-z0-9-]{0,11}$/;
   var ICON_NAME = /^[a-z][a-z0-9-]{0,23}$/;
   var COLOR = /^#[0-9a-f]{6}$/;
@@ -7238,7 +7252,10 @@ ${roomName}`)));
     const rows = /* @__PURE__ */ new Set();
     let own2 = 0;
     let all = 0;
-    for (const raw of Array.isArray(input.sections) ? input.sections.slice(0, MENU_LIMITS.sections) : []) {
+    const sent = Array.isArray(input.sections) ? input.sections : [];
+    if (sent.length > MENU_LIMITS.sections)
+      tellDropped(sent.slice(MENU_LIMITS.sections));
+    for (const raw of sent.slice(0, MENU_LIMITS.sections)) {
       if (!isObject(raw) || typeof raw.id !== "string" || !TAB_NAME.test(raw.id) || tabs.has(raw.id))
         continue;
       const whose = tabOf(raw.id, opts);

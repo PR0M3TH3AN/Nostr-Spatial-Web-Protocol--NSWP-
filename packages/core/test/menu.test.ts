@@ -30,7 +30,7 @@ describe("the menu's words, by the examples", () => {
 
 describe("the limits and the lists", () => {
   it("are the ones the plan and the protocol give", () => {
-    expect(MENU_LIMITS).toEqual({ sections: 12, rows: 60, allRows: 200, label: 120, picture: 256, bytes: 65536, ownTabs: 2, say: 200, copy: 2000, field: 500, title: 80, note: 400, file: 67_108_864, fileName: 255, save: 67_108_864, saves: 12, covers: 8192 });
+    expect(MENU_LIMITS).toEqual({ sections: 16, rows: 60, allRows: 200, label: 120, picture: 256, bytes: 65536, ownTabs: 2, say: 200, copy: 2000, field: 500, title: 80, note: 400, file: 67_108_864, fileName: 255, save: 67_108_864, saves: 12, covers: 8192 });
     expect(v.limits).toEqual(MENU_LIMITS);
     expect([MENU_VERSION, MENU_WAIT_MS, LEAVE_MS, MENU_SHOW_KEEP_MS]).toEqual([1, 100, 1000, 2000]);
     expect(MENU_KEYS).toEqual(["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
@@ -236,5 +236,31 @@ describe("a file going down, and a picture going up", () => {
     expect(["image/png", "IMAGE/x-anything", "video/mp4", "audio/ogg", "image", "", 5, null].map(menuFileKind)).toEqual(["image", "image", "video", null, null, null, null, null]);
     expect(["dot.png", "a/b.png", "a\\b.png", "", 5].map(menuFileName)).toEqual(["dot.png", undefined, undefined, undefined, undefined]);
     expect(["image/jpeg", " Video/WebM ; codecs=vp8", "image/gif", 5].map(menuSaveType)).toEqual(["image/jpeg", "video/webm", null, null]);
+  });
+});
+
+describe("a place with more tabs than a client takes", () => {
+  it("keeps the first sixteen, and says which are left out, once for each set", async () => {
+    const { vi } = await import("vitest");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // Twelve a world may fill, two of its own (all it may have), then three more of its own: the seventeenth is past the
+      // limit and said; the fifteenth and sixteenth are over the world's own two, and left out as before.
+      const ids = [...MENU_WORLD_TABS, "own-a", "own-b", "past-one", "past-two", "past-three"];
+      const world = { sections: ids.map((id) => ({ id, label: id, rows: [] })) };
+      const got = cleanMenuWorld(world);
+      expect(MENU_LIMITS.sections).toBe(16);
+      expect(got?.sections.map((s) => s.id)).toEqual([...MENU_WORLD_TABS, "own-a", "own-b"]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toBe("nswp: this place's menu has more than 16 tabs; these are left out: past-three");
+      // The same description again, as a world sends it on every change: not said again.
+      cleanMenuWorld(world);
+      expect(warn).toHaveBeenCalledTimes(1);
+      // Sixteen or fewer: nothing said.
+      cleanMenuWorld({ sections: ids.slice(0, 16).map((id) => ({ id, label: id, rows: [] })) });
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

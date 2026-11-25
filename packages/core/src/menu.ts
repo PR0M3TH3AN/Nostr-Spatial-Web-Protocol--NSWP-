@@ -21,8 +21,11 @@ export const MENU_VERSION = 1;
 
 /** What a client holds a world to, whatever it sends. */
 export const MENU_LIMITS = {
-  /** Tabs in one description. */
-  sections: 12,
+  /**
+   * Tabs in one description: 16 (was 12 until 2026-11-25, when BitPortal's room, with a guest's tabs, had 14 and lost
+   * two without a word). Past it, the rest are left out, and said in the console (`readMenuWorld`).
+   */
+  sections: 16,
   /** Rows in one tab. */
   rows: 60,
   /** Rows in all. */
@@ -199,6 +202,21 @@ export interface MenuSection {
  */
 export const MENU_SIGN_IN = ["none", "ready", "asking", "unanswered"] as const;
 export type MenuSignIn = (typeof MENU_SIGN_IN)[number];
+
+/** The sets of tabs already said to be left out, so a description sent again and again says it once. */
+const toldDropped = new Set<string>();
+/**
+ * A description with more tabs than a client takes: those past `MENU_LIMITS.sections` are left out, as any word over
+ * a limit is, but said in the console with their ids, once for each set, so whoever made the place can see which.
+ */
+function tellDropped(rest: unknown[]): void {
+  const ids = rest.map((r) => (isObject(r) && typeof r.id === "string" ? r.id.slice(0, 40) : "(no id)"));
+  const key = ids.join(",");
+  if (toldDropped.has(key)) return;
+  if (toldDropped.size > 50) toldDropped.clear();
+  toldDropped.add(key);
+  globalThis.console?.warn?.(`nswp: this place's menu has more than ${MENU_LIMITS.sections} tabs; these are left out: ${ids.join(", ")}`);
+}
 
 /** The things every place has and only the world can run. */
 export interface MenuState {
@@ -444,7 +462,9 @@ export function cleanMenuWorld(input: unknown, opts: MenuReadOptions = {}): Menu
   const rows = new Set<string>();
   let own = 0;
   let all = 0;
-  for (const raw of Array.isArray(input.sections) ? input.sections.slice(0, MENU_LIMITS.sections) : []) {
+  const sent = Array.isArray(input.sections) ? input.sections : [];
+  if (sent.length > MENU_LIMITS.sections) tellDropped(sent.slice(MENU_LIMITS.sections));
+  for (const raw of sent.slice(0, MENU_LIMITS.sections)) {
     if (!isObject(raw) || typeof raw.id !== "string" || !TAB_NAME.test(raw.id) || tabs.has(raw.id)) continue;
     const whose = tabOf(raw.id, opts);
     if (!whose) continue;
