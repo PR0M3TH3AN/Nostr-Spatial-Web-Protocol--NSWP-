@@ -42,6 +42,11 @@ export interface BagResult {
 export interface Bag {
   /** The items in it, as last found. Null while it hasn't been looked for, or for a guest. */
   items(): string[] | null;
+  /**
+   * While a look goes on past its first answers, in waves through the rest of their relays: how many of their own
+   * relays have been asked, of how many. Null otherwise. For a line that says it is still looking, and how far.
+   */
+  looking(): { asked: number; of: number } | null;
   load(fresh?: boolean): Promise<string[] | null>;
   /** Whether this place can change it at all. */
   canChange(): boolean;
@@ -116,6 +121,8 @@ export function createBag(opts: BagOptions): Bag {
   /** What the last look found. `answered`: enough relays answered to say there is none, or one was found. `own`: their relays. */
   let known: { who: string; bag: NostrEvent | null; answered: boolean; own: string[]; at: number } | null = null;
   let looking: Promise<void> | null = null;
+  /** How far a look in waves has gone (`looking()`), or null. */
+  let progress: { asked: number; of: number } | null = null;
   let offered: { item: string; at: number } | null = null;
 
   const look = async (who: string): Promise<void> => {
@@ -130,7 +137,15 @@ export function createBag(opts: BagOptions): Bag {
       known = { ...known, bag: newer, answered: true };
       changed();
     };
-    const got = await askOwn({ kinds: [BAG_KIND], authors: [who], limit: 4 }, who, { usual: usual(), mine: { kept }, query, publish, timeoutMs: 4000, now, onNewer }).catch(() => null);
+    // Each wave through the rest of their relays: said, so the tab can say how far it has looked.
+    const onWave = (_wave: number, asked: number, of: number) => {
+      if (opts.me() !== who) return;
+      progress = { asked, of };
+      changed();
+    };
+    const got = await askOwn({ kinds: [BAG_KIND], authors: [who], limit: 4 }, who, { usual: usual(), mine: { kept }, query, publish, timeoutMs: 4000, now, onNewer, onWave })
+      .catch(() => null)
+      .finally(() => (progress = null));
     const answered = !!got && got.state !== "unreached";
     const own = got?.own ?? [];
     const found = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who);
@@ -255,6 +270,7 @@ export function createBag(opts: BagOptions): Bag {
       tintTimers.set(item, setTimeout(() => void writeTints(item).catch(() => null), 2500));
     },
     items: () => (known && known.who === opts.me() ? inBag(known) : null),
+    looking: () => progress,
     load,
     canChange: () => !!opts.hand,
     add: (item, title = "") => change(item, true, title),

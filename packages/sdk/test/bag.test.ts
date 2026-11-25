@@ -3,7 +3,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import * as THREE from "three";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createBag, type BagHand } from "../src/bag.js";
+import { createBag, type Bag, type BagHand } from "../src/bag.js";
 import { addBagControls, itemIn } from "../src/bagging.js";
 import { createItems, fitToSize, forgetItemsSwitch, ITEM_BUDGET, setShowsItems, showsItems, withinBudget } from "../src/items.js";
 import { scriptAllowed } from "../src/play.js";
@@ -143,6 +143,22 @@ describe("the Bag tab", () => {
     m.press(`bag-${maker.slice(0, 8)}-brass-lantern`);
     return { ...m, held: () => held };
   };
+
+  it("says how far the look has got while it goes on in waves through their relays", () => {
+    let far: { asked: number; of: number } | null = null;
+    const looking = { items: () => null, looking: () => far, load: () => new Promise(() => {}), canChange: () => false, tints: () => ({}), setTints: () => {}, onChange: () => () => {} } as unknown as Bag;
+    const m = menu();
+    let note: (() => string) | null = null;
+    m.controls.addSection = ((section: { id: string; note?: () => string }) => void (section.id === "bag" && (note = section.note ?? null))) as never;
+    const items = { known: () => null, describe: async () => null } as unknown as Parameters<typeof addBagControls>[1]["items"];
+    const bagging = addBagControls(m.controls, { bag: looking, items, me: () => me, rule: () => "allowed", holding: () => "", hold: async () => ({ ok: true, said: "" }) } as unknown as Parameters<typeof addBagControls>[1]);
+    bagging.refresh();
+    expect(note!()).toBe("Looking for your bag.");
+    far = { asked: 14, of: 23 };
+    expect(note!()).toBe("Still looking: 14 of your 23 relays asked.");
+    far = { asked: 23, of: 23 };
+    expect(note!()).toBe("Still looking: waiting for your slowest relays.");
+  });
 
   it("offers to hold a thing only in a place that draws what is held", async () => {
     const allowed = await tab("allowed");

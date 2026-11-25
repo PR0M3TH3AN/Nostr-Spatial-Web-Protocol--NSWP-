@@ -114,6 +114,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   let pages = 1;
   let wasMe: string | null = null;
   let looked = false;
+  /** A look begun and not yet over: until it is, the bag hasn't failed to be found, it is being looked for. */
+  let lookingNow = false;
   /** An item whose own logic they were just asked about: the next press of Hold lets it run. */
   let asking = "";
   /** The thing being taken in hand just now: fetched and checked, which can take a moment. */
@@ -225,7 +227,14 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       note: () => {
         const here = rule === "play" ? "Items are part of play here: what people hold can reach you." : rule === "allowed" ? "Items work here." : "Nothing carried is drawn or works in this place.";
         if (!me) return "Sign in to keep a bag.";
-        if (has === null) return looked ? "Your bag couldn't be looked for just now." : "Looking for your bag.";
+        if (has === null) {
+          // Said once a look is over and found nothing to say: while one goes on, it is being looked for.
+          if (looked && !lookingNow) return "Your bag couldn't be looked for just now.";
+          // Past the first answers, in waves through the rest of their relays: how far it has got.
+          const far = bag.looking();
+          if (far) return far.asked < far.of ? `Still looking: ${far.asked} of your ${far.of} relays asked.` : "Still looking: waiting for your slowest relays.";
+          return "Looking for your bag.";
+        }
         if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? (offers().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item.") : "Things are put in it at your home."} ${here}`;
         return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
       },
@@ -273,7 +282,11 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       housekeeping();
       if (!looked) {
         looked = true;
-        void bag.load().then(refresh);
+        lookingNow = true;
+        void bag.load().finally(() => {
+          lookingNow = false;
+          refresh();
+        });
       } else
         add({
           id: "bag-again",

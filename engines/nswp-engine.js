@@ -8965,13 +8965,15 @@ postMessage({ t: "started" });
     await ask(relaysWell({ own: own2, usual: [], for: "read" }, now()).relays, first);
     if (mine && events2.size === 0) {
       const rest = openOf(own2, "read", now()).filter((u) => !asked2.has(u));
+      const askedOfOwn = () => own2.filter((u) => asked2.has(u)).length;
       for (let i = 0, wave = 1; i < rest.length && events2.size === 0; i += RELAY_PICK.wave, wave++) {
-        o.onWave?.(wave);
-        await ask(rest.slice(i, i + RELAY_PICK.wave), RELAY_PICK.waveMs);
+        const batch = rest.slice(i, i + RELAY_PICK.wave);
+        o.onWave?.(wave, askedOfOwn() + batch.length, own2.length);
+        await ask(batch, RELAY_PICK.waveMs);
       }
       const late = [...asked2.entries()].filter(([, a]) => a.said === "timeout").map(([url]) => url);
       for (let i = 0, wave = 1; i < late.length && events2.size === 0; i += RELAY_PICK.wave, wave++) {
-        o.onWave?.(wave);
+        o.onWave?.(wave, askedOfOwn(), own2.length);
         await askFirst(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, RELAY_PICK.graceMs, query, now, asked2, events2, pending);
       }
     }
@@ -57217,6 +57219,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     let known = null;
     let looking = null;
+    let progress = null;
     let offered = null;
     const look = async (who2) => {
       const kept2 = readKept(who2);
@@ -57227,7 +57230,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         known = { ...known, bag: newer, answered: true };
         changed();
       };
-      const got = await askOwn({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, who2, { usual: usual(), mine: { kept: kept2 }, query, publish, timeoutMs: 4e3, now, onNewer }).catch(() => null);
+      const onWave = (_wave, asked2, of) => {
+        if (opts.me() !== who2) return;
+        progress = { asked: asked2, of };
+        changed();
+      };
+      const got = await askOwn({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, who2, { usual: usual(), mine: { kept: kept2 }, query, publish, timeoutMs: 4e3, now, onNewer, onWave }).catch(() => null).finally(() => progress = null);
       const answered = !!got && got.state !== "unreached";
       const own2 = got?.own ?? [];
       const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
@@ -57339,6 +57347,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         tintTimers.set(item, setTimeout(() => void writeTints(item).catch(() => null), 2500));
       },
       items: () => known && known.who === opts.me() ? inBag(known) : null,
+      looking: () => progress,
       load: load3,
       canChange: () => !!opts.hand,
       add: (item, title = "") => change2(item, true, title),
@@ -57387,6 +57396,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let pages = 1;
     let wasMe = null;
     let looked = false;
+    let lookingNow = false;
     let asking = "";
     let taking = "";
     const say3 = (text2) => controls2.say(text2);
@@ -57477,7 +57487,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         note: () => {
           const here = rule === "play" ? "Items are part of play here: what people hold can reach you." : rule === "allowed" ? "Items work here." : "Nothing carried is drawn or works in this place.";
           if (!me) return "Sign in to keep a bag.";
-          if (has === null) return looked ? "Your bag couldn't be looked for just now." : "Looking for your bag.";
+          if (has === null) {
+            if (looked && !lookingNow) return "Your bag couldn't be looked for just now.";
+            const far = bag.looking();
+            if (far) return far.asked < far.of ? `Still looking: ${far.asked} of your ${far.of} relays asked.` : "Still looking: waiting for your slowest relays.";
+            return "Looking for your bag.";
+          }
           if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers2().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
           return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
         },
@@ -57524,7 +57539,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         housekeeping();
         if (!looked) {
           looked = true;
-          void bag.load().then(refresh);
+          lookingNow = true;
+          void bag.load().finally(() => {
+            lookingNow = false;
+            refresh();
+          });
         } else
           add({
             id: "bag-again",
