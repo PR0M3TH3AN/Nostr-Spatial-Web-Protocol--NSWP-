@@ -145,6 +145,7 @@
           "hand-right"
         ],
         "use": "anyone",
+        "guests": true,
         "script": {
           "url": "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
           "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -227,6 +228,7 @@
           "place"
         ],
         "use": "anyone",
+        "guests": true,
         "script": null,
         "sounds": {},
         "sends": [],
@@ -374,6 +376,7 @@
           "hand-right"
         ],
         "use": "anyone",
+        "guests": true,
         "script": {
           "url": "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
           "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -385,6 +388,90 @@
         "aim": null,
         "tints": [],
         "license": "CC-BY-4.0",
+        "at": 1794430800
+      }
+    },
+    {
+      "name": "not_for_guests",
+      "description": "Its maker says `[\"guests\", \"no\"]`: a guest account may not use it, wherever they are.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "members-badge"
+          ],
+          [
+            "title",
+            "Members' badge"
+          ],
+          [
+            "model",
+            "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+            "glb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "size",
+            "0.05 0.05 0.01"
+          ],
+          [
+            "behavior",
+            "holdable"
+          ],
+          [
+            "fits",
+            "hand-right"
+          ],
+          [
+            "guests",
+            "no"
+          ],
+          [
+            "alt",
+            "Item: Members' badge"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "359d77dcb0042d57688bd3ab397b67ae3a2ed2d15b587db9c52d8537ee6a583d",
+        "sig": "c7f5ac6bb79a8f5ac721974f9629bdc48327621144847e523393ab094e694d928b18b2cffe1b085fc48616d964bfad721d273a28384b955508e20901c7ab30a4"
+      },
+      "expect": {
+        "maker": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:members-badge",
+        "d": "members-badge",
+        "title": "Members' badge",
+        "summary": "",
+        "model": {
+          "url": "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "thumb": null,
+        "size": [
+          0.05,
+          0.05,
+          0.01
+        ],
+        "colliders": [],
+        "clips": {},
+        "behaviors": [
+          "holdable"
+        ],
+        "fits": [
+          "hand-right"
+        ],
+        "use": "anyone",
+        "guests": false,
+        "script": null,
+        "sounds": {},
+        "sends": [],
+        "effects": [],
+        "does": {},
+        "aim": null,
+        "tints": [],
+        "license": "",
         "at": 1794430800
       }
     },

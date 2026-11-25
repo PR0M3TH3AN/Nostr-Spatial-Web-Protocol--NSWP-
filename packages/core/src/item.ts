@@ -143,6 +143,11 @@ export interface ItemInput {
   /** Who may use it: anyone, or only someone its maker has granted it to. */
   use?: "anyone" | "granted";
   /**
+   * False: a guest account may not use it (`["guests", "no"]`, protocol/17-items.md, "Guests"), wherever they are.
+   * Left out, guests may, where the world lets them.
+   */
+  guests?: boolean;
+  /**
    * What it does of its own: a script, run only on the device of whoever carries it, shut away from everything
    * but its own item (protocol/17-items.md, "An item's own logic"). Named here, and run by nothing yet.
    */
@@ -169,6 +174,8 @@ export interface Item extends Required<Pick<ItemInput, "d" | "title" | "model" |
   behaviors: ItemBehavior[];
   fits: ItemFit[];
   use: "anyone" | "granted";
+  /** Whether a guest account may use it: false where its maker said `["guests", "no"]`. */
+  guests: boolean;
   script: ItemFile | null;
   sounds: Record<string, ItemFile>;
   sends: ItemSend[];
@@ -285,6 +292,7 @@ export function buildItem(o: ItemInput & { now: number }): EventTemplate | null 
   const fits = ITEM_FITS.filter((f) => o.fits?.includes(f));
   if (fits.length) tags.push(["fits", ...fits]);
   if (o.use === "granted") tags.push(["use", "granted"]);
+  if (o.guests === false) tags.push(["guests", "no"]);
   if (o.script) {
     const script = cleanFile(o.script.url, o.script.sha256);
     if (!script) return null;
@@ -366,6 +374,8 @@ export function parseItem(event: NostrEvent | null | undefined): Item | null {
     behaviors,
     fits: ITEM_FITS.filter((f) => fitsTag.includes(f)),
     use: tag("use")?.[1] === "granted" ? "granted" : "anyone",
+    // Only exactly "no" keeps guests from it: a word that can't be read shuts nobody out.
+    guests: tag("guests")?.[1] !== "no",
     // Named, and run by nothing yet: where it runs, and what it may ask for, is protocol/17-items.md.
     script: sc ? cleanFile(sc[1], sc[2]) : null,
     sounds: Object.fromEntries(

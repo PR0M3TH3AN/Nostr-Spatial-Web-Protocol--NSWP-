@@ -5,8 +5,10 @@
   an option by the world and the items creator. Allow non-logged in users."
 - **Who:** the kit first (the NSWP builder), then our own items and
   reference worlds, the template and BitPortal by vendoring. Not briefed.
-- **State:** asked. After the client's menu (the owner's order of
-  2026-11-23: the menu before new features).
+- **State:** rewritten by `guest-accounts`: a guest account has a key and a
+  bag, and holds what both the world (`"guest_items": false`) and the item's
+  maker (`["guests", "no"]`) let it (protocol/17-items.md, "Guests"). Built
+  2026-11-25, not merged; for kit 0.93.0.
 
 **See `guest-accounts` first** (asked minutes later): if a guest becomes a
 generated account, most of this is that design, and what is left here is the

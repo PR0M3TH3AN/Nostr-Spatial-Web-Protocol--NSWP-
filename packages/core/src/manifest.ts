@@ -60,6 +60,11 @@ export interface ManifestWorld {
    * kept. Where false, someone whose pass is a guest account's is not shown, heard or answered in its rooms.
    */
   guests?: false;
+  /**
+   * Whether guest accounts may use items here (protocol/17-items.md, "Guests"). Left out, they may, where its `items`
+   * rule lets anyone: only `false` is ever kept.
+   */
+  guestItems?: false;
   /** Only people a keeper's allow list names (and the keepers) may go in; its rooms show only them. */
   byInvitation?: boolean;
 }
@@ -198,6 +203,11 @@ export function parseManifest(input: unknown, opts: { byteLength?: number } = {}
         if (raw.by_invitation === true) w.byInvitation = true;
         else if (raw.by_invitation !== false) c.warn("invalid_field", `${p}.by_invitation`, "by_invitation must be true or false; ignored.");
       }
+      if (raw.guest_items !== undefined) {
+        // As `guests`: only exactly `false` keeps guests' items out.
+        if (raw.guest_items === false) w.guestItems = false;
+        else if (raw.guest_items !== true) c.warn("invalid_field", `${p}.guest_items`, "guest_items must be true or false; ignored.");
+      }
       if (raw.guests !== undefined) {
         // Only exactly `false` keeps guests out: a word that can't be read never quietly shuts anyone out.
         if (raw.guests === false) w.guests = false;
@@ -305,13 +315,13 @@ export function doorFor(manifest: Manifest, url: string): { naddr?: string; url:
  * keys that may sell it (its publishers). A world its manifest names no listing for is free: `listings` is empty.
  * Null where the manifest lists no world at that address at all, so nothing can be said of it.
  */
-export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean; byInvitation: boolean; takesGuests: boolean } | null {
+export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean; byInvitation: boolean; takesGuests: boolean; guestItems: boolean } | null {
   const here = normalizeUrl(url);
   const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id]!.entry.url) === here);
   if (d === undefined) return null;
   const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
   const w = manifest.worlds[d]!;
-  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, takesGuests: w.guests !== false };
+  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, takesGuests: w.guests !== false, guestItems: w.guestItems !== false };
 }
 
 export interface FetchManifestResult {

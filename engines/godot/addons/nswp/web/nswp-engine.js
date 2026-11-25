@@ -4990,6 +4990,12 @@ var NSWP = (() => {
           else if (raw.by_invitation !== false)
             c.warn("invalid_field", `${p}.by_invitation`, "by_invitation must be true or false; ignored.");
         }
+        if (raw.guest_items !== void 0) {
+          if (raw.guest_items === false)
+            w.guestItems = false;
+          else if (raw.guest_items !== true)
+            c.warn("invalid_field", `${p}.guest_items`, "guest_items must be true or false; ignored.");
+        }
         if (raw.guests !== void 0) {
           if (raw.guests === false)
             w.guests = false;
@@ -5037,7 +5043,7 @@ var NSWP = (() => {
       return null;
     const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
     const w = manifest.worlds[d];
-    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, takesGuests: w.guests !== false };
+    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true, takesGuests: w.guests !== false, guestItems: w.guestItems !== false };
   }
 
   // packages/core/dist/layout.js
@@ -7483,6 +7489,8 @@ ${roomName}`)));
       behaviors,
       fits: ITEM_FITS.filter((f) => fitsTag.includes(f)),
       use: tag2("use")?.[1] === "granted" ? "granted" : "anyone",
+      // Only exactly "no" keeps guests from it: a word that can't be read shuts nobody out.
+      guests: tag2("guests")?.[1] !== "no",
       // Named, and run by nothing yet: where it runs, and what it may ask for, is protocol/17-items.md.
       script: sc ? cleanFile(sc[1], sc[2]) : null,
       sounds: Object.fromEntries(getTags(event, "sound").slice(0, ITEM_LIMITS.sounds).map((t) => [t[1], cleanFile(t[2], t[3])]).filter((s) => typeof s[0] === "string" && PLAIN.test(s[0]) && s[1] !== null)),
@@ -9473,6 +9481,7 @@ postMessage({ t: "started" });
     let ownerBlocked = [];
     let namedOnly = false;
     let takesGuests = true;
+    let guestItems = true;
     let byInvitation = false;
     let inviteState = "none";
     let invited = [];
@@ -9684,6 +9693,7 @@ postMessage({ t: "started" });
       worldName = access.d;
       namedOnly = access.namedOnly;
       takesGuests = access.takesGuests;
+      guestItems = access.guestItems;
       listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
       const named2 = file?.worlds?.[access.d]?.access;
       const meant = opts.listings ? opts.listings.length > 0 : Array.isArray(named2) ? named2.length > 0 : named2 !== void 0;
@@ -9772,6 +9782,9 @@ postMessage({ t: "started" });
       },
       get takesGuests() {
         return takesGuests;
+      },
+      get guestItems() {
+        return guestItems;
       },
       get lists() {
         return listState;
@@ -9874,7 +9887,7 @@ postMessage({ t: "started" });
         return () => void watchers8.delete(fn);
       },
       info() {
-        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, takesGuests, byInvitation, invites: inviteState, invited: invited.length };
+        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, takesGuests, guestItems, byInvitation, invites: inviteState, invited: invited.length };
       },
       dispose() {
         disposed = true;
@@ -50409,6 +50422,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
     if (!described) return { ok: false, said: "That item's description couldn't be found." };
     if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+    if (o.guest && o.guestItems === false) return { ok: false, said: "Guests can't use items in this world. Secure your account to use them here." };
+    if (o.guest && !described.guests) return { ok: false, said: `${described.title} isn't for guests. Secure your account to use it.` };
     if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
     if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
       if (o.asked.sha !== described.script.sha256) {
@@ -52187,7 +52202,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var pageGate = null;
   var rulesWatchers = /* @__PURE__ */ new Set();
   function pageRules() {
-    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited, takesGuests: pageGate.takesGuests } : { blocked: [], namedOnly: false, invited: null, takesGuests: true };
+    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited, takesGuests: pageGate.takesGuests, guestItems: pageGate.guestItems } : { blocked: [], namedOnly: false, invited: null, takesGuests: true, guestItems: true };
   }
   function onPageRules(fn) {
     rulesWatchers.add(fn);
@@ -52796,6 +52811,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (!item || !d.items || itemsRule() === "none" || !showsItems()) return;
       const described = await d.items.describe(item);
       if (!described || a.heldItem !== item || !canBeHeld(described) || described.use === "granted") return;
+      if (a.member.guestAccount && (rulesNow().guestItems === false || !described.guests)) return;
       const model2 = await d.items.model(described, a.tints);
       if (a.heldItem !== item) return;
       if (a.tints) applyTints(model2, described, a.tints);
@@ -53357,7 +53373,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           }
           if (!d.items) return { ok: false, said: "Nothing carried is drawn or works in this place." };
           const described = itemsRule() === "none" || !showsItems() ? null : await d.items.describe(item);
-          const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript });
+          const guest = session2?.self.guestAccount === true || signerNamed() && worldSigner().guest === true;
+          const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript, guest, guestItems: rulesNow().guestItems !== false });
           if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
           mineTints = cleanTints(described, tints ?? {});
           const model2 = await d.items.model(described, mineTints);

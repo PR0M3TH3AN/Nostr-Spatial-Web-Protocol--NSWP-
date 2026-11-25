@@ -689,6 +689,44 @@
       }
     },
     {
+      "name": "no_items_for_guests",
+      "description": "A world whose items guest accounts may not use (protocol/17-items.md, \"Guests\"). Guests may still come in.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "guest_items": false
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [],
+        "rules": {
+          "keepers": null,
+          "namedOnly": false,
+          "byInvitation": false
+        },
+        "takesGuests": true,
+        "guestItems": false
+      }
+    },
+    {
       "name": "guests_not_false",
       "description": "Only exactly false keeps guests out: anything else is ignored with a warning, and guests may come.",
       "manifest": {

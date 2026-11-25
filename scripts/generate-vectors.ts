@@ -372,13 +372,19 @@ const manifestVectors = [
     expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false }, takesGuests: false },
   },
   {
+    name: "no_items_for_guests",
+    description: "A world whose items guest accounts may not use (protocol/17-items.md, \"Guests\"). Guests may still come in.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, guest_items: false } } }),
+    expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false }, takesGuests: true, guestItems: false },
+  },
+  {
     name: "guests_not_false",
     description: "Only exactly false keeps guests out: anything else is ignored with a warning, and guests may come.",
     manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, guests: "no" } } }),
     expect: { valid: true, errors: [], warnings: ["invalid_field"], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false }, takesGuests: true },
   },
   { name: "no_rules", description: "A world that says neither keeps no list, and its rooms are as they always were.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false } } },
-] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean; byInvitation: boolean }; takesGuests?: boolean } }[];
+] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean; byInvitation: boolean }; takesGuests?: boolean; guestItems?: boolean } }[];
 for (const v of manifestVectors) {
   const r = parseManifest(v.manifest, v.byteLength === undefined ? {} : { byteLength: v.byteLength });
   if (v.expect.access !== undefined && r.ok) expectEqual(`manifest/${v.name} access`, accessFor(r.value, "https://museum.example/world")?.listings ?? null, v.expect.access);
@@ -386,6 +392,7 @@ for (const v of manifestVectors) {
     const got = accessFor(r.value, "https://museum.example/world");
     expectEqual(`manifest/${v.name} rules`, got ? { keepers: got.keepers, namedOnly: got.namedOnly, byInvitation: got.byInvitation } : null, v.expect.rules);
     if (v.expect.takesGuests !== undefined) expectEqual(`manifest/${v.name} takesGuests`, got?.takesGuests ?? null, v.expect.takesGuests);
+    if (v.expect.guestItems !== undefined) expectEqual(`manifest/${v.name} guestItems`, got?.guestItems ?? null, v.expect.guestItems);
   }
   expectEqual(`manifest/${v.name} valid`, r.ok, v.expect.valid);
   expectEqual(`manifest/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
@@ -1371,6 +1378,8 @@ const files: Record<string, unknown> = {
   };
   const full = sign(buildItem({ ...lantern, now: T0 })!);
   const plain = sign(buildItem({ d: "chair", title: "Chair", model: lantern.model, size: [0.5, 0.9, 0.5], behaviors: ["sittable"], fits: ["place"], now: T0 })!);
+  // Its maker keeps guest accounts from it (protocol/17-items.md, "Guests").
+  const notForGuests = sign(buildItem({ d: "members-badge", title: "Members' badge", model: lantern.model, size: [0.05, 0.05, 0.01], behaviors: ["holdable"], fits: ["hand-right"], guests: false, now: T0 })!);
   const noModel = { ...full, tags: full.tags.filter((t) => t[0] !== "model") };
   const plainHttp = { ...full, tags: full.tags.map((t) => (t[0] === "model" ? ["model", "http://items.example/a.glb", "glb", H("a")] : t)) };
   const tooBig = { ...full, tags: full.tags.map((t) => (t[0] === "size" ? ["size", "0.2 9 0.2"] : t)) };
@@ -1379,6 +1388,7 @@ const files: Record<string, unknown> = {
     { name: "a_lantern", description: "A description with everything: a model, a picture, a hit box, animations, where it fits, and a script.", event: full },
     { name: "a_chair", description: "The least a description can be, and what it can be.", event: plain },
     { name: "things_nobody_knows", description: "A behaviour and a shape that aren't on the lists are left out; the item is still an item.", event: unknowns },
+    { name: "not_for_guests", description: "Its maker says `[\"guests\", \"no\"]`: a guest account may not use it, wherever they are.", event: notForGuests },
     { name: "no_model", description: "Names no model: not an item.", event: noModel },
     { name: "a_model_over_plain_http", description: "A file that isn't an https address: not an item.", event: plainHttp },
     { name: "too_big", description: "A side longer than four metres: not an item.", event: tooBig },
@@ -1387,7 +1397,8 @@ const files: Record<string, unknown> = {
   expectEqual("items/a_lantern_script", reading[0]!.expect?.script, lantern.script);
   expectEqual("items/a_chair", [reading[1]!.expect?.behaviors, reading[1]!.expect?.script], [["sittable"], null]);
   expectEqual("items/things_nobody_knows", [reading[2]!.expect?.behaviors, reading[2]!.expect?.colliders.length], [["holdable"], 1]);
-  for (const v of reading.slice(3)) expectEqual(`items/${v.name}`, v.expect, null);
+  expectEqual("items/not_for_guests", [reading[3]!.expect?.guests, reading[0]!.expect?.guests, reading[1]!.expect?.guests], [false, true, true]);
+  for (const v of reading.slice(4)) expectEqual(`items/${v.name}`, v.expect, null);
   // A bag (kind 37308): what is read from one, and what a change to one gives its owner to sign.
   const LANTERN = `37303:${PK1}:brass-lantern`;
   const BOOK = `37303:${PK1}:old-book`;

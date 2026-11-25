@@ -4,6 +4,18 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Items for guests: a world's `"guest_items": false`, and an item's `["guests", "no"]`** (core `item.ts`, `manifest.ts`; SDK `hold.ts`, `presence.ts`, `front-room.ts`, `ui/identity.ts`; `protocol/17-items.md`, "Guests"; `protocol/01-worlds.md`; `vectors/items.json`, `vectors/manifests.json`). The owner, 2026-11-25: a guest should "have access to a bag with the free items that the worlds allow". Part 4 of the kit's half of guest accounts; the two words given 2026-11-25.
+  - **A guest account holds and uses an item where both the world and its maker let it,** as anyone does otherwise. Its bag is started with BitPortal's starter set.
+  - **The world:** `"guest_items": false` in its own entry of its announcement keeps guests from its items, though they may come in. Only exactly `false` is kept. It is carried as `guestItems` (from `accessFor`, on the world gate, and in `pageRules`).
+  - **The item's maker:** `["guests", "no"]` in its description keeps guests from it, wherever they are. Core reads it as `Item.guests`, and `buildItem` writes it from `guests: false`.
+  - **Told when they reach for it:** "Guests can't use items in this world. Secure your account to use them here.", or "Lantern isn't for guests. Secure your account to use it." (`mayHold`, which gains `guest` and `guestItems`).
+  - **Not drawn for anyone** where a guest account holds what nobody there may use.
+  - A guest has no wallet, so what they have is what was given free.
+  - **Tried:**
+    - `hold-guests.test.ts`: as anyone where nothing is said; nothing in a world that keeps guests from items; not an item its maker keeps from guests; no change for an account.
+    - `vectors/items.json`: an item not for guests, and others for anyone.
+    - `vectors/manifests.json`: `guest_items` false, guests still let in.
+  - **Not tried:** a guest in a real page reaching for an item; another visitor's view of a guest's item.
 - **The 3D artist's hands are the kit's own, for a Quest's controllers** (SDK `held-hands.ts`, `input.ts`; `packages/sdk/assets/hands/`; `scripts/build-sites.mjs`; `sites/shared/world.ts`; `docs/controls-kit.md`; `docs/owner-quest-checks.md`, check 9; `trials/kit-hands.mjs`). The owner, 2026-11-25: "dont wait for me to test the local controler and hands. Use the live game as the testing ground. Ill let you know if they feel off".
   - **In a headset, a Quest's controllers** are drawn as a see-through blue hand holding a see-through controller, each side: bitportal-art c30f660, with the smaller trigger pull. A Quest's controllers are those whose profile ids start `meta-quest-` or `oculus-touch`.
   - **They move with the controller:** the trigger pulls the index finger, the grip closes the others, and the thumb goes to A/X, B/Y, the stick, the thumb rest, or up. The controller's own trigger, grip, buttons and stick move too. The look is the artist's rim-lit glass. They are drawn last, over the menu, as hands are.

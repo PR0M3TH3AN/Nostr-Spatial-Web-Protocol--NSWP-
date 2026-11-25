@@ -41,6 +41,7 @@ describe("an item's description", () => {
       behaviors: ["holdable"],
       fits: ["place", "hand-left", "hand-right"],
       use: "anyone",
+      guests: true,
       script: lantern.script,
       sounds: {},
       sends: [],
