@@ -1124,7 +1124,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const visitor = () => (trialHas ? "e".repeat(64) : signedInHere() ? worldSigner().pubkey : null);
   const refuse = async () => ({ ok: false, said: "This bag is a stand-in: it can't be changed." });
   const bag: ReturnType<typeof createBag> = trialHas
-    ? { items: () => [...trialHas], looking: () => null, load: async () => [...trialHas], canChange: () => false, add: refuse, remove: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} }
+    ? { items: () => [...trialHas], looking: () => null, load: async () => [...trialHas], canChange: () => false, add: refuse, remove: refuse, start: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} }
     : createBag({ me: visitor });
   const bagging = addBagControls(controls, {
     bag,

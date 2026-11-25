@@ -11,7 +11,7 @@
  *
  * The `hand` is whatever can have the bag signed. Reading a bag needs none: a bag is public.
  */
-import { BAG_KIND, bagIn, bagTints, changeBag, tintBag, DEFAULT_RELAYS, itemCoordinate, newestBag, publishEvent, queryRelays, RELAY_PICK, SITE_MARKS, verifyEvent, type NostrEvent } from "@nswp/core";
+import { BAG_KIND, BAG_LIMITS, bagIn, bagTints, changeBag, tintBag, DEFAULT_RELAYS, itemCoordinate, newestBag, publishEvent, queryRelays, RELAY_PICK, SITE_MARKS, verifyEvent, type NostrEvent } from "@nswp/core";
 import { askOwn, sendWell } from "./relay-book.js";
 
 export interface BagHand {
@@ -52,6 +52,13 @@ export interface Bag {
   canChange(): boolean;
   add(item: string, title?: string): Promise<BagResult>;
   remove(item: string, title?: string): Promise<BagResult>;
+  /**
+   * Start a visitor's first bag with these items, in one note (one signature), as a client does for someone new
+   * (BitPortal's starter things for a guest). Only where there is surely none yet: enough of their relays answered
+   * and none has one, and this device keeps none (as the Bag says "empty" only then). Never over a bag found
+   * anywhere, and never where too few relays answered to know: then nothing is written, and it says why.
+   */
+  start(items: string[]): Promise<BagResult>;
   /**
    * The colours they chose for one of their things (protocol/17-items.md, "A holder's own colours"): what this
    * device keeps for this place, over what their bag says. Empty where they chose none.
@@ -119,7 +126,7 @@ export function createBag(opts: BagOptions): Bag {
   };
 
   /** What the last look found. `answered`: enough relays answered to say there is none, or one was found. `own`: their relays. */
-  let known: { who: string; bag: NostrEvent | null; answered: boolean; own: string[]; at: number } | null = null;
+  let known: { who: string; bag: NostrEvent | null; answered: boolean; own: string[]; at: number; none?: boolean } | null = null;
   let looking: Promise<void> | null = null;
   /** How far a look in waves has gone (`looking()`), or null. */
   let progress: { asked: number; of: number } | null = null;
@@ -157,7 +164,8 @@ export function createBag(opts: BagOptions): Bag {
         .catch(() => null);
     if (bag && bag !== kept) keep(bag);
     if (opts.me() !== who) return;
-    known = { who, bag, answered, own, at: now() };
+    // Surely none: enough of their relays answered, none had one, and nor does this device.
+    known = { who, bag, answered, own, at: now(), none: !bag && got?.state === "none" };
     changed();
   };
   /** What is in the bag, where it is known: nothing found where too few relays answered to say so is not "empty". */
@@ -220,6 +228,37 @@ export function createBag(opts: BagOptions): Bag {
     return { ok: true, said: done };
   };
 
+  /** A start under way: a second asked meanwhile waits for it, and then finds the bag it made. */
+  let starting: Promise<BagResult> | null = null;
+  const start = async (itemsIn: string[]): Promise<BagResult> => {
+    const who = opts.me();
+    if (!who) return { ok: false, why: "signed-out", said: "Sign in to keep a bag." };
+    if (!opts.hand) return { ok: false, why: "read-only", said: "Your bag is changed at your home, not from here." };
+    if (!opts.hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change your bag." };
+    const items = [...new Set(itemsIn.map((i) => itemCoordinate(i)).filter(Boolean))].slice(0, BAG_LIMITS.items);
+    if (!items.length) return { ok: false, why: "refused", said: "There was nothing to put in your bag." };
+    await load(true);
+    const at = known && known.who === who ? known : null;
+    if (!at) return { ok: false, why: "unreachable", said: "Your bag couldn't be looked for, so none was started." };
+    if (at.bag) return { ok: false, why: "already", said: "You have a bag already. Nothing was put in it." };
+    if (!at.none) return { ok: false, why: "unreachable", said: "Too few of your relays answered to be sure you have no bag, so none was started." };
+    let made: ReturnType<typeof changeBag> = null;
+    for (const item of items) made = changeBag(made, { add: item, now: now() / 1000, fromNothing: made === null }) ?? made;
+    if (!made) return { ok: false, why: "refused", said: "There was nothing to put in your bag." };
+    made = { ...made, created_at: Math.floor(now() / 1000) };
+    const signed = await opts.hand.sign(made).catch(() => null);
+    const same = signed && verifyEvent(signed) && signed.pubkey === who && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
+    if (!signed || !same) return { ok: false, why: "refused", said: "It couldn't be signed. No bag was started." };
+    keep(signed);
+    known = { who, bag: signed, answered: true, own: at.own, at: now() };
+    changed();
+    const sent = await sendWell(signed, { own: at.own, usual: usual(), publish, query, now }).catch(() => null);
+    markSent(signed, sent?.took ?? 0);
+    const many = items.length === 1 ? "1 thing" : `${items.length} things`;
+    if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Your bag was started with ${many}, but no relay took it yet. It is kept on this device and will be sent again.` };
+    return { ok: true, said: `Your bag is started, with ${many} in it. Anyone can see what is in it.` };
+  };
+
   // ---- Colours. Kept on the device as they are chosen; written into the bag, where this place can, once the
   // choosing has stopped for a moment, so that stepping through ten colours is one signature and not ten.
   const TINTS_KEY = "nswp:tints";
@@ -275,6 +314,18 @@ export function createBag(opts: BagOptions): Bag {
     canChange: () => !!opts.hand,
     add: (item, title = "") => change(item, true, title),
     remove: (item, title = "") => change(item, false, title),
+    start(items) {
+      const before = starting;
+      const run = (async () => {
+        if (before) await before.catch(() => null);
+        return start(items);
+      })();
+      starting = run;
+      void run.finally(() => {
+        if (starting === run) starting = null;
+      });
+      return run;
+    },
     onChange(fn) {
       watchers.add(fn);
       return () => void watchers.delete(fn);

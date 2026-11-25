@@ -782,6 +782,11 @@ addBagControls(controls, {
   (`showsItems`).
 - A visitor's own client, which can change the bag, may pass `offered`: a
   few items to put in with one press. A world never does.
+- A client may start someone's first bag with things of its own (a guest's
+  starter set): `bag.start(items)`, one note and one signature. It writes
+  only where there is surely none (enough of their relays answered, every
+  relay on their own list was asked, and the device keeps none), and never
+  over a bag found anywhere. A world never does.
 - **Items that do something** (a blaster that sends out darts) need three
   more things from your world:
   - `itemScripts: true` and `sounds` on `createPresence`, to let an item's
