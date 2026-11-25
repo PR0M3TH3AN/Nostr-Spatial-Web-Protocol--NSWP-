@@ -215,6 +215,20 @@ its memory as sealed notes. The same sheet for both, filled to different
 depths. Set out in `docs/plans/agents-lessons.md`, "What the protocol would
 have to settle".
 
+## The chat model to aim at (the owner, 2026-11-24)
+
+Shown OpenRouter's list as read that night (GPT-6 Luna $0.10 a million
+tokens in and $0.50 out; Claude Haiku 5.5 the same; DeepSeek V4.1 Flash,
+the playground's model so far, $0.14 and $0.42; Qwen 3.7 Flash $0.03 and
+$0.13), the owner chose: "Haiku is smarter then Luna and cheaper than
+both. I think that looks like a good one". (The list puts Haiku at the
+same price as Luna; the orchestrator said so.) So Claude Haiku 5.5,
+through OpenRouter, with its thinking off by default (the playground's
+D93), is the companion's chat model to aim at, with DeepSeek kept beside
+it to compare. Not yet measured on the agents' own tasks: a small paid
+run, Haiku against DeepSeek, quoted to him in the playground's session
+first.
+
 ## A body's own tongue, and feeling cues (the owner, 2026-11-24)
 
 Asked in the `nswp-agents` session: "if the agent is a dog it 'speaks in
