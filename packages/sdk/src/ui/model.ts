@@ -221,8 +221,10 @@ export interface UiPinView {
  * own leads, and these controls stay out of its way (spec §21.3).
  *
  * - "full": the whole HUD, and in a headset the Menu button and the wrist.
- * - "quiet": one small mark in a corner, which opens everything else. In a
- *   headset, the wrist; the Menu button only where no hand is tracked.
+ * - "quiet": one small mark in a corner, which opens everything else. Where the
+ *   visit started by touch, the bar as well: a touch screen has no keyboard to
+ *   keep for play. In a headset, the wrist; the Menu button only where no hand
+ *   is tracked.
  * - "hidden": nothing until the world opens it. For a world that draws these
  *   actions in menus of its own, or for a moment that shouldn't be interrupted.
  */

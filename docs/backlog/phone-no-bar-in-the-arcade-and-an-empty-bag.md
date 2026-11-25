@@ -8,8 +8,11 @@
   are not listed."
 - **Who:** the NSWP builder (the bar); BitPortal's session first, then
   the builder (the Bag).
-- **State:** asked. Read from the code by the orchestrator the same hour;
-  nothing run.
+- **State:** the bar is built (2026-11-24): in the kit, for every world
+  that asks for quiet, where the visit started by touch the quiet form
+  keeps the bar. `trials/arcade-bar.mjs` holds it, at a phone's size with
+  real taps, and at a desk where nothing changed. The Bag's part is the
+  relay mends (`relays-chosen-well.md`).
 
 ## The bar
 

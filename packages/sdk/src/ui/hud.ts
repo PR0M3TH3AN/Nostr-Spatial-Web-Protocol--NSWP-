@@ -26,6 +26,7 @@ import { ICONS, type IconName } from "./icons.js";
 import { portHere, type WorldPort } from "./port.js";
 import { keepSheet } from "./sheet-box.js";
 import { loadPicture } from "../picture.js";
+import { startingForm } from "../form.js";
 import { ago } from "./feed.js";
 import { sayStays, type Controls, type UiCard, type UiItemView, type UiView } from "./model.js";
 import { createHoldWatch, SUMMON_KEY } from "./summon.js";
@@ -248,7 +249,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
 .chat[data-state="peek"].going { opacity: 0; transition: opacity .6s; }
 :host([data-presence="hidden"]) .chat { display: none; }
-:host(:not([data-presence="full"])) .chat { bottom: max(72px, env(safe-area-inset-bottom)); }
+:host(:not([data-bar])) .chat { bottom: max(72px, env(safe-area-inset-bottom)); }
 
 /* ---- the sheet: everything else, by section */
 .sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
@@ -392,6 +393,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Keeping this tab on the bar: a quiet button, opposite Close. */
 .pin-it { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); color: rgba(var(--ink), .82); font-size: .93em; }
 .pin-it svg { width: 16px; height: 16px; }
+/* Its own display would otherwise show it while hidden; and with it away, Close stays where it was, at the right. */
+.pin-it[hidden] { display: none; }
+.foot .close { margin-left: auto; }
 .pin-it:hover:not(:disabled), .pin-it:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
 .pin-it[aria-pressed="true"] { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); background: rgba(var(--accent), .12); }
 .pin-it:disabled { opacity: .5; cursor: default; }
@@ -403,6 +407,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .quiet .mark { margin-bottom: 2px; }
 .quiet:hover, .quiet[aria-expanded="true"] { border-color: rgb(var(--accent)); }
 :host([data-presence="quiet"]) .quiet { display: grid; }
+/* Quiet where the visitor plays by touch keeps the bar: there is no keyboard to keep for play, and nothing else to press for what it carries. */
+:host([data-presence="quiet"][data-bar]) .bar { display: flex; }
 :host([data-presence="quiet"]) :is(.id, .menu, .bar, .target, .corner),
 :host([data-presence="hidden"]) :is(.id, .menu, .bar, .target, .corner, .says, .loading) { display: none; }
 :host([data-corner="top-left"]) .quiet { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
@@ -410,8 +416,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 :host([data-corner="bottom-left"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
 :host([data-corner="bottom-right"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
 /* With no hotbar under it, the sheet opens in the middle of the bottom edge, clear of the corners. */
-:host(:not([data-presence="full"])) .sheet { bottom: max(72px, env(safe-area-inset-bottom)); }
-:host(:not([data-presence="full"])) .says { bottom: max(72px, env(safe-area-inset-bottom)); }
+:host(:not([data-bar])) .sheet { bottom: max(72px, env(safe-area-inset-bottom)); }
+:host(:not([data-bar])) .says { bottom: max(72px, env(safe-area-inset-bottom)); }
 /* Keys the world has switched off aren't advertised. */
 :host(.no-menu-key) .menu kbd, :host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
 
@@ -527,6 +533,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const title = el("b");
   const address = el("span", { class: "mono" });
   const id = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
+  /** Whether the bar is shown: in full, and in quiet where the visit started by touch. */
+  const barShown = (presence: string) => presence === "full" || (presence === "quiet" && startingForm() === "touch");
   const menu = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
   const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
   const target = el("div", { class: "target glass", "aria-live": "polite" });
@@ -1508,6 +1516,11 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     host.style.setProperty("--s", String(t.scale));
     host.classList.toggle("moving", t.motion);
     host.dataset.presence = view.presence;
+    // Where the bar is: in full, and in quiet where the visitor plays by touch (the owner, 2026-11-24, of the Arcade
+    // on his phone: "On mobile I can't see the menu bar in the arcade"). Quiet keeps the keyboard for play; a touch
+    // screen has none, and without the bar nothing is there to press for what it carries. By the form the visit
+    // started in, which doesn't change during it, so the bar never comes and goes as a hand moves to a mouse.
+    host.toggleAttribute("data-bar", barShown(view.presence));
     host.dataset.corner = view.corner;
     host.classList.toggle("no-menu-key", view.keys.menu === null);
     host.classList.toggle("no-hotbar-keys", !view.keys.hotbar);
@@ -1558,7 +1571,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     drawn = now;
 
     const here = view.sections.find((s) => s.id === section);
-    pinIt.hidden = !here;
+    // A tab is kept on the bar only where there is a bar.
+    pinIt.hidden = !here || !barShown(view.presence);
     pinIt.setAttribute("aria-pressed", String(!!here?.pinned));
     pinIt.disabled = !here?.pinned && view.pinsFull;
     pinWords.textContent = here?.pinned ? "On your bar. Take it off" : view.pinsFull ? "Your bar is full" : "Keep this tab on your bar";
@@ -2042,7 +2056,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
         .map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
     },
     cover() {
-      if (host.hidden || controls.presence !== "full") return { top: 0, bottom: 0, left: 0, right: 0 };
+      if (host.hidden || !barShown(controls.presence)) return { top: 0, bottom: 0, left: 0, right: 0 };
       const low = bar.getBoundingClientRect();
       const high = id.getBoundingClientRect();
       // The controls, and not the words about what is pointed at: those come and go as the pointer moves, and a
