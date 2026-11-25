@@ -142,7 +142,9 @@ the same way. The orchestrator says what is live.
     under a new name (`backup/<branch>-<date>`), never forced. Before a
     push, `git status` is read so no `.env`, key, trial picture or
     downloaded file goes in. A pushed branch may make a preview; that is
-    fine, and it is not a deploy.
+    fine, and it is not a deploy. `scripts/backup-check.sh` (read only)
+    lists whatever of BitBlocks is on no GitHub branch; it runs every night,
+    and the orchestrator asks each session named in it to push.
 
 ## What a bigger fleet taught us
 
