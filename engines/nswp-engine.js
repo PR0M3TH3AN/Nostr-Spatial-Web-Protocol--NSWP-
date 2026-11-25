@@ -62,7 +62,7 @@ var NSWP = (() => {
     menu: () => menu,
     model: () => model,
     moved: () => moved,
-    offers: () => offers,
+    offers: () => offers2,
     open: () => open,
     people: () => people,
     peopleInfo: () => peopleInfo,
@@ -9175,13 +9175,13 @@ postMessage({ t: "started" });
         if (done.ok && adding) void profiles.fetch([pubkey]);
         refresh();
       };
-      if (!f.pubkey()) return say3("Sign in to follow people: it is under You.");
+      if (!f.pubkey()) return say3("Sign in to follow people.");
       if (f.allowed()) return void now();
       say3(f.ask(() => void now()));
     };
     const byKey = async (typed) => {
       const me = f.pubkey();
-      if (!me) return say3("Sign in to follow people: it is under You.");
+      if (!me) return say3("Sign in to follow people.");
       let text2 = typed ?? "";
       const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
       if (typed !== void 0) {
@@ -9417,7 +9417,7 @@ postMessage({ t: "started" });
     let listings = [];
     let ownRelays = [];
     let worldName = "";
-    const offers2 = /* @__PURE__ */ new Map();
+    const offers3 = /* @__PURE__ */ new Map();
     const unread = /* @__PURE__ */ new Map();
     let held2 = null;
     const takenBack = /* @__PURE__ */ new Set();
@@ -9552,7 +9552,7 @@ postMessage({ t: "started" });
       shut(reason === "taken-back" || reason === "unchecked" || reason === "run-out" ? reason : "nothing-held");
     };
     const readOffers = async () => {
-      const want2 = listings.filter((l) => !offers2.has(l));
+      const want2 = listings.filter((l) => !offers3.has(l));
       if (!want2.length || disposed) return;
       const name = (l) => l.slice(71);
       const filter = { kinds: [LISTING_KIND], authors: [...new Set(want2.map(listingSeller))], "#d": want2.map(name) };
@@ -9569,7 +9569,7 @@ postMessage({ t: "started" });
         if (!read6.ok) unread.set(l, read6.why);
         else if (read6.listing.for && worldName && read6.listing.for !== `${WORLD_KIND}:${read6.listing.seller}:${worldName}`) unread.set(l, "not-for-here");
         else {
-          offers2.set(l, read6.listing);
+          offers3.set(l, read6.listing);
           unread.delete(l);
         }
       }
@@ -9680,7 +9680,7 @@ postMessage({ t: "started" });
       await look();
     };
     if (state !== "free") void begin();
-    const offerList = () => listings.flatMap((l) => offers2.has(l) ? [{ listing: l, name: offers2.get(l).name, sats: offers2.get(l).sats, term: offers2.get(l).term, words: priceWords(offers2.get(l)) }] : []);
+    const offerList = () => listings.flatMap((l) => offers3.has(l) ? [{ listing: l, name: offers3.get(l).name, sats: offers3.get(l).sats, term: offers3.get(l).term, words: priceWords(offers3.get(l)) }] : []);
     const host = () => opts.signer()?.host ?? "your sign-in address";
     const signedIn = () => opts.signer()?.state === "unlocked";
     const why = () => {
@@ -9723,7 +9723,7 @@ postMessage({ t: "started" });
         return offerList();
       },
       get read() {
-        return !paid || offers2.size > 0 || unread.size > 0;
+        return !paid || offers3.size > 0 || unread.size > 0;
       },
       get until() {
         return state === "open" && held2 ? held2.expiresAt : null;
@@ -9805,7 +9805,7 @@ postMessage({ t: "started" });
       async buy(listing) {
         const wanted = cleanListing(listing ?? offerList()[0]?.listing ?? "");
         const signer = opts.signer();
-        if (disposed || buying || !wanted || !offers2.has(wanted) || !signer || signer.state !== "unlocked") return false;
+        if (disposed || buying || !wanted || !offers3.has(wanted) || !signer || signer.state !== "unlocked") return false;
         if (state === "free" || state === "open" || reason === "blocked" || isBlocked(signer.pubkey)) return false;
         buying = true;
         changed();
@@ -51450,7 +51450,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     })();
     let familyAsked = false;
     let more = [];
-    let offers2 = null;
+    let offers3 = null;
     let origin = "";
     let windowAt = "";
     let frame2 = null;
@@ -51533,7 +51533,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         about = reply.unlocked ? reply.about ?? null : null;
         remembered = reply.unlocked ? reply.remembered ?? null : null;
         more = reply.unlocked ? cleanMore(reply.more) : [];
-        if (reply.offers) offers2 = reply.offers;
+        if (reply.offers) offers3 = reply.offers;
         if (typeof reply.familyTaken === "boolean") family = reply.familyTaken;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
@@ -51626,7 +51626,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return more;
       },
       get offers() {
-        return offers2;
+        return offers3;
       },
       get unanswered() {
         return named2 && waited && state === "none" && !disposed;
@@ -51759,7 +51759,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
       },
       want(asked2) {
-        const wanted = cleanMore([...asked2]).filter((name2) => !offers2 || offers2.includes(name2));
+        const wanted = cleanMore([...asked2]).filter((name2) => !offers3 || offers3.includes(name2));
         if (state === "none" || !frame2 || wanted.length === 0) return false;
         tell2({ t: "want", id: `w${++n}`, more: wanted });
         return true;
@@ -51834,6 +51834,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         state = "none";
       }
     };
+  }
+
+  // packages/sdk/src/ui/sign-in-here.ts
+  var offers = /* @__PURE__ */ new WeakMap();
+  function offerSignIn(controls2, offer) {
+    offers.set(controls2, offer);
   }
 
   // packages/sdk/src/ui/identity.ts
@@ -51981,6 +51987,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
     }));
   }
+  function signInWanted(signer) {
+    if (signer.state === "unlocked") return false;
+    return !(signer.state === "none" && !signer.unanswered && !signer.asking);
+  }
   function signerAction(controls2, opts = {}) {
     const signer = worldSigner();
     let was = signer.state;
@@ -52004,30 +52014,38 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       controls2.signal("signer");
     });
     onHereAs(() => controls2.signal("signer"));
+    const signedOut = () => signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`;
+    const signIn2 = () => {
+      const host = signer.host ?? "your own client";
+      if (signer.asking) return;
+      if (signer.unanswered) {
+        if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
+        return controls2.say(unansweredWords(signer));
+      }
+      if (opts.presenting?.()) return controls2.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+      const here = signer.panel;
+      if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
+      else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+    };
+    offerSignIn(controls2, {
+      wanted: () => signInWanted(signer),
+      label: signedOut,
+      press: () => {
+        if (signer.state !== "unlocked") signIn2();
+      }
+    });
     return {
       id: "signer",
       section: "you",
       icon: "key",
       // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
-      label: () => signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
+      label: () => signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signedOut(),
       short: () => signer.state === "unlocked" ? "Sign out" : "Sign in",
       on: () => signer.state === "unlocked",
       // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
       // a row that isn't there can't be asked about.
       hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
-      act: () => {
-        if (signer.state === "unlocked") return signer.lock();
-        const host = signer.host ?? "your own client";
-        if (signer.asking) return;
-        if (signer.unanswered) {
-          if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
-          return controls2.say(unansweredWords(signer));
-        }
-        if (opts.presenting?.()) return controls2.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
-        const here = signer.panel;
-        if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
-        else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
-      }
+      act: () => signer.state === "unlocked" ? signer.lock() : signIn2()
     };
   }
   function accountAction(controls2, opts = {}) {
@@ -56398,7 +56416,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     if (!c.ok) return JSON.stringify({ ok: false, code: c.error.code, domain: "", prefix: "", host: "" });
     return JSON.stringify({ ok: true, code: "", domain: c.value.registrableDomain ?? c.value.hostname, prefix: c.value.hostPrefix, host: c.value.hostname });
   }
-  function offers(world2) {
+  function offers2(world2) {
     let said2 = {};
     try {
       const read6 = JSON.parse(typeof world2 === "string" ? world2 : "");
@@ -57546,7 +57564,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const has = me ? bag.items() : null;
       const rule = opts.rule();
       if (has && cameHolding) void carryOn(has);
-      const offers2 = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
+      const offers3 = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
       const add = (...actions) => {
         for (const a of actions) shown4.push(a.id);
         controls2.add(...actions.map((a) => ({ section: "bag", ...a })));
@@ -57564,7 +57582,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             if (far) return far.asked < far.of ? `Still looking: ${far.asked} of your ${far.of} relays asked.` : "Still looking: waiting for your slowest relays.";
             return "Looking for your bag.";
           }
-          if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers2().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
+          if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers3().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
           return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
         },
         card: () => {
@@ -57710,7 +57728,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           });
         }
         if (bag.canChange()) add({ id: "bag-remove", icon: "close", label: `Take ${titleOf(item)} out of my bag`, act: () => change2(item, false) });
-      } else if (chosen && offers2().includes(chosen)) {
+      } else if (chosen && offers3().includes(chosen)) {
         const item = chosen;
         add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change2(item, true) });
       }
@@ -57739,7 +57757,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           })
         )
       );
-      const offered = offers2();
+      const offered = offers3();
       for (const item of offered) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
       add(
         ...offered.map(
@@ -58696,7 +58714,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const write = (pubkey) => {
       const me = hand.pubkey();
-      if (!me) return say3("Sign in to write to people: it is under You.");
+      if (!me) return say3("Sign in to write to people.");
       if (pubkey === me) return;
       const go2 = () => void m.load().then(() => open3(pubkey));
       if (hand.allowed()) return go2();

@@ -88,7 +88,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
       if (done.ok && adding) void profiles.fetch([pubkey]);
       refresh();
     };
-    if (!f.pubkey()) return say("Sign in to follow people: it is under You.");
+    if (!f.pubkey()) return say("Sign in to follow people.");
     if (f.allowed()) return void now();
     say(f.ask(() => void now()));
   };
@@ -99,7 +99,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
    */
   const byKey = async (typed?: string) => {
     const me = f.pubkey();
-    if (!me) return say("Sign in to follow people: it is under You.");
+    if (!me) return say("Sign in to follow people.");
     let text = typed ?? "";
     const keyboard = opts.presenting?.() ? (opts.keyboard?.() ?? null) : null;
     if (typed !== undefined) {

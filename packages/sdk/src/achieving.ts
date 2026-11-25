@@ -9,6 +9,7 @@
 import type { AchievementHolders } from "@nswp/core";
 import type { Achievements } from "./achievements.js";
 import type { Controls, UiAction } from "./ui/model.js";
+import { signInHere } from "./ui/sign-in-here.js";
 
 export interface AchievingOptions {
   achievements: Achievements;
@@ -55,6 +56,8 @@ export function addAchievementControls(controls: Controls, opts: AchievingOption
       icon: "check",
       note: () => `You have earned ${earned.length} of ${a.list.length} here. What you earn is kept on this device until you show it. Showing it says publicly that you were here, and what you did. Nothing checks what anyone shows.`,
     });
+    // Its first row says to sign in, while they aren't, to show what they earned: the press is right there.
+    if (earned.length > 0 && !opts.signedIn()) add(signInHere(controls, "achievements"));
     add({
       id: "achievements-show",
       icon: "check",

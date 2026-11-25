@@ -201,7 +201,7 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
 
   const write = (pubkey: string) => {
     const me = hand.pubkey();
-    if (!me) return say("Sign in to write to people: it is under You.");
+    if (!me) return say("Sign in to write to people.");
     if (pubkey === me) return;
     const go = () => void m.load().then(() => open(pubkey));
     if (hand.allowed()) return go();

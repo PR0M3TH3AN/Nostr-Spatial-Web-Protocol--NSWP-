@@ -20,6 +20,7 @@ import { createPeople, type People } from "../people.js";
 import { createSaves, type Saves } from "../saves.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
 import type { Controls, UiAction, UiCard, UiSection } from "./model.js";
+import { offerSignIn } from "./sign-in-here.js";
 
 /**
  * Whether signing in here means unlocking a signer: the visitor's client named one
@@ -286,6 +287,16 @@ export function worldPeople(): People {
 }
 
 /**
+ * Whether a "Sign in" press is wanted where a tab says to sign in (signInHere): a sign-in address was named and the
+ * visitor isn't signed in with it. Decided here and nowhere else, so that a guest's account can change it (one is
+ * being designed: a guest's row would become "Secure your account", or go where a guest can use the tab).
+ */
+function signInWanted(signer: WorldSigner): boolean {
+  if (signer.state === "unlocked") return false;
+  return !(signer.state === "none" && !signer.unanswered && !signer.asking);
+}
+
+/**
  * The control that unlocks the visitor's signer for this world, and locks it
  * again (protocol/10-identity.md, "Signing from a world"). Unlocking opens a
  * window of their own client, where they say yes. Nothing is typed here.
@@ -317,40 +328,44 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
     controls.signal("signer");
   });
   onHereAs(() => controls.signal("signer"));
+  /** What it says signed out: whose window will open, or that it is being asked again, or didn't answer. */
+  const signedOut = () =>
+    signer.asking ? `Asking ${signer.host ?? "your signer"} again…` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`;
+  /** Signing in, from signed out: this row's press, and the "Sign in" row of any tab that says to (signInHere). */
+  const signIn = () => {
+    const host = signer.host ?? "your own client";
+    if (signer.asking) return;
+    if (signer.unanswered) {
+      // Asked again, there and then: a frame that failed to load once often loads the second time.
+      if (signer.retry()) return controls.say(`Asking ${host} again. It has ten seconds to answer.`);
+      return controls.say(unansweredWords(signer));
+    }
+    // A headset draws nothing but the world, so no window or panel of the client's can be seen in one.
+    if (opts.presenting?.()) return controls.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+    // Shown inside a client that draws the sign-in address's panel over the world: no window, and the screen stays as it is.
+    const here = signer.panel;
+    if (signer.unlock()) controls.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
+    else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+  };
+  offerSignIn(controls, {
+    wanted: () => signInWanted(signer),
+    label: signedOut,
+    press: () => {
+      if (signer.state !== "unlocked") signIn();
+    },
+  });
   return {
     id: "signer",
     section: "you",
     icon: "key",
     // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
-    label: () =>
-      signer.state === "unlocked"
-        ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here`
-        : signer.asking
-          ? `Asking ${signer.host ?? "your signer"} again…`
-          : signer.unanswered
-            ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again`
-            : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
+    label: () => (signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signedOut()),
     short: () => (signer.state === "unlocked" ? "Sign out" : "Sign in"),
     on: () => signer.state === "unlocked",
     // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
     // a row that isn't there can't be asked about.
     hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
-    act: () => {
-      if (signer.state === "unlocked") return signer.lock();
-      const host = signer.host ?? "your own client";
-      if (signer.asking) return;
-      if (signer.unanswered) {
-        // Asked again, there and then: a frame that failed to load once often loads the second time.
-        if (signer.retry()) return controls.say(`Asking ${host} again. It has ten seconds to answer.`);
-        return controls.say(unansweredWords(signer));
-      }
-      // A headset draws nothing but the world, so no window or panel of the client's can be seen in one.
-      if (opts.presenting?.()) return controls.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
-      // Shown inside a client that draws the sign-in address's panel over the world: no window, and the screen stays as it is.
-      const here = signer.panel;
-      if (signer.unlock()) controls.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
-      else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
-    },
+    act: () => (signer.state === "unlocked" ? signer.lock() : signIn()),
   };
 }
 
