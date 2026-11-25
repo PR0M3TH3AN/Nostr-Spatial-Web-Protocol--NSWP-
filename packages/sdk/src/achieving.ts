@@ -9,7 +9,7 @@
 import type { AchievementHolders } from "@nswp/core";
 import type { Achievements } from "./achievements.js";
 import type { Controls, UiAction } from "./ui/model.js";
-import { signInHere } from "./ui/sign-in-here.js";
+import { signInFirst, signInHere } from "./ui/sign-in-here.js";
 
 export interface AchievingOptions {
   achievements: Achievements;
@@ -73,6 +73,7 @@ export function addAchievementControls(controls: Controls, opts: AchievingOption
       short: "Show",
       act: async () => {
         if (earned.length === 0) return controls.say("Earn one first: it is kept on this device until you show it.");
+        if (!opts.signedIn()) return signInFirst(controls, "Sign in to show what you have earned.");
         const done = await a.show();
         controls.say(done.said);
         look(true);

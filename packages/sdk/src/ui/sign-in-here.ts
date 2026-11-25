@@ -42,3 +42,14 @@ export function signInHere(controls: Controls, section: string): UiAction {
     act: () => offer()?.press(),
   };
 }
+
+/**
+ * A press that needs the visitor signed in, made while they aren't (Follow, Write, Show, Post): says why, and starts
+ * signing in there and then, as the front room's "Sign in to buy" does, so no line sends them elsewhere to do it.
+ * Where nobody can sign in here, it only says why. The kit's own; not part of the package's entries.
+ */
+export function signInFirst(controls: Controls, line: string): void {
+  controls.say(line);
+  const offer = offers.get(controls);
+  if (offer?.wanted()) offer.press();
+}

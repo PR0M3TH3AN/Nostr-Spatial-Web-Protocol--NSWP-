@@ -16,6 +16,7 @@ vi.mock("../src/signer.js", async (original) => ({
 const { createControls } = await import("../src/ui/model.js");
 const { signInHere } = await import("../src/ui.js");
 const { signerAction } = await import("../src/ui/identity.js");
+const { signInFirst } = await import("../src/ui/sign-in-here.js");
 const { addAchievementControls } = await import("../src/achieving.js");
 const { addScoreControls } = await import("../src/scoring.js");
 
@@ -128,3 +129,51 @@ describe("the kit's tabs that say to sign in", () => {
     expect(row(c, "scores").map((i) => i.id).slice(0, 2)).toEqual(["sign-in-scores", "scores-post-laps"]);
   });
 });
+
+describe("a press that needs signing in, made signed out", () => {
+  it("says why, and starts the sign-in there and then, as You's row does", async () => {
+    Object.assign(fake, signedOut());
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    const said: string[] = [];
+    c.onSay((t) => said.push(t));
+    signInFirst(c, "Sign in to follow people.");
+    expect(fake.unlock).toHaveBeenCalledTimes(1);
+    expect(said).toEqual(["Sign in to follow people.", "A window from signin.example has opened. Say yes there, and you are signed in here."]);
+  });
+
+  it("only says why where nobody can sign in, and never signs anyone out", () => {
+    for (const state of ["none", "unlocked"] as const) {
+      Object.assign(fake, signedOut(), { state, host: state === "none" ? null : "signin.example" });
+      const c = createControls({ title: "A world" });
+      c.add(signerAction(c));
+      const said: string[] = [];
+      c.onSay((t) => said.push(t));
+      signInFirst(c, "Sign in to post a score.");
+      expect(said, state).toEqual(["Sign in to post a score."]);
+      expect(fake.unlock, state).not.toHaveBeenCalled();
+      expect(fake.lock, state).not.toHaveBeenCalled();
+    }
+  });
+
+  it("Show in Achievements and Post in Scores start it, with no word of where else to go", async () => {
+    Object.assign(fake, signedOut());
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    const show = vi.fn(async () => ({ ok: false, said: "" }));
+    const post = vi.fn(async () => ({ ok: false, said: "" }));
+    addAchievementControls(c, { achievements: { list: [{ id: "first", title: "First steps" }], earned: () => ["first"], shown: () => [], holders: () => new Promise<never>(() => {}), show, onChange: () => () => {}, onEarn: () => () => {} } as never, signedIn: () => false });
+    addScoreControls(c, { scores: { boards: [{ id: "laps", title: "Laps" }], best: () => 12, posted: () => null, words: (_: string, n: number) => `${n} laps`, standings: () => new Promise<never>(() => {}), post, onChange: () => () => {} } as never, signedIn: () => false });
+    const said: string[] = [];
+    c.onSay((t) => said.push(t));
+    c.run("achievements-show");
+    c.run("scores-post-laps");
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(fake.unlock).toHaveBeenCalledTimes(2);
+    expect(show).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(said.filter((t) => t.startsWith("Sign in"))).toEqual(["Sign in to show what you have earned.", "Sign in to post a score."]);
+    expect(said.some((t) => /under You/.test(t))).toBe(false);
+  });
+});
+

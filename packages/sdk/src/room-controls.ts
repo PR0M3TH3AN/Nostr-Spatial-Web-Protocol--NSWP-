@@ -10,6 +10,7 @@ import { askOwn, relaysOf, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
+import { signInFirst } from "./ui/sign-in-here.js";
 import { filesAnywhere, setFilesAnywhere } from "./file-hosts.js";
 import { chatSwitch, modelsSwitch, picturesSwitch } from "./visitor-switches.js";
 import { showsPictures } from "./picture.js";
@@ -1199,7 +1200,12 @@ export function addRoomControls(
           await presence.join(invited);
           controls.signal("join");
         } catch (err) {
-          tell(`Couldn't join: ${err instanceof Error ? err.message : String(err)}`);
+          const why = `Couldn't join: ${err instanceof Error ? err.message : String(err)}`;
+          // A room only for people who are signed in: signing in starts there and then, as from You.
+          if (/Sign in, then join\.$/.test(why)) {
+            last = why;
+            signInFirst(controls, why);
+          } else tell(why);
         } finally {
           busy = false;
           refresh();

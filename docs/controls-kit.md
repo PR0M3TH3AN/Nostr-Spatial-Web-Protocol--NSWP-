@@ -479,7 +479,9 @@ with the id `sign-in-my-tab`. It does what You's row does, in one press (the
 client's sign-in under a client that has one, the sign-in window otherwise),
 and isn't there once they are signed in or where no signer is named. The
 kit's own Achievements and Scores tabs use it while something waits on
-signing in.
+signing in. And a press of the kit's that needs signing in, made signed out
+(Follow, Write, Show, Post, joining a room only for people who are signed
+in), says why and starts the sign-in there and then.
 
 When who they are here changes, the HUD says so once at the top centre of
 the view: their picture and name under "Signed in as", for a few seconds, and

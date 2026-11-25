@@ -9146,6 +9146,17 @@ postMessage({ t: "started" });
     };
   }
 
+  // packages/sdk/src/ui/sign-in-here.ts
+  var offers = /* @__PURE__ */ new WeakMap();
+  function offerSignIn(controls2, offer) {
+    offers.set(controls2, offer);
+  }
+  function signInFirst(controls2, line3) {
+    controls2.say(line3);
+    const offer = offers.get(controls2);
+    if (offer?.wanted()) offer.press();
+  }
+
   // packages/sdk/src/following.ts
   var PAGE = 24;
   function keyIn(text2) {
@@ -9175,13 +9186,13 @@ postMessage({ t: "started" });
         if (done.ok && adding) void profiles.fetch([pubkey]);
         refresh();
       };
-      if (!f.pubkey()) return say3("Sign in to follow people.");
+      if (!f.pubkey()) return signInFirst(controls2, "Sign in to follow people.");
       if (f.allowed()) return void now();
       say3(f.ask(() => void now()));
     };
     const byKey = async (typed) => {
       const me = f.pubkey();
-      if (!me) return say3("Sign in to follow people.");
+      if (!me) return signInFirst(controls2, "Sign in to follow people.");
       let text2 = typed ?? "";
       const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
       if (typed !== void 0) {
@@ -51836,12 +51847,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
   }
 
-  // packages/sdk/src/ui/sign-in-here.ts
-  var offers = /* @__PURE__ */ new WeakMap();
-  function offerSignIn(controls2, offer) {
-    offers.set(controls2, offer);
-  }
-
   // packages/sdk/src/ui/identity.ts
   function signerNamed() {
     if (!signerAt(arrival.signer())) return false;
@@ -58714,7 +58719,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const write = (pubkey) => {
       const me = hand.pubkey();
-      if (!me) return say3("Sign in to write to people.");
+      if (!me) return signInFirst(controls2, "Sign in to write to people.");
       if (pubkey === me) return;
       const go2 = () => void m.load().then(() => open3(pubkey));
       if (hand.allowed()) return go2();
@@ -59741,7 +59746,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             await presence3.join(invited);
             controls2.signal("join");
           } catch (err) {
-            tell2(`Couldn't join: ${err instanceof Error ? err.message : String(err)}`);
+            const why = `Couldn't join: ${err instanceof Error ? err.message : String(err)}`;
+            if (/Sign in, then join\.$/.test(why)) {
+              last = why;
+              signInFirst(controls2, why);
+            } else tell2(why);
           } finally {
             busy = false;
             refresh();

@@ -1,7 +1,8 @@
-// A "Sign in" row wherever a tab says to sign in (the owner, 2026-11-25: "can we have a "sign in" button anywhere in
-// the menus that we say something like "sign into bitlogin to use this feature""). Signed out, every tab that says
-// to sign in has the row at its top; one real press of it opens the sign-in, as You's row does; signed in, there is
-// no such row anywhere.
+// A "Sign in" press wherever the menu says to sign in (the owner, 2026-11-25: "can we have a "sign in" button anywhere
+// in the menus that we say something like "sign into bitlogin to use this feature""). Signed out, every line that
+// says to sign in is next to a press that does it (the "Sign in" row at the top of its tab) or is itself one (Show,
+// Post); one real press of either opens the sign-in, as You's row does; nothing says "under You"; signed in, there is
+// no "Sign in" row anywhere.
 //
 // What is real: this checkout's own build of the Arcade (sites/arcade/dist), which has Achievements and Scores, in a
 // real Chrome, pressed with the mouse. What is stood in: the sign-in address (its hidden signer, which says nobody is
@@ -131,6 +132,24 @@ try {
   }
   check("one press opens the sign-in window", popups.length === 1 && windows.length === 1, { popups: popups.length, windows });
   check("and says so, as You's row does", said.includes("A window from bitlogin.network has opened. Say yes there, and you are signed in here."), said);
+
+  // The row whose own words say to sign in (Show, in Achievements) is a press that does it too.
+  for (const p of popups) await p.close().catch(() => {});
+  await page.bringToFront();
+  const before = popups.length;
+  const showAt = await page.evaluate(() => {
+    const row = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].find((b) => /Sign in to show the 1 you have earned/.test(b.textContent));
+    if (!row) return null;
+    const r = row.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  });
+  if (showAt) {
+    await page.mouse.click(showAt[0], showAt[1]);
+    await page.waitForTimeout(1500);
+  }
+  check("a row that says to sign in, pressed, opens the sign-in too", !!showAt && popups.length === before + 1 && said.includes("Sign in to show what you have earned."), { showAt, popups: popups.length - before, said });
+  const everything = [...out.flatMap((t) => [t.note, ...t.items.map((i) => i.label)]), ...said];
+  check("nothing in the menu, or said, sends them under You", !everything.some((t) => /under You/.test(t)), everything.filter((t) => /under You/.test(t)));
 
   // Signed in, at the sign-in address: no such row anywhere.
   for (const p of popups) await p.close().catch(() => {});
