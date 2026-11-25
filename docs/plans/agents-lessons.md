@@ -1952,6 +1952,30 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## The companion's free pass, paid powers that stop for everyone at once, and the holodeck line (D109 to D111, 2026-11-25; free)
+
+- **A companion looks only to see** (shown, free: D109): its eyes asked
+  for a look on 26 of 30 everyday lines ("hello there", "follow me
+  please"). Now only for a thing the place doesn't name, or to tell
+  several apart. Its memory sent every "who someone is" with every
+  request; now at most six, the named first. Both matter at scale.
+- **With no key, or the credit run out, an agent carries on as an NPC and
+  sends nothing more** (built, free: D110), on the owner's rule. One
+  record of paid powers (chat, JEV, speech, sight) is shared by every
+  agent on a page, so the first refusal stops them all; a refused power
+  is tried again once after half an hour, or as soon as a key is set.
+  *For the kit:* a host that runs many agents keeps one such record, so
+  no agent re-asks a service that has said no.
+- **The holodeck line** (built, free: D111), the owner's: a cast member
+  knows only its world and never sees a BitPortal door; a companion knows
+  it lives in BitPortal, sees the doors, and goes world to world with its
+  owner. Much the same abilities; the companion has fewer limits and,
+  later, a memory kept on Nostr. *For a world:* declare its BitPortal
+  doors so a companion can be told of them (a playground word for now;
+  no name is given). *For the protocol:* going through a door with a
+  companion needs BitPortal's hand-off, and a companion's memories should
+  carry the world they were made in.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
