@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The artist's hands, in the headset</title>
+<link rel="icon" href="data:,">
+<!--
+  One page for the owner's Quest 3S (docs/backlog/hands-in-a-headset.md, part 2): the 3D artist's hands and
+  controllers (bitportal-art), drawn on each controller's grip and moved by its trigger, grip and thumb. It writes
+  down what the headset reports: each input's profile ids, and whether hands and controllers are tracked at once.
+
+  A trial's page: answered by the local service under the Gallery's local copy at /trial-pages/quest-hands/, with the
+  Gallery's own headers, and never part of any site's build (scripts/trial-pages.mjs). Its script (hands.js) and the
+  four models (models/) are made beside it by scripts/quest-hands.mjs and are not in the repository: the models are
+  the art repository's, and nothing of this goes into the kit until the owner says yes to the look.
+-->
+<style>
+  html, body { margin: 0; background: #040b10; color: #eef5fb; font: 500 19px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; }
+  #stage { position: fixed; inset: 0; }
+  main { position: relative; max-width: 900px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  #status { margin: 8px 0 14px; color: #9fe8ff; }
+  button { font: inherit; font-size: 22px; padding: 12px 24px; border-radius: 12px; border: 1px solid #58c8f0; background: #0e1a26; color: #eef5fb; }
+  button:disabled { opacity: .45; }
+  ol { margin: 16px 0 0; padding: 12px 12px 12px 36px; background: rgba(6, 14, 22, .85); border: 1px solid #23364a; border-radius: 12px; font-size: 15px; overflow-wrap: anywhere; }
+</style>
+<div id="stage"></div>
+<main>
+  <h1>The artist's hands, in the headset</h1>
+  <p id="status">Loading the models…</p>
+  <button id="enter" disabled>Enter VR</button>
+  <ol id="log"></ol>
+</main>
+<script type="module" src="hands.js"></script>
+</html>
