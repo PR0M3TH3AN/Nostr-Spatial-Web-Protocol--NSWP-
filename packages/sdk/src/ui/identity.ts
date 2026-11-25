@@ -260,8 +260,8 @@ const rulesWatchers = new Set<() => void>();
  * people are shown, and, where the world is by invitation, who may be in them. Nothing, false and null where the
  * page has no gate. A room joined here takes them (presence.ts).
  */
-export function pageRules(): { blocked: readonly string[]; namedOnly: boolean; invited: readonly string[] | null; takesGuests: boolean } {
-  return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited, takesGuests: pageGate.takesGuests } : { blocked: [], namedOnly: false, invited: null, takesGuests: true };
+export function pageRules(): { blocked: readonly string[]; namedOnly: boolean; invited: readonly string[] | null; takesGuests: boolean; guestItems: boolean } {
+  return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited, takesGuests: pageGate.takesGuests, guestItems: pageGate.guestItems } : { blocked: [], namedOnly: false, invited: null, takesGuests: true, guestItems: true };
 }
 /** Be told when those rules may have changed. Returns how to stop. */
 export function onPageRules(fn: () => void): () => void {

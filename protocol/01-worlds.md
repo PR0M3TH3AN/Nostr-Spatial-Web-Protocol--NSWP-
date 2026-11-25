@@ -218,7 +218,7 @@ the world's own address, and from nowhere else: the world never passes it
 along when it asks ([NSWP-10](10-identity.md), "Tips, buying, and
 receipts"). The file is readable from any site, as it already must be.
 
-`keepers`, `named_only`, `by_invitation` and `guests`, inside a world's own entry, are the world's
+`keepers`, `named_only`, `by_invitation`, `guests` and `guest_items`, inside a world's own entry, are the world's
 own rules for who comes in ([NSWP-10](10-identity.md), "A world's own
 lists"):
 
@@ -240,8 +240,12 @@ lists"):
   out; any other value is ignored with a warning. A world that wants only
   secured accounts says this; `named_only` alone lets guests in, since a
   guest's pass checks out.
+- `guest_items`: `false` says guest accounts may not use items here, though
+  they may come in ([NSWP-17](17-items.md), "Guests"). Left out, they may
+  where its `items` rule lets anyone. Only exactly `false` keeps them from
+  items; any other value is ignored with a warning.
 
-All four are left out of the example above because most worlds say neither.
+All five are left out of the example above because most worlds say neither.
 
 `access`, inside a world's own entry, is the same list of listings the
 announcement gives, as the site itself says it: an array of coordinates.

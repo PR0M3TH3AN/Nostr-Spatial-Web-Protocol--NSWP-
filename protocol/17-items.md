@@ -102,6 +102,8 @@ What a thing is, is said once by its maker, in an addressable note
   `back`, `hand-left`, `hand-right` or `side`.
 - **`use`** is `anyone` (the default) or `granted`: only for someone its
   maker has granted it to.
+- **`guests`**, `no`: a guest account may not use it, wherever they are
+  ("Guests", below). Left out, guests may, where the world lets them.
 - **`script`** is what it does of its own, where it does anything. See
   below.
 - **`sound`** is one of its own sounds, by a short plain name: twelve at
@@ -508,8 +510,26 @@ naming each item by its coordinate:
   press. They are items like any other: someone else's, taken up.
 - 200 items at most are read from one.
 
-Carrying an item into a world is tied to who they are there. A guest
-carries nothing.
+Carrying an item into a world is tied to who they are there. A guest of
+one visit, with no key of their own, carries nothing.
+
+### Guests
+
+A **guest account** ([NSWP-10](10-identity.md), "A guest") has a key of its
+own and a bag, the same in every world: its client may start it with a
+few things (BitPortal's starter set). A guest holds and uses an item where
+both of these let them:
+
+- **the world:** its announcement's own entry says `"guest_items": false`
+  to keep guests from its items ([NSWP-01](01-worlds.md)). Left out, guests
+  may use items wherever its `items` rule lets anyone;
+- **the item's maker:** its description says `["guests", "no"]` to keep
+  guests from it, wherever they are.
+
+Where either says no, a guest is told so when they reach for it, with
+"Secure your account" to use it. Nobody else draws what a guest holds there
+either, since nobody there may use it. A guest has no wallet, so what they
+have is what was given to them free.
 
 ## Holding one
 

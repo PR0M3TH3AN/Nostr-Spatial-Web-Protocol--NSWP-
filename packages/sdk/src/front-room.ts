@@ -123,6 +123,8 @@ export interface PaidGate {
   readonly namedOnly: boolean;
   /** Whether guest accounts may come in (its manifest's `guests`; true where it says nothing). Not `guests`, the guest list. */
   readonly takesGuests: boolean;
+  /** Whether guest accounts may use items here (its manifest's `guest_items`; true where it says nothing). */
+  readonly guestItems: boolean;
   /** How the owner's block list stands. */
   readonly lists: ListState;
   /** Whether this world is by invitation (its manifest's `by_invitation`). */
@@ -309,6 +311,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
   let ownerBlocked: string[] = [];
   let namedOnly = false;
   let takesGuests = true;
+  let guestItems = true;
   let byInvitation = false;
   let inviteState: ListState = "none";
   let invited: string[] = [];
@@ -570,6 +573,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     worldName = access.d;
     namedOnly = access.namedOnly;
     takesGuests = access.takesGuests;
+    guestItems = access.guestItems;
     listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
     // Whether it meant to be paid: it named something, here or in its own file, whether or not that held up.
     const named = (file as { worlds?: Record<string, { access?: unknown }> } | null)?.worlds?.[access.d]?.access;
@@ -668,6 +672,9 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     },
     get takesGuests() {
       return takesGuests;
+    },
+    get guestItems() {
+      return guestItems;
     },
     get lists() {
       return listState;
@@ -778,7 +785,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       return () => void watchers.delete(fn);
     },
     info() {
-      return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held ? held.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1000) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, takesGuests, byInvitation, invites: inviteState, invited: invited.length };
+      return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held ? held.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1000) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, takesGuests, guestItems, byInvitation, invites: inviteState, invited: invited.length };
     },
     dispose() {
       disposed = true;

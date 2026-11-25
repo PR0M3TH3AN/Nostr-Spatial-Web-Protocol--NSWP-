@@ -19,7 +19,7 @@ import { setAimScale } from "./desk.js";
 import { applyTints, showsItems, type Items } from "./items.js";
 import { createPlay, mayHold, type Play, type PlayOptions } from "./play.js";
 import type { ItemBoxOptions } from "./item-box.js";
-import { byName, onPageRules, pageRules } from "./ui/identity.js";
+import { byName, onPageRules, pageRules, signerNamed, worldSigner } from "./ui/identity.js";
 import { chooseLooks, createLookModels, lookBudget, worldDrawsModels, onModelsChange, ownLookNote, showsModels, type LookModels, type LookRefusal } from "./look-models.js";
 import { LOOK_HEIGHT, lookHeight, markGrid, type NostrEvent } from "@nswp/core";
 
@@ -43,7 +43,7 @@ export interface PresenceOptions {
    * room is joined, and again when `rulesChanged()` is called. Left out, the page's own gate's (`pageRules` in
    * ui/identity.ts), taken again whenever that gate reads a change; with no gate, a room is as it always was.
    */
-  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null; takesGuests?: boolean };
+  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null; takesGuests?: boolean; guestItems?: boolean };
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   /** The object that moves the visitor around; the camera is inside it. */
@@ -500,7 +500,7 @@ export function speechSprite(text: string, width = 0.8): THREE.Sprite {
 
 export function createPresence(d: PresenceOptions): Presence {
   /** The world's rules for its rooms: as given, or as this page's gate last read them. */
-  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null; takesGuests?: boolean } => d.worldRules?.() ?? pageRules();
+  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null; takesGuests?: boolean; guestItems?: boolean } => d.worldRules?.() ?? pageRules();
   /** A room here takes the world's rules as they now stand. */
   const takeRules = (): void => {
     const now = rulesNow();
@@ -754,6 +754,8 @@ export function createPresence(d: PresenceOptions): Presence {
     if (!item || !d.items || itemsRule() === "none" || !showsItems()) return;
     const described = await d.items.describe(item);
     if (!described || a.heldItem !== item || !canBeHeld(described) || described.use === "granted") return;
+    // A guest account's item, where this world or its maker keeps guests from it: not drawn, as nobody here may use it.
+    if (a.member.guestAccount && (rulesNow().guestItems === false || !described.guests)) return;
     const model = await d.items.model(described, a.tints);
     if (a.heldItem !== item) return;
     // They may have said their colours while it was being fetched.
@@ -1385,7 +1387,9 @@ export function createPresence(d: PresenceOptions): Presence {
       if (!d.items) return { ok: false, said: "Nothing carried is drawn or works in this place." };
       // The same rules, and the same words, in every world whatever draws it (`mayHold`).
       const described = itemsRule() === "none" || !showsItems() ? null : await d.items.describe(item);
-      const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript });
+      // A guest account, by its pass or its signer: held to what this world and the item's maker let guests use.
+      const guest = session?.self.guestAccount === true || (signerNamed() && worldSigner().guest === true);
+      const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript, guest, guestItems: rulesNow().guestItems !== false });
       if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
       mineTints = cleanTints(described, tints ?? {});
       const model = await d.items.model(described, mineTints);

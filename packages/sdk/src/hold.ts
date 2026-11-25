@@ -33,11 +33,14 @@ export function allowScript(sha256: string): void {
  * words whatever draws the world. `asked` remembers the script the visitor was last told about, so that a second
  * press on the same item is their yes to it.
  */
-export function mayHold(described: Item | null, o: { rule: string; scripts: boolean; asked: { sha: string } }): { ok: true } | { ok: false; said: string } {
+export function mayHold(described: Item | null, o: { rule: string; scripts: boolean; asked: { sha: string }; guest?: boolean; guestItems?: boolean }): { ok: true } | { ok: false; said: string } {
   if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
   if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
   if (!described) return { ok: false, said: "That item's description couldn't be found." };
   if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+  // A guest account (protocol/17-items.md, "Guests"): where this world or the item's maker keeps guests from it.
+  if (o.guest && o.guestItems === false) return { ok: false, said: "Guests can't use items in this world. Secure your account to use them here." };
+  if (o.guest && !described.guests) return { ok: false, said: `${described.title} isn't for guests. Secure your account to use it.` };
   // An item that must be granted needs its maker's grant checked, which nothing here does yet.
   if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
   // An item that does things of its own runs its maker's code, shut away. They are told so, and who wrote it, the

@@ -15,7 +15,8 @@
   guest's first bag in one note. Next: the guest is themselves in every
   world (below). The kit's half in four parts (agreed 2026-11-25): asking for
   the guest and a guest's pass in rooms (merged, 19c7252, not live); a world's
-  `"guests": false` (built, not merged); items for guests; what a guest is told.
+  `"guests": false` (merged, 09f2bcf, not live); items for guests (built, not
+  merged); what a guest is told.
 - **Confirmed again, 2026-11-25:** "a guest should be the same guest in
   every world and they should have access to a bag with the free items
   that the worlds allow". So a guest is not Bag-only: in every world they
