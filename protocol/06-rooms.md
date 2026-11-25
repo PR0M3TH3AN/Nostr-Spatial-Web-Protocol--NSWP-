@@ -48,6 +48,7 @@ Members find each other with events of kind `27301` on public relays, tagged
 | `offer` | one member | `{"t":"offer","sdp":"…"}` |
 | `answer` | one member | `{"t":"answer","sdp":"…"}` |
 | `bye` | one member | `{"t":"bye"}` |
+| `full` | one member | `{"t":"full"}`: this room is full; someone joining the world's default room goes on to the next lobby (below). A client that doesn't know `full` ignores it |
 
 A message to one member has a `["p", <their session key>]` tag and its
 content is encrypted to them with NIP-44. A `hello` is the only message in
@@ -65,7 +66,29 @@ Rules:
 - ICE candidates are not sent one at a time. Each side waits up to 2.5
   seconds for gathering and sends one complete description.
 - A member stops answering newcomers when the room is full for them. The
-  default is 8 members.
+  default is 8 members. Then one of them tells the newcomer `full` (below).
+
+### Lobbies that fill
+
+A world's default room is not one room but a row of them, filled one at a
+time: `lobby`, then `lobby-2`, `lobby-3` and on, at most 32 (with 8 to a
+room, 256 people). Each is a room like any other, with its own topic. A room
+by name is one room, and never moves anyone on.
+
+- **Everyone joins at `lobby`,** so the first fills back up first as people
+  leave.
+- **A full room says so, once.** When a room is full for a member and a
+  joining `hello` (with `first`) comes from someone not in it, the member with
+  the lowest session key of those it is connected to answers `full`; the
+  others say nothing. In a full room that is one member.
+- **Who joined first stays.** Where that member is connected to someone whose
+  joining `hello` was signed after the newcomer's (by `created_at`, then by
+  the higher session key), less than 15 seconds ago, it tells that one `full`
+  instead and lets the newcomer in. Two who arrive together are settled the
+  same way by everyone.
+- **Told `full` in a lobby,** a member says `bye` to anyone it is connected to
+  there and joins the next lobby on the same relays, with a joining `hello`.
+  At the last lobby, or in a room by name, it stays.
 
 ## The connection
 

@@ -26,6 +26,7 @@ import {
   packPose,
   ROOM_LIMITS,
   ROOM_SIGNAL_KIND,
+  lobbyName,
   roomTopic,
   shouldInitiate,
   unpackPose,
@@ -296,8 +297,10 @@ const PASS_TRIES = 4;
 
 export class RoomSession {
   readonly self: Member;
-  readonly name: string;
-  readonly topic: string;
+  /** The room's name. For the default room it changes as a full lobby sends this visitor on: "lobby", "lobby-2", … */
+  name: string;
+  /** Where its handshake happens (`roomTopic`): changes with the name. */
+  topic: string;
   status: RoomStatus = "connecting";
 
   private readonly key: Uint8Array;
@@ -342,6 +345,12 @@ export class RoomSession {
   private readonly look: string | null;
   /** The world's origin: the only place a pass shown here may have been made for. */
   private readonly origin: string;
+  /** The world's address, which the room's topic is made from. */
+  private readonly world: string;
+  /** Which lobby this is, where it is the world's default room ("lobby" is 1); null for a room by name. */
+  private lobby: number | null = null;
+  /** When each member's joining hello was signed, in seconds: who joined before whom, for a full lobby. */
+  private readonly joinedAtOf = new Map<string, number>();
   /** This visitor's own pass, as it is said to the others, and when it stops. */
   private pass: string | null = null;
   /** This visitor's own look note, as it is handed to each member: only where it is their pass's key's. */
@@ -413,6 +422,9 @@ export class RoomSession {
       }
     }
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
+    this.world = world;
+    // Only the default room fills a lobby at a time: always from the first, so the first fills back up first.
+    this.lobby = this.name === "lobby" ? 1 : null;
     this.topic = roomTopic(world, this.name);
     this.relays = opts.relays ?? [...ROOM_RELAYS];
     this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
@@ -597,11 +609,19 @@ export class RoomSession {
         case "hello":
         case "welcome": {
           if (existing) return;
-          if (this.peers.size >= this.maxMembers - 1) return; // room is full for us
+          const at = (raw as { created_at?: unknown }).created_at;
+          if (message.t === "hello" && message.first === true && typeof at === "number") {
+            if (this.joinedAtOf.size > 500) this.joinedAtOf.clear();
+            this.joinedAtOf.set(from, at);
+          }
+          if (this.peers.size >= this.maxMembers - 1) {
+            // Full for us. Someone joining is told so, by one member only, so they go on to the next lobby at once.
+            if (message.t === "hello" && message.first === true && typeof at === "number" && this.answersForFull()) this.tellFull(from, at);
+            if (this.peers.size >= this.maxMembers - 1) return;
+          }
           // Someone's joining hello (`first`), signed after this visitor joined: they arrived after them. Those already
           // here answer this visitor's own hello instead, and their hello every 20 seconds isn't marked. Two who
           // joined in the same second are told apart by their session keys, so exactly one is the later.
-          const at = (raw as { created_at?: unknown }).created_at;
           if (message.t === "hello" && message.first === true && typeof at === "number" && (at > this.joinedAt || (at === this.joinedAt && from > this.self.pubkey))) this.newer.add(from);
           if (shouldInitiate(this.self.pubkey, from)) await this.offerTo(from);
           else if (message.t === "hello") this.publish(buildSignal(this.topic, this.key, from, { t: "welcome" }));
@@ -623,6 +643,10 @@ export class RoomSession {
         case "bye":
           this.attempts.delete(from);
           this.drop(from, true);
+          return;
+        case "full":
+          // The lobby is full: on to the next, where there is one. A room by name is one room, and stays as it is.
+          if (this.lobby !== null && this.lobby < ROOM_LIMITS.lobbies) this.moveOn(this.lobby + 1);
           return;
       }
     } catch (err) {
@@ -1210,6 +1234,66 @@ export class RoomSession {
       return;
     }
     if (peer.attempt >= 2) this.emit("unreached", pubkey);
+  }
+
+  /**
+   * Whether this visitor is the one who tells a newcomer that this full room is full: the member with the lowest
+   * session key of those it is connected to, so a newcomer hears it once, not from everyone here.
+   */
+  private answersForFull(): boolean {
+    for (const p of this.peers.values()) if (p.open && p.member.pubkey < this.self.pubkey) return false;
+    return true;
+  }
+
+  /**
+   * A newcomer (`from`, who signed their joining hello at `at`) finds this room full. Who stays is who joined first,
+   * then the lower key: where someone here joined after them, only a moment ago, it is that one who is told to go
+   * on, and the newcomer takes their place. Otherwise the newcomer is told.
+   */
+  private tellFull(from: string, at: number): void {
+    const now = Math.floor(Date.now() / 1000);
+    const later = (k: string, t: number) => t > at || (t === at && k > from);
+    let last: { pubkey: string; at: number } | null = null;
+    for (const p of this.peers.values()) {
+      const t = this.joinedAtOf.get(p.member.pubkey);
+      if (t === undefined || now - t > 15 || !later(p.member.pubkey, t)) continue;
+      if (!last || t > last.at || (t === last.at && p.member.pubkey > last.pubkey)) last = { pubkey: p.member.pubkey, at: t };
+    }
+    const go = last ? last.pubkey : from;
+    this.publish(buildSignal(this.topic, this.key, go, { t: "full" }));
+    if (last) this.drop(last.pubkey, true);
+  }
+
+  /**
+   * Told that this lobby is full: say goodbye to anyone here, and go to lobby `n` on the same relays, as someone
+   * just joining it. The sockets stay open; only what they listen for changes.
+   */
+  private moveOn(n: number): void {
+    const name = lobbyName(n);
+    if (!name || this.closed) return;
+    for (const pubkey of [...this.peers.keys()]) {
+      try {
+        this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+      } catch {
+        /* best effort */
+      }
+      this.drop(pubkey, true);
+    }
+    this.newer.clear();
+    this.attempts.clear();
+    this.joinedAtOf.clear();
+    this.lobby = n;
+    this.name = name;
+    this.topic = roomTopic(this.world, name);
+    this.joinedAt = Math.floor(Date.now() / 1000);
+    for (const ws of this.sockets.values()) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      // The same subscription, asked again: it now listens to the next lobby only.
+      ws.send(JSON.stringify(["REQ", "room", { kinds: [ROOM_SIGNAL_KIND], "#x": [this.topic], since: Math.floor(Date.now() / 1000) - 5 }]));
+      ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key, undefined, { first: true })]));
+    }
+    // Said again, so a page shows the room's new name.
+    this.emit("status", this.status);
   }
 
   private sweep(): void {
