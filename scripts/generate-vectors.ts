@@ -1782,7 +1782,7 @@ const files: Record<string, unknown> = {
   const counting = [
     { name: "rows_in_one_tab", sent: `one tab of ${MENU_LIMITS.rows + 5} rows`, world: { sections: [{ id: "room", rows: many(MENU_LIMITS.rows + 5) }] } },
     { name: "rows_in_all", sent: `nine tabs of 30 rows each (270)`, world: { sections: tabs.map((id) => ({ id, rows: many(30, id) })) } },
-    { name: "tabs", sent: `fourteen tabs: nine every place has, three of the visitor's own, then two of the world's`, world: { sections: [...tabs, "bag", "you", "look", "one", "two"].map((id) => ({ id, label: id, rows: [] })) } },
+    { name: "tabs", sent: `eighteen tabs: the twelve a world may fill, three of the visitor's own, then three of the world's; ${MENU_LIMITS.sections} are read, so the world's second and third are past the limit`, world: { sections: [...MENU_WORLD_TABS, "bag", "you", "look", "one", "two", "three"].map((id) => ({ id, label: id, rows: [] })) } },
     { name: "too_big", sent: `two hundred rows, each with ${MENU_LIMITS.copy} characters to copy`, world: { sections: tabs.map((id) => ({ id, rows: many(30, id).map((r) => ({ ...r, kind: "copy", copy: "c".repeat(MENU_LIMITS.copy) })) })) } },
   ].map((c) => {
     const got = cleanMenuWorld(c.world);
@@ -1790,7 +1790,7 @@ const files: Record<string, unknown> = {
   });
   expectEqual("menu-words/counting rows_in_one_tab", counting[0]!.expect && counting[0]!.expect.rows, [MENU_LIMITS.rows]);
   expectEqual("menu-words/counting rows_in_all", counting[1]!.expect && counting[1]!.expect.rows, [30, 30, 30, 30, 30, 30, 20, 0, 0]);
-  expectEqual("menu-words/counting tabs", counting[2]!.expect && counting[2]!.expect.tabs, tabs);
+  expectEqual("menu-words/counting tabs", counting[2]!.expect && counting[2]!.expect.tabs, [...MENU_WORLD_TABS, "one"]);
   expectEqual("menu-words/counting too_big", counting[3]!.expect, null);
 
   const down: { name: string; word: unknown; expect: unknown }[] = [

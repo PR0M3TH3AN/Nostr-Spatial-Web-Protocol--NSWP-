@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A place's menu may have 16 tabs, not 12, and tabs past it are said, not lost without a word** (core `menu.ts`: `MENU_LIMITS.sections`; `protocol/02-doors.md`; `vectors/menu-words.json`). A live fault BitPortal found on 0.93.0: with a guest's tabs, its room had 14, and Doors and Your computers vanished, since the client read only the first 12. BitPortal fitted its room into 12 as the live fix; this is the kit's half. The limit was given 2026-11-25.
+  - **`MENU_LIMITS.sections` is 16.**
+  - **A description with more:** the tabs past the sixteenth are still left out, as anything over a limit is. The reader now says so in the console, naming them: "nswp: this place's menu has more than 16 tabs; these are left out: …". It says it once for each set, since a world sends its description again on every change.
+  - **On a phone:** the strip of tabs already scrolls sideways, with an arrow at each end, so 16 tabs fit as 14 did; nothing in the layout changes. The Gallery's own menu has 14 tabs, and `trials/menu-rows.mjs` already holds its strip in place at a phone's width.
+  - **What it costs:** two more tabs are laid out ahead to keep the menu one size, about a seventh more of that idle-time measuring. None of it falls on a press.
+  - **Tried:**
+    - `menu.test.ts`: sixteen kept; the seventeenth said, by its id, once; the same description again says nothing more; sixteen or fewer say nothing.
+    - `vectors/menu-words.json` "tabs": eighteen sent, sixteen read.
 - **What a guest is told: "Secure this account first"** (SDK `ui/sign-in-here.ts`, `ui/identity.ts`, `client-frame.ts`, `achieving.ts`, `scoring.ts`, `following.ts`, `messaging.ts`, `front-room.ts`). Part 5, the last, of the kit's half of guest accounts. BitLogin signs only notes, reactions and the bag for a guest (its `prepareForGuest`); the rest wants the account secured, which keeps the same key and everything it has.
   - **`ClientPanelMode` gains `"secure"`** (given): the client opens the sign-in address's panel on "Secure this account" (BitLogin's mode). BitPortal's cast for it can go.
   - **Under You, a guest is told who they are** as they are signed in: "You're a guest. Every world in BitPortal knows it's the same guest. This account lives in this browser only: secure it, under You, to keep it." The row says "You're a guest on this device. Secure this account", and opens it.

@@ -802,14 +802,16 @@ fetched by the world, as a world fetches it today, and crosses as a
 bitmap. A world that feeds a picture as it runs (a camera's view, a
 watched screen) sends each new one the same way.
 
-**Limits a client holds a world to,** whatever it sends: 12 tabs, 60 rows
+**Limits a client holds a world to,** whatever it sends: 16 tabs, 60 rows
 in one, 200 rows in all, 120 characters in a label or any other short
 line, 400 in a note, a picture of 256 pixels a side, 2000 characters of
 text to copy, 500 typed into a field, 64 megabytes in a file going down
 or something to save going up, and 64 kilobytes of description without
 its pictures. Characters are counted as a reader counts them
 (code points). What is over is left out, not cut to fit: a row with a
-label too long is no row, and a description too big is no description. A
+label too long is no row, and a description too big is no description.
+Tabs past the sixteenth are left out too, and a client says so where whoever
+made the place can see it (the kit, in the console, naming them). A
 row of a kind the client doesn't know is left out, never guessed at.
 
 Nothing about the visitor is in any of the world's words. The client's
