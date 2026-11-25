@@ -43,7 +43,8 @@ green, without the tile.
 - The words "Menu" and the M told a first-time visitor what the button
   is and which key opens it. The mark alone is cleaner, as he wants; a
   hint on hover at a desk ("Menu, M") keeps the key findable without
-  words on the screen. Proposed, his to overrule.
+  words on the screen. **Decided by the owner, 2026-11-24: "Yes, hover
+  hint".** None on touch or in a headset.
 - Nothing about what the menu does changes; covers and the one size are
   measured from the button where it is, so the checks that read where
   the top row is must read it again.
