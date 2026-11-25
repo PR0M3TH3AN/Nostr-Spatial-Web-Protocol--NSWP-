@@ -114,6 +114,23 @@ the same way. The orchestrator says what is live.
     the owner may be merged as a draft, but nothing is built from it until
     they are answered. Never in BitLogin, where a merge to `main` deploys.
 
+14. **One heavy run at a time on this machine** (the owner, 2026-11-24,
+    "yeah this machine is basically maxed out. how can we improve our
+    efficiency?", then "yeah do what you think is best"). Gates, browser
+    trials, full checks and big builds, in every project, take one lock
+    first and wait their turn: `$HOME/.cache/bitblocks-heavy.lock`, held
+    with `flock`, and `BITBLOCKS_HEAVY_HELD=1` set while it is held so a
+    run started inside one goes straight on. In NSWP, `npm run gate` and
+    `npm run trial` take it (`scripts/heavy.sh`); BitPortal's gate,
+    BitLogin's full check and BitBrowser's builds take the same file. A
+    run that waited is not a slow run, and a run made outside the lock
+    while another holds it is the thing this rule is for: don't.
+    **And the orchestrator does not run what the author already ran on the
+    same commit:** it runs the gate and the trial the change is about, and
+    the trials without the graphics card only where the change touches
+    drawing or timing, and takes the author's other counts on that head as
+    reported.
+
 ## What a bigger fleet taught us
 
 The owner runs a fleet of about fifty sessions on another project, and sent
