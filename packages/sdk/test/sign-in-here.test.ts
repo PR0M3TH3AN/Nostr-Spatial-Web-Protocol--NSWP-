@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * the menus that we say something like "sign into bitlogin to use this feature""). Its press is You's sign-in row's,
  * in one press; it isn't there once signed in, or where nobody can sign in. The signer is a stand-in.
  */
-type Fake = { state: "none" | "locked" | "unlocked"; asking: boolean; unanswered: boolean; host: string | null; panel: boolean; pubkey: string | null; name: string | null; unlock: ReturnType<typeof vi.fn>; lock: ReturnType<typeof vi.fn> };
+type Fake = { state: "none" | "locked" | "unlocked"; asking: boolean; unanswered: boolean; host: string | null; panel: boolean; pubkey: string | null; name: string | null; guest: boolean | null; unlock: ReturnType<typeof vi.fn>; lock: ReturnType<typeof vi.fn> };
 /** The page keeps one signer (worldSigner): each test changes this one, never makes another. */
 const fake = {} as Fake;
 vi.mock("../src/signer.js", async (original) => ({
@@ -16,11 +16,13 @@ vi.mock("../src/signer.js", async (original) => ({
 const { createControls } = await import("../src/ui/model.js");
 const { signInHere } = await import("../src/ui.js");
 const { signerAction } = await import("../src/ui/identity.js");
-const { signInFirst } = await import("../src/ui/sign-in-here.js");
+const { signInFirst, guestHere } = await import("../src/ui/sign-in-here.js");
 const { addAchievementControls } = await import("../src/achieving.js");
 const { addScoreControls } = await import("../src/scoring.js");
 
-const signedOut = (): Fake => ({ state: "locked", asking: false, unanswered: false, host: "signin.example", panel: false, pubkey: null, name: null, unlock: vi.fn(() => true), lock: vi.fn() });
+const signedOut = (): Fake => ({ state: "locked", asking: false, unanswered: false, host: "signin.example", panel: false, pubkey: null, name: null, guest: null, unlock: vi.fn(() => true), lock: vi.fn() });
+/** Signed in as a guest account the sign-in address made (protocol/10-identity.md, "A guest"). */
+const asGuest = (): Fake => ({ ...signedOut(), state: "unlocked", pubkey: "c".repeat(64), guest: true });
 const row = (c: ReturnType<typeof createControls>, section: string) => c.view().sections.find((s) => s.id === section)?.items ?? [];
 const shownIds = (c: ReturnType<typeof createControls>) => c.view().sections.flatMap((s) => s.items.map((i) => i.id));
 
@@ -174,6 +176,71 @@ describe("a press that needs signing in, made signed out", () => {
     expect(post).not.toHaveBeenCalled();
     expect(said.filter((t) => t.startsWith("Sign in"))).toEqual(["Sign in to show what you have earned.", "Sign in to post a score."]);
     expect(said.some((t) => /under You/.test(t))).toBe(false);
+  });
+});
+
+describe("a guest account, where a tab needs more than a guest may do", () => {
+  it("is offered Secure this account, and its press opens that, not a sign-in or a sign-out", () => {
+    Object.assign(fake, asGuest());
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    c.add(signInHere(c, "my-tab"));
+    expect(guestHere(c)).toBe(true);
+    const [first] = row(c, "my-tab");
+    expect(first).toMatchObject({ id: "sign-in-my-tab", label: "Secure this account", short: "Secure" });
+    const said: string[] = [];
+    c.onSay((t) => said.push(t));
+    c.run("sign-in-my-tab");
+    return Promise.resolve().then(() => {
+      expect(fake.unlock).not.toHaveBeenCalled();
+      expect(fake.lock).not.toHaveBeenCalled();
+      // No client frames this page in a test: BitPortal's menu is where it can be done.
+      expect(said).toEqual(["Secure this account from BitPortal's menu: only signin.example's page there can see this guest."]);
+    });
+  });
+
+  it("is asked to secure it first by a press that needs more, in one press", () => {
+    Object.assign(fake, asGuest());
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    const said: string[] = [];
+    c.onSay((t) => said.push(t));
+    signInFirst(c, "Sign in to follow people.");
+    expect(said[0]).toBe("Secure this account first.");
+    expect(fake.unlock).not.toHaveBeenCalled();
+  });
+
+  it("is told under You what it is, and offered to secure it there", () => {
+    Object.assign(fake, asGuest());
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    expect(row(c, "you").find((i) => i.id === "signer")?.label).toBe("You're a guest on this device. Secure this account");
+  });
+
+  it("is asked to secure it to show what it earned, and to post a score: its sign-in address signs neither for a guest", async () => {
+    Object.assign(fake, asGuest());
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    const show = vi.fn(async () => ({ ok: false, said: "" }));
+    const post = vi.fn(async () => ({ ok: false, said: "" }));
+    addAchievementControls(c, { achievements: { list: [{ id: "first", title: "First steps" }], earned: () => ["first"], shown: () => [], holders: () => new Promise<never>(() => {}), show, onChange: () => () => {}, onEarn: () => () => {} } as never, signedIn: () => true });
+    addScoreControls(c, { scores: { boards: [{ id: "laps", title: "Laps" }], best: () => 12, posted: () => null, words: (_: string, n: number) => `${n} laps`, standings: () => new Promise<never>(() => {}), post, onChange: () => () => {} } as never, signedIn: () => true });
+    expect(row(c, "achievements").map((i) => i.label).slice(0, 2)).toEqual(["Secure this account", "Secure this account to show the 1 you have earned"]);
+    expect(row(c, "scores")[0]?.label).toBe("Secure this account");
+    c.run("achievements-show");
+    c.run("scores-post-laps");
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(show).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("is not a guest when the sign-in address says an account", () => {
+    Object.assign(fake, asGuest(), { guest: false });
+    const c = createControls({ title: "A world" });
+    c.add(signerAction(c));
+    c.add(signInHere(c, "my-tab"));
+    expect(guestHere(c)).toBe(false);
+    expect(row(c, "my-tab")).toEqual([]);
   });
 });
 

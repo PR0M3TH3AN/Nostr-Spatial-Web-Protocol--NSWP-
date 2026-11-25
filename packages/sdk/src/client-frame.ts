@@ -111,7 +111,7 @@ let panelFailed = false;
 const panelWatchers = new Set<(open: boolean, failed: boolean, allowed: boolean) => void>();
 
 /** What a panel can be asked for. */
-export type ClientPanelMode = "ask" | "switch" | "account" | "files" | "wallet" | "library";
+export type ClientPanelMode = "ask" | "switch" | "account" | "files" | "wallet" | "library" | "secure";
 /** Where the world's menu is on the screen, in CSS pixels: its left edge, its width, and how far its foot is from the bottom. */
 export interface MenuPlace {
   left: number;

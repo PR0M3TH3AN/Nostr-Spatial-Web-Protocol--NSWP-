@@ -20,7 +20,7 @@ const v = JSON.parse(readFileSync(join(root, "vectors/menu-words.json"), "utf8")
 
 describe("the menu's words, by the examples", () => {
   it("has examples of every kind", () => {
-    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([21, 47, 32, 4]);
+    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([22, 47, 32, 4]);
   });
   for (const c of v.describing) it(`a description: ${c.name}`, () => expect(cleanMenuWorld(c.world, c.opts)).toEqual(c.expect));
   for (const c of v.down) it(`a word from the page above: ${c.name}`, () => expect(readMenuWordDown(c.word)).toEqual(c.expect));

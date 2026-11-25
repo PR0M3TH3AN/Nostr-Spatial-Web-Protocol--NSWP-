@@ -206,6 +206,11 @@ export interface MenuState {
   headset: { supported: boolean; presenting: boolean };
   /** Whether this world has the visitor's name. */
   named: boolean;
+  /**
+   * Whether who it has is a guest account (protocol/10-identity.md, "A guest"): a key their sign-in address made, not
+   * yet secured. Only where `named`. A client words its own You rows from it: who they are as a guest, and Secure.
+   */
+  guest: boolean;
   /** Where the world's own way of signing in stands (`MENU_SIGN_IN`). */
   signIn: MenuSignIn;
   /** The address of what is in their hand, or "". */
@@ -392,6 +397,7 @@ function readState(raw: unknown): MenuState {
     room: { has, joined: has && room.joined === true, mic: has && typeof room.mic === "boolean" ? room.mic : null, count: has ? n : 0 },
     headset: { supported: headset.supported === true, presenting: headset.supported === true && headset.presenting === true },
     named: s.named === true,
+    guest: s.named === true && s.guest === true,
     signIn: (MENU_SIGN_IN as readonly unknown[]).includes(s.signIn) ? (s.signIn as MenuSignIn) : "none",
     holding: id(s.holding) ?? "",
     items: cleanItemsRule(s.items),

@@ -33,6 +33,7 @@ import { createProfiles, type Profiles } from "./profiles.js";
 import { askWell, sendWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
 import type { Controls } from "./ui/model.js";
+import { guestHere, signInFirst } from "./ui/sign-in-here.js";
 
 /**
  * The gate's own times, in seconds. `grace`: how long someone inside has after their time runs out (the owner's
@@ -834,6 +835,8 @@ export function addGateControls(
 
   const press = (listing?: string): void => {
     const offer = gate.offers.find((o) => o.listing === listing) ?? gate.offers[0];
+    // A guest account has no wallet: asked to secure it first, in the same press.
+    if (gate.signedIn && guestHere(controls)) return signInFirst(controls, "Sign in to buy.");
     if (!gate.signedIn) {
       // Signing in is their own sign-in address's to do: this only starts it, as the row under You does.
       if (!signIn()) controls.say("No sign-in address answered here, so nothing can be bought just now. Reload the page to try again.");
@@ -869,7 +872,7 @@ export function addGateControls(
       // With nothing that could be read, the first row is still a way to sign in and show what is held, or to ask again.
       label: () => {
         const o = offer();
-        if (o) return `${gate.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
+        if (o) return `${gate.signedIn && guestHere(controls) ? "Secure this account to buy" : gate.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
         if (gate.byInvitation && !gate.signedIn) return "Sign in, to show you are invited";
         return gate.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold";
       },

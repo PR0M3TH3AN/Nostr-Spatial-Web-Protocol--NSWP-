@@ -292,7 +292,8 @@ export function worldPeople(): People {
  * being designed: a guest's row would become "Secure your account", or go where a guest can use the tab).
  */
 function signInWanted(signer: WorldSigner): boolean {
-  if (signer.state === "unlocked") return false;
+  // A guest account is signed in, and is offered "Secure this account" where a tab needs more than a guest may do.
+  if (signer.state === "unlocked") return signer.guest === true;
   return !(signer.state === "none" && !signer.unanswered && !signer.asking);
 }
 
@@ -312,6 +313,8 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
       void Promise.race([seekPass(), soon(4000)]).then(() => {
         if (signer.state !== "unlocked") return;
         const who = hereAs();
+        // A guest account (protocol/10-identity.md, "A guest"), said plainly: the same guest everywhere, kept here only.
+        if (signer.guest === true) return controls.say(GUEST_WORDS);
         controls.say(
           who
             ? `You are signed in here as ${who.name || short()}${signer.remembered === false ? ", for this visit" : ""}. People in a room see your name and picture, and you can send out posts. Signing out is under You.`
@@ -347,27 +350,41 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
     if (signer.unlock()) controls.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
     else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
   };
+  /** "Secure this account": the sign-in address's own page, in the panel the visitor's client draws, where there is one. */
+  const secure = () => {
+    if (opts.presenting?.()) return controls.say(`${signer.host ?? "Your sign-in address"} has to show this itself, and that can't be seen from inside a headset. Leave the headset view for a moment, secure your account, and come back in.`);
+    if (askClientForSignIn("secure")) return controls.say(`${signer.host ?? "Your sign-in address"} is open on "Secure this account", here.`);
+    // Only its page inside BitPortal can see this browser's guest: a window of its own is a page apart from it.
+    controls.say(`Secure this account from BitPortal's menu: only ${signer.host ?? "your sign-in address"}'s page there can see this guest.`);
+  };
+  const isGuest = () => signer.state === "unlocked" && signer.guest === true;
   offerSignIn(controls, {
     wanted: () => signInWanted(signer),
     label: signedOut,
     press: () => {
       if (signer.state !== "unlocked") signIn();
     },
+    guest: isGuest,
+    secure,
   });
   return {
     id: "signer",
     section: "you",
     icon: "key",
     // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
-    label: () => (signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signedOut()),
-    short: () => (signer.state === "unlocked" ? "Sign out" : "Sign in"),
+    // A guest account is offered one thing here: to secure it, which keeps the same key and everything it has.
+    label: () => (isGuest() ? `You're a guest on this device. Secure this account` : signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signedOut()),
+    short: () => (isGuest() ? "Secure" : signer.state === "unlocked" ? "Sign out" : "Sign in"),
     on: () => signer.state === "unlocked",
     // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
     // a row that isn't there can't be asked about.
     hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
-    act: () => (signer.state === "unlocked" ? signer.lock() : signIn()),
+    act: () => (isGuest() ? secure() : signer.state === "unlocked" ? signer.lock() : signIn()),
   };
 }
+
+/** What a guest account is told as it is signed in (BitLogin's docs/guest-accounts.md, G8). */
+export const GUEST_WORDS = "You're a guest. Every world in BitPortal knows it's the same guest. This account lives in this browser only: secure it, under You, to keep it.";
 
 /**
  * Their account at the sign-in address, without leaving the world: its own pages (other accounts, the lock, the

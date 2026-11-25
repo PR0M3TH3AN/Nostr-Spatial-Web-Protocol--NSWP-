@@ -364,7 +364,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // is a file of this build's own, fetched only then, so a world whose client draws it never fetches it.
   // What this world says of the things every place has and only it can run (the description's `state`). Each is
   // filled in further down, as the part that runs it starts: asked before then, it isn't so.
-  const facts: { room?: () => MenuState["room"]; named?: () => boolean; signIn?: () => MenuState["signIn"]; holding?: () => string; items?: ItemsRule; hum?: () => boolean } = {};
+  const facts: { room?: () => MenuState["room"]; named?: () => boolean; guest?: () => boolean; signIn?: () => MenuState["signIn"]; holding?: () => string; items?: ItemsRule; hum?: () => boolean } = {};
   // The visitor's own music, playing in the client's page above: this world's own steps back while it does. It may
   // be said before this world's sounds are made, so it is kept until they are.
   let musicAbove = false;
@@ -378,6 +378,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting },
       ...(facts.room ? { room: facts.room() } : {}),
       named: facts.named?.() ?? false,
+      guest: facts.guest?.() ?? false,
       signIn: facts.signIn?.() ?? "none",
       holding: facts.holding?.() ?? "",
       ...(facts.items ? { items: facts.items } : {}),
@@ -457,6 +458,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const signedInHere = () => signerNamed() && worldSigner().state === "unlocked";
   // Whether this world has the visitor's name: something signs for them here, and has said who they are.
   facts.named = signedInHere;
+  // Whether who signs for them here is a guest account: the client then says so under You, and offers to secure it.
+  facts.guest = () => signedInHere() && worldSigner().guest === true;
   // Where this world's own way of signing in stands, as a fact: the client words its own row from it.
   facts.signIn = () => {
     if (!signerNamed()) return "none";

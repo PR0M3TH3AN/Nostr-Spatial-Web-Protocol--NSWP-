@@ -7197,6 +7197,7 @@ ${roomName}`)));
       room: { has, joined: has && room3.joined === true, mic: has && typeof room3.mic === "boolean" ? room3.mic : null, count: has ? n : 0 },
       headset: { supported: headset2.supported === true, presenting: headset2.supported === true && headset2.presenting === true },
       named: s.named === true,
+      guest: s.named === true && s.guest === true,
       signIn: MENU_SIGN_IN.includes(s.signIn) ? s.signIn : "none",
       holding: id(s.holding) ?? "",
       items: cleanItemsRule(s.items),
@@ -9179,10 +9180,31 @@ postMessage({ t: "started" });
   function offerSignIn(controls2, offer) {
     offers.set(controls2, offer);
   }
+  function signInHere(controls2, section) {
+    const offer = () => offers.get(controls2);
+    return {
+      id: `sign-in-${section}`,
+      section,
+      icon: "key",
+      tone: "primary",
+      label: () => offer()?.guest() ? "Secure this account" : offer()?.label() ?? "Sign in",
+      short: () => offer()?.guest() ? "Secure" : "Sign in",
+      hidden: () => !offer()?.wanted(),
+      act: () => offer()?.guest() ? offer()?.secure() : offer()?.press()
+    };
+  }
   function signInFirst(controls2, line3) {
-    controls2.say(line3);
     const offer = offers.get(controls2);
+    if (offer?.guest()) {
+      controls2.say("Secure this account first.");
+      offer.secure();
+      return;
+    }
+    controls2.say(line3);
     if (offer?.wanted()) offer.press();
+  }
+  function guestHere(controls2) {
+    return !!offers.get(controls2)?.guest();
   }
 
   // packages/sdk/src/following.ts
@@ -9214,13 +9236,13 @@ postMessage({ t: "started" });
         if (done.ok && adding) void profiles.fetch([pubkey]);
         refresh();
       };
-      if (!f.pubkey()) return signInFirst(controls2, "Sign in to follow people.");
+      if (!f.pubkey() || guestHere(controls2)) return signInFirst(controls2, "Sign in to follow people.");
       if (f.allowed()) return void now();
       say3(f.ask(() => void now()));
     };
     const byKey = async (typed) => {
       const me = f.pubkey();
-      if (!me) return signInFirst(controls2, "Sign in to follow people.");
+      if (!me || guestHere(controls2)) return signInFirst(controls2, "Sign in to follow people.");
       let text2 = typed ?? "";
       const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
       if (typed !== void 0) {
@@ -9259,7 +9281,7 @@ postMessage({ t: "started" });
         id: "following",
         label: "Following",
         icon: "list",
-        note: () => !me ? "Sign in to see who you follow." : !allowed ? "Who you follow is yours, and the same in every Nostr app. This place hasn't been let see to it: say so below, and your sign-in address asks you once." : follows === null ? looked ? "Who you follow couldn't be looked for just now." : "Looking for who you follow." : follows.length === 0 ? "You follow nobody yet. Follow someone from their card in People, or by their key. Who you follow is public." : `You follow ${follows.length === 1 ? "1 person" : `${follows.length} people`}. Select one to see who they are. It is your own Nostr follow list, and it is public.`,
+        note: () => !me ? "Sign in to see who you follow." : guestHere(controls2) ? "Secure this account to follow people. Who you follow is yours, public, and the same in every Nostr app." : !allowed ? "Who you follow is yours, and the same in every Nostr app. This place hasn't been let see to it: say so below, and your sign-in address asks you once." : follows === null ? looked ? "Who you follow couldn't be looked for just now." : "Looking for who you follow." : follows.length === 0 ? "You follow nobody yet. Follow someone from their card in People, or by their key. Who you follow is public." : `You follow ${follows.length === 1 ? "1 person" : `${follows.length} people`}. Select one to see who they are. It is your own Nostr follow list, and it is public.`,
         card: () => {
           if (!chosen || !follows) return null;
           const p = profiles.get(chosen);
@@ -9279,6 +9301,7 @@ postMessage({ t: "started" });
         }
       });
       if (!me) return;
+      if (guestHere(controls2)) return add(signInHere(controls2, "following"));
       if (!allowed) {
         add({
           id: "following-let",
@@ -9908,6 +9931,7 @@ postMessage({ t: "started" });
     let saidFor = "";
     const press = (listing) => {
       const offer = gate2.offers.find((o) => o.listing === listing) ?? gate2.offers[0];
+      if (gate2.signedIn && guestHere(controls2)) return signInFirst(controls2, "Sign in to buy.");
       if (!gate2.signedIn) {
         if (!signIn2()) controls2.say("No sign-in address answered here, so nothing can be bought just now. Reload the page to try again.");
         return;
@@ -9937,7 +9961,7 @@ postMessage({ t: "started" });
         // With nothing that could be read, the first row is still a way to sign in and show what is held, or to ask again.
         label: () => {
           const o = offer();
-          if (o) return `${gate2.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
+          if (o) return `${gate2.signedIn && guestHere(controls2) ? "Secure this account to buy" : gate2.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
           if (gate2.byInvitation && !gate2.signedIn) return "Sign in, to show you are invited";
           return gate2.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold";
         },
@@ -52220,7 +52244,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }));
   }
   function signInWanted(signer) {
-    if (signer.state === "unlocked") return false;
+    if (signer.state === "unlocked") return signer.guest === true;
     return !(signer.state === "none" && !signer.unanswered && !signer.asking);
   }
   function signerAction(controls2, opts = {}) {
@@ -52233,6 +52257,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         void Promise.race([seekPass(), soon(4e3)]).then(() => {
           if (signer.state !== "unlocked") return;
           const who2 = hereAs();
+          if (signer.guest === true) return controls2.say(GUEST_WORDS);
           controls2.say(
             who2 ? `You are signed in here as ${who2.name || short()}${signer.remembered === false ? ", for this visit" : ""}. People in a room see your name and picture, and you can send out posts. Signing out is under You.` : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: ${signer.host ?? "your sign-in address"} gave no pass with your name on it.`
           );
@@ -52259,27 +52284,37 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
       else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
     };
+    const secure = () => {
+      if (opts.presenting?.()) return controls2.say(`${signer.host ?? "Your sign-in address"} has to show this itself, and that can't be seen from inside a headset. Leave the headset view for a moment, secure your account, and come back in.`);
+      if (askClientForSignIn("secure")) return controls2.say(`${signer.host ?? "Your sign-in address"} is open on "Secure this account", here.`);
+      controls2.say(`Secure this account from BitPortal's menu: only ${signer.host ?? "your sign-in address"}'s page there can see this guest.`);
+    };
+    const isGuest = () => signer.state === "unlocked" && signer.guest === true;
     offerSignIn(controls2, {
       wanted: () => signInWanted(signer),
       label: signedOut,
       press: () => {
         if (signer.state !== "unlocked") signIn2();
-      }
+      },
+      guest: isGuest,
+      secure
     });
     return {
       id: "signer",
       section: "you",
       icon: "key",
       // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
-      label: () => signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signedOut(),
-      short: () => signer.state === "unlocked" ? "Sign out" : "Sign in",
+      // A guest account is offered one thing here: to secure it, which keeps the same key and everything it has.
+      label: () => isGuest() ? `You're a guest on this device. Secure this account` : signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signedOut(),
+      short: () => isGuest() ? "Secure" : signer.state === "unlocked" ? "Sign out" : "Sign in",
       on: () => signer.state === "unlocked",
       // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
       // a row that isn't there can't be asked about.
       hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
-      act: () => signer.state === "unlocked" ? signer.lock() : signIn2()
+      act: () => isGuest() ? secure() : signer.state === "unlocked" ? signer.lock() : signIn2()
     };
   }
+  var GUEST_WORDS = "You're a guest. Every world in BitPortal knows it's the same guest. This account lives in this browser only: secure it, under You, to keep it.";
   function accountAction(controls2, opts = {}) {
     const signer = worldSigner();
     onClientScreen(() => controls2.signal("signer"));
@@ -58991,7 +59026,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const write = (pubkey) => {
       const me = hand.pubkey();
-      if (!me) return signInFirst(controls2, "Sign in to write to people.");
+      if (!me || guestHere(controls2)) return signInFirst(controls2, "Sign in to write to people.");
       if (pubkey === me) return;
       const go2 = () => void m.load().then(() => open3(pubkey));
       if (hand.allowed()) return go2();
@@ -59027,9 +59062,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         id: "messages",
         label: "Messages",
         icon: "chat",
-        note: () => !me ? "Sign in to read and send private messages." : !allowed ? "Private messages are between you and one other person. This place hasn't been let send or read yours: say so below, and your sign-in address asks you once." : state === "looking" ? "Looking for your messages." : state === "unreachable" ? "No relay could be reached to look for your messages." : state === "no-inbox" ? "Nobody can write to you privately yet: you haven't said where messages should reach you. Say so below. It is a short public list of relays, and you can change it in any Nostr app." : known.length === 0 && asking.length === 0 ? "No messages yet. Write to someone from Following, or from their card in People." : "Only you and the other person can read a conversation. A relay is told who each message is for, and nothing more."
+        note: () => !me ? "Sign in to read and send private messages." : guestHere(controls2) ? "Secure this account to read and send private messages." : !allowed ? "Private messages are between you and one other person. This place hasn't been let send or read yours: say so below, and your sign-in address asks you once." : state === "looking" ? "Looking for your messages." : state === "unreachable" ? "No relay could be reached to look for your messages." : state === "no-inbox" ? "Nobody can write to you privately yet: you haven't said where messages should reach you. Say so below. It is a short public list of relays, and you can change it in any Nostr app." : known.length === 0 && asking.length === 0 ? "No messages yet. Write to someone from Following, or from their card in People." : "Only you and the other person can read a conversation. A relay is told who each message is for, and nothing more."
       });
       if (!me) return;
+      if (guestHere(controls2)) return add(signInHere(controls2, "messages"));
       if (!allowed) {
         add({ id: "messages-let", icon: "check", tone: "primary", label: "Let me send and read private messages here", act: () => say3(hand.ask(() => void m.load().then(refresh))) });
         return;

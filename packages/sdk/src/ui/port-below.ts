@@ -766,16 +766,37 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
  * - Signing out tells the world, which does it without asking (`below.signOut`).
  * - Where the world names nothing that signs for a visitor, neither row is shown.
  */
-export function signInRows(below: Pick<MenuBelow, "world" | "signOut">, opts: { ask(): void }): UiAction[] {
+export function signInRows(below: Pick<MenuBelow, "world" | "signOut">, opts: { ask(): void; secure?(): void }): UiAction[] {
   const state = () => below.world?.state;
   const where = () => below.world?.title || "this world";
+  /** A guest account has the world, by `state.guest`: told who they are, and offered an account and to secure this one. */
+  const guest = () => !!state()?.named && !!state()?.guest;
   return [
+    {
+      id: "world-guest",
+      section: "you",
+      kind: "line",
+      icon: "you",
+      hidden: () => !guest(),
+      label: "You're a guest. Every world in BitPortal knows it's the same guest. This account lives in this browser only.",
+      act: () => {},
+    },
+    {
+      id: "world-secure",
+      section: "you",
+      icon: "key",
+      tone: "primary",
+      hidden: () => !guest() || !opts.secure,
+      label: "Secure this account",
+      short: "Secure",
+      act: () => opts.secure?.(),
+    },
     {
       id: "world-sign-in",
       section: "you",
       icon: "key",
-      hidden: () => !state() || state()!.named || state()!.signIn === "none",
-      label: () => (state()?.signIn === "asking" ? "Asking your sign-in address…" : state()?.signIn === "unanswered" ? "Your sign-in address didn't answer. Press to try again." : `Sign in to ${where()}`),
+      hidden: () => !state() || (state()!.named && !guest()) || state()!.signIn === "none",
+      label: () => (state()?.signIn === "asking" ? "Asking your sign-in address…" : state()?.signIn === "unanswered" ? "Your sign-in address didn't answer. Press to try again." : guest() ? "Sign in to an account" : `Sign in to ${where()}`),
       short: "Sign in",
       act: () => opts.ask(),
     },
@@ -784,7 +805,7 @@ export function signInRows(below: Pick<MenuBelow, "world" | "signOut">, opts: { 
       section: "you",
       icon: "key",
       on: () => true,
-      hidden: () => !state()?.named,
+      hidden: () => !state()?.named || guest(),
       label: () => `Signed in to ${where()}. Sign out here`,
       short: "Sign out",
       act: () => below.signOut(),

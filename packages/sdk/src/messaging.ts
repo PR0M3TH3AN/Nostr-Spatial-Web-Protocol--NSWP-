@@ -17,7 +17,7 @@ import type { Profiles } from "./profiles.js";
 import { wrapWords } from "./ui/chat.js";
 import { ago } from "./ui/feed.js";
 import type { Controls, UiAction } from "./ui/model.js";
-import { signInFirst } from "./ui/sign-in-here.js";
+import { guestHere, signInFirst, signInHere } from "./ui/sign-in-here.js";
 import { rgb } from "./ui/theme.js";
 
 /** What sends and reads private messages for the visitor (three.ts gives a world's; a visitor's own client gives its own). */
@@ -202,7 +202,7 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
 
   const write = (pubkey: string) => {
     const me = hand.pubkey();
-    if (!me) return signInFirst(controls, "Sign in to write to people.");
+    if (!me || guestHere(controls)) return signInFirst(controls, "Sign in to write to people.");
     if (pubkey === me) return;
     const go = () => void m.load().then(() => open(pubkey));
     if (hand.allowed()) return go();
@@ -244,6 +244,8 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
       note: () =>
         !me
           ? "Sign in to read and send private messages."
+          : guestHere(controls)
+            ? "Secure this account to read and send private messages."
           : !allowed
             ? "Private messages are between you and one other person. This place hasn't been let send or read yours: say so below, and your sign-in address asks you once."
             : state === "looking"
@@ -256,8 +258,9 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
                     ? "No messages yet. Write to someone from Following, or from their card in People."
                     : "Only you and the other person can read a conversation. A relay is told who each message is for, and nothing more.",
     });
-    // A guest has no messages: the tab has nothing in it, and isn't shown.
+    // A guest of one visit has no messages: the tab isn't shown. A guest account is asked to secure it.
     if (!me) return;
+    if (guestHere(controls)) return add(signInHere(controls, "messages"));
     if (!allowed) {
       add({ id: "messages-let", icon: "check", tone: "primary", label: "Let me send and read private messages here", act: () => say(hand.ask(() => void m.load().then(refresh))) });
       return;
