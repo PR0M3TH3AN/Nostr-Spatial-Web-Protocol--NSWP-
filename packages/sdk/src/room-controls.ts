@@ -513,7 +513,8 @@ export function addRoomControls(
         if (!who) return null;
         return {
           title: who.name,
-          tag: who.guest ? "Guest" : "By name",
+          // A guest account is proven by its key, and is still a guest: said so, as it is the same guest everywhere.
+          tag: who.guest || who.guestAccount ? "Guest" : "By name",
           proven: !who.guest,
           // A name is not unique and a picture can be copied: the key behind them is what tells two people apart.
           sub: who.identity ? shortNpub(who.identity) : "Nobody has vouched for who they are.",

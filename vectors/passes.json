@@ -1,5 +1,5 @@
 {
-  "description": "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show.",
+  "description": "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show; `guest`, where given, whether the pass is a guest account's (`[\"nswp:guest\", \"1\"]`).",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -319,6 +319,92 @@
         "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
         "name": "Alice",
         "about": "Hello there friend yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      }
+    },
+    {
+      "name": "a_guest",
+      "description": "A guest account's pass: its sign-in address made the key, not yet secured. It names nobody; a reader calls them \"Guest\" and four digits of the key.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "nswp:guest",
+            "1"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "be8d6d4c5a2410d0e3df5535288810c90cc4969b01f884e0cf81992a550a19c8",
+        "sig": "6ca16e4c557fc850bbe41d4058e18f51ee5e9b431bbfca42a4eb8a6ded5092c8852eb1a3578488925500a79451b56f533e81cb57f7d23ff4c8d17707f181c83b"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "",
+        "guest": true
+      }
+    },
+    {
+      "name": "not_a_guest",
+      "description": "Anything but \"1\" says nothing: an account's pass, as one with no such tag.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ],
+          [
+            "nswp:guest",
+            "yes"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "0ff98d09656ea81bfd2d983ebad989cd894d22987f543c63cc7bdf13b95e602b",
+        "sig": "b01d3389d2522f2b079faea950c7cbb2bdf0f42775ede81d0588ba4122e0a8f94b34a8fb4d684dba875be9d1c7b1ad710e3b69f34870cb803c54273e16fe496a"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Alice",
+        "guest": false
       }
     },
     {

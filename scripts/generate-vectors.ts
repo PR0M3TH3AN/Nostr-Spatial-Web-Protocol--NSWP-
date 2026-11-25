@@ -832,6 +832,24 @@ const passVectors: PassVector[] = [
     session: PK3,
     expect: { valid: true, errors: [], warnings: ["about_cleaned"], pubkey: PK1, name: "Alice", about: `Hello there friend ${"y".repeat(261)}` },
   },
+  {
+    name: "a_guest",
+    description: "A guest account's pass: its sign-in address made the key, not yet secured. It names nobody; a reader calls them \"Guest\" and four digits of the key.",
+    event: rawPass([...passTags(), ["nswp:guest", "1"]]),
+    origin: MUSEUM,
+    now: T0 + 60,
+    session: PK3,
+    expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "", guest: true },
+  },
+  {
+    name: "not_a_guest",
+    description: "Anything but \"1\" says nothing: an account's pass, as one with no such tag.",
+    event: rawPass([...passTags(), ["name", "Alice"], ["nswp:guest", "yes"]]),
+    origin: MUSEUM,
+    now: T0 + 60,
+    session: PK3,
+    expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "Alice", guest: false },
+  },
   { name: "another_site", description: "A pass made for the museum is worth nothing anywhere else.", event: goodPass, origin: "https://other.example", now: T0 + 60, session: PK3, expect: { valid: false, errors: ["origin_mismatch"], warnings: [] } },
   { name: "another_session_key", description: "A member showing someone else's pass: it names a session key they aren't using.", event: goodPass, origin: MUSEUM, now: T0 + 60, session: PK2, expect: { valid: false, errors: ["session_mismatch"], warnings: [] } },
   { name: "expired", description: "Five hours on.", event: goodPass, origin: MUSEUM, now: T0 + 5 * 3600, session: PK3, expect: { valid: false, errors: ["pass_expired"], warnings: [] } },
@@ -850,6 +868,7 @@ for (const v of passVectors) {
   if (r.ok) expectEqual(`pass/${v.name} who`, [r.value.pubkey, r.value.name], [v.expect.pubkey, v.expect.name]);
   if (r.ok && v.expect.picture !== undefined) expectEqual(`pass/${v.name} picture`, r.value.picture, v.expect.picture);
   if (r.ok && v.expect.about !== undefined) expectEqual(`pass/${v.name} about`, r.value.about, v.expect.about);
+  if (r.ok && v.expect.guest !== undefined) expectEqual(`pass/${v.name} guest`, r.value.guest, v.expect.guest);
 }
 
 // ---------------------------------------------------------------------- grants
@@ -1005,7 +1024,7 @@ const files: Record<string, unknown> = {
   },
   "passes.json": {
     description:
-      "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show.",
+      "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show; `guest`, where given, whether the pass is a guest account's (`[\"nswp:guest\", \"1\"]`).",
     testKeys,
     vectors: passVectors,
   },

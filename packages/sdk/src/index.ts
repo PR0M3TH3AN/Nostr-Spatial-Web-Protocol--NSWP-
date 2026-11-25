@@ -43,6 +43,9 @@ export type { Arrival, PortalDestination } from "@nswp/core";
 export { currentForm, startingForm, type Form } from "./form.js";
 export { room, RoomSession, type JoinOptions, type Member, type RoomStatus } from "./room.js";
 export type { Pose, Transform } from "@nswp/core";
+// What a guest is called where nothing else names them: "Guest" and four digits of their key, the same in every world
+// (protocol/10-identity.md, "A guest"). For a page that names people itself, as the kit does.
+export { guestName } from "@nswp/core";
 export { dropBrought, somethingBrought, takeBrought, watchBrought, type Brought } from "./bring.js";
 
 const RETURN_KEY = "nswp:return-airlock";

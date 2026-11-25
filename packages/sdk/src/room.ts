@@ -57,6 +57,12 @@ export interface Member {
   guest: boolean;
   /** The identity key behind them, once their pass has checked out. Never taken on their say-so. */
   identity?: string;
+  /**
+   * Their pass is a guest account's (`VerifiedPass.guest`): a key their sign-in address made for them, not yet
+   * secured, the same in every world of its family. They are proven by it (`guest` is false), and named by it
+   * (`guestName` of that key, where the pass gives no name). Left out for anyone else.
+   */
+  guestAccount?: true;
   /** A proven member's own name, or the short form of their key. A guest is "Guest" and four digits. */
   name: string;
   /** Where a proven member's picture is, as their pass says. Never there for a guest. */
@@ -462,7 +468,7 @@ export class RoomSession {
     const mine = opts.look ? decodeLook(opts.look) : null;
     this.look = mine?.ok ? opts.look! : null;
     this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
-    if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...(proven.picture ? { picture: proven.picture } : {}), ...(proven.about ? { about: proven.about } : {}) });
+    if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || (proven.guest ? guestName(proven.pubkey) : shortNpub(proven.pubkey)), ...(proven.guest ? { guestAccount: true as const } : {}), ...(proven.picture ? { picture: proven.picture } : {}), ...(proven.about ? { about: proven.about } : {}) });
     this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);
     // A model of their own goes only with a name: a guest has no key it could be tied to.
     if (proven && opts.avatar) {
@@ -893,7 +899,9 @@ export class RoomSession {
     // Someone the world's owner keeps out, or hasn't invited where it is by invitation: let go the moment who they are is known.
     if (this.ownerBlocked.has(checked.value.pubkey) || (this.invited && !this.invited.has(checked.value.pubkey))) return this.turnAway(peer.member.pubkey);
     peer.passUntil = checked.value.expiresAt;
-    Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
+    Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || (checked.value.guest ? guestName(checked.value.pubkey) : shortNpub(checked.value.pubkey)) });
+    if (checked.value.guest) peer.member.guestAccount = true;
+    else delete peer.member.guestAccount;
     // In a room that shows only named people, they are shown from now: that they are here, then what was kept.
     if (this.namedOnly && !this.announced.has(peer.member.pubkey)) {
       this.announced.add(peer.member.pubkey);
@@ -923,6 +931,7 @@ export class RoomSession {
       delete peer.member.identity;
       delete peer.member.picture;
       delete peer.member.about;
+      delete peer.member.guestAccount;
       Object.assign(peer.member, { guest: true, name: guestName(peer.member.pubkey) });
       this.emit("identity", peer.member);
       this.redraw(peer);
@@ -933,6 +942,7 @@ export class RoomSession {
       delete this.self.picture;
       delete this.self.about;
       delete this.self.model;
+      delete this.self.guestAccount;
       this.avatar = null;
       Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
       const mine = this.look ? decodeLook(this.look) : null;

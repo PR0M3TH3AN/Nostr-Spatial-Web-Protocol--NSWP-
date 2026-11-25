@@ -90,4 +90,29 @@ describe("one sign-in for a world's whole family", () => {
     expect((readSignerReply(signerMessage({ t: "state", unlocked: false, familyTaken: true })) as { familyTaken?: boolean }).familyTaken).toBe(true);
     expect((readSignerReply(signerMessage({ t: "state", unlocked: false, familyTaken: "yes" } as never)) as { familyTaken?: boolean }).familyTaken).toBeUndefined();
   });
+
+  it("asks, with the family, for the family's guest where nobody is signed in, and keeps whether it is one", async () => {
+    const signer = await at("https://arcade.bitblocks.network");
+    const asked = sentTo().filter((m) => m.t === "want") as { guest?: boolean }[];
+    expect(asked.map((m) => m.guest)).toEqual([true]);
+    expect(signer.guest).toBeNull();
+    say({ t: "state", unlocked: true, pubkey: me, guest: true });
+    expect(signer.guest).toBe(true);
+    say({ t: "state", unlocked: true, pubkey: me, guest: false });
+    expect(signer.guest).toBe(false);
+    // Locked, or a signer that says nothing of it: not known.
+    say({ t: "state", unlocked: false });
+    expect(signer.guest).toBeNull();
+    say({ t: "state", unlocked: true, pubkey: me });
+    expect(signer.guest).toBeNull();
+  });
+
+  it("is read by a signer only with a family, and only as true; the answer only as true or false", () => {
+    expect(readSignerRequest(signerMessage({ t: "want", id: "w1", family: "https://*.bitblocks.network", guest: true }))).toEqual({ t: "want", id: "w1", family: "https://*.bitblocks.network", guest: true });
+    expect(readSignerRequest(signerMessage({ t: "want", id: "w2", family: "https://*.bitblocks.network", guest: "yes" } as never))).toEqual({ t: "want", id: "w2", family: "https://*.bitblocks.network" });
+    expect(readSignerRequest(signerMessage({ t: "want", id: "w3", more: ["follows"], guest: true } as never))).toEqual({ t: "want", id: "w3", more: ["follows"] });
+    expect((readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey: me, guest: true })) as { guest?: boolean }).guest).toBe(true);
+    expect((readSignerReply(signerMessage({ t: "state", unlocked: false, guest: true })) as { guest?: boolean }).guest).toBeUndefined();
+    expect((readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey: me, guest: "yes" } as never)) as { guest?: boolean }).guest).toBeUndefined();
+  });
 });
