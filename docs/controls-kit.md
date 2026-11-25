@@ -916,7 +916,7 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
 | Level | Flat screen | Headset |
 |---|---|---|
 | `"full"` | Name, hotbar, Menu | Menu button low in front, and the wrist |
-| `"quiet"` | One mark in the chosen corner; it opens the same sheet | The wrist. The Menu button, smaller, only where no hand is tracked |
+| `"quiet"` | One mark in the chosen corner; it opens the same sheet. Where the visit started by touch (a phone), the bar too: there is no keyboard to keep for play, and without it nothing is there to press for what it carries | The wrist. The Menu button, smaller, only where no hand is tracked |
 | `"hidden"` | Nothing | Nothing, until the visitor summons it or the world calls `xrConsole.setOpen(true)` or `hud.setOpen(true)` |
 
 - **The summons.** At every level, and whatever the world has done with the
