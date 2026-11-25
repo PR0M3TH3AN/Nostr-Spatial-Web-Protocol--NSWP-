@@ -225,6 +225,13 @@ numbers and what they mean for a world, the kit and the protocol are in
 `docs/plans/agents-lessons.md`. Next, in the owner's order: arm swing,
 then reaching.
 
+## Arms swing (the playground's D89, 2026-11-24)
+
+From the same gait clock as the legs, more with speed and with a manner
+dial; 100 figures still hold 60 frames a second with the card, at more
+drawing. The kit's own figure keeps its arms as the kit draws them. Next,
+in the owner's order: reaching.
+
 ## Must not
 
 - Ship anything under a licence that forbids commercial use, or fetch any
