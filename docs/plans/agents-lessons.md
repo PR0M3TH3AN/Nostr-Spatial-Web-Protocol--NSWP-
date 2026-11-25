@@ -1642,6 +1642,67 @@ sent or spent; no server started.
 - **Not found:** why four legs still slide 1.3 cm a metre, ten times two
   legs.
 
+## A body's own tongue, and one list of feeling cues for every model (D88, 2026-11-24; free)
+
+The owner, in the playground's session: "if the agent is a dog it
+'speaks in Dog'", with sounds and not the voice model, the same inner
+words; and "for all model outputs ... the same eleven labs emotional
+queues? So supporting models can emote". Nothing sent, spent or
+downloaded.
+
+- **What an agent says has three parts** (built, free: D88): what it
+  means, in words; how it feels, as cues from one short list; and how
+  its body says it, in words or in a named set of sounds. The mind is
+  the same whatever the body: a dog's chat model still means in words.
+  *For the protocol:* an agent's speech could carry the three apart, so
+  a listener that hears only sounds knows the feeling and not the words.
+  No name is given or taken by its being written here.
+- **One list of cues, and a bracket not on it is dropped** (built, free:
+  D88): eleven feelings, two ways of speaking, nine sounds, taken from
+  ElevenLabs' documented audio tags and written in square brackets
+  before the words they colour. So nothing a model writes can call up a
+  sound nobody chose. The chat model is told the list and to use at most
+  two a reply. Each voice takes them its own way: a voice model that
+  reads tags is sent them; one that doesn't is sent the words, with the
+  feeling as pace, pitch and loudness.
+- **A body declares what it speaks in** (built, free: D88): words, dog,
+  cat, bird, or a set of sounds a world declares as data, checked like
+  its other declarations. A sentence becomes a few calls, as many as it
+  is long, chosen by its cue; a question rises at its end. The sounds
+  are made in the page; nothing is fetched or paid for.
+- **The world is handed both** (built: D88): what to show and play
+  ("Woof! Woof!") and what was meant, to caption if it likes. *For a
+  world:* be ready for a body that speaks in sounds. *For the kit:* its
+  speech pieces could take the meaning and the sound apart; design by
+  names given, nothing asked for now.
+- **Not tried, both paid:** a chat model writing cues; a voice model
+  reading them. **Not judged:** whether the sounds are good to hear;
+  that is the owner's ear.
+
+## Arms that swing (D89, 2026-11-24; free)
+
+Next in the owner's order for bodies. Nothing sent or spent.
+
+- **Arm swing is reflex in the body, below the typed actions** (shown,
+  free: D89): each arm swings against the leg on its own side, from the
+  walker's own gait clock, more with speed (about 15 degrees each way at
+  0.6 m/s, 26 at 2.4) and with a manner dial (careful 14, hurried 28,
+  sneaking 6). It follows its own side's foot closely (correlation -0.88
+  to -0.94); bones keep their length and no elbow bends backward. *For
+  the protocol:* nothing; a world gives it nothing new.
+- **A spring following the feet was the wrong tool** (shown: D89): it
+  lagged a quarter of a step and swung less when faster. The gait clock
+  is what both legs and arms keep time by.
+- **Arms cost drawing, not working out** (shown: D89): 100 figures held
+  60 frames a second with the card, but went from 721 to 1,240 draw
+  calls and 5.2 to 7.8 ms of drawing a frame; legs and arms together
+  took 1.2 ms. *For the kit:* a figure that is one mesh, or arms drawn
+  together, would keep that down.
+- **The kit's own figure can't swing its arms from outside** (reasoned:
+  D89): that needs the figure to name its shoulders and arm pieces, or
+  to take arm angles each frame. Design by names given; nothing asked.
+- **Not done:** reaching.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

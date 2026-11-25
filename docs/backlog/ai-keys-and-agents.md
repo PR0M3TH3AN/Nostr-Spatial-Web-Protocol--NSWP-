@@ -215,6 +215,21 @@ its memory as sealed notes. The same sheet for both, filled to different
 depths. Set out in `docs/plans/agents-lessons.md`, "What the protocol would
 have to settle".
 
+## A body's own tongue, and feeling cues (the owner, 2026-11-24)
+
+Asked in the `nswp-agents` session: "if the agent is a dog it 'speaks in
+Dog'", with sounds rather than the voice model and the same inner
+monologue; and "for all model outputs ... the same eleven labs emotional
+queues? So supporting models can emote". Built in the playground the
+same day as its D88, free: a body declares what it speaks in (words, a
+dog's, a cat's or a bird's sounds, or a set a world declares), and every
+model's words may carry cues from one short list, each voice taking them
+its own way. What it means for a world, the kit and the protocol is in
+`docs/plans/agents-lessons.md`. Nothing of the kit, BitPortal or
+BitLogin changes. Not tried, and his word each time, in that session: a
+chat model writing cues, and a voice model reading them (both paid).
+Whether the sounds are good to hear is his to say.
+
 ## A first trial in a world, on this machine (the owner, 2026-11-24)
 
 Asked for by the owner in the `nswp-agents` session ("lets also document
