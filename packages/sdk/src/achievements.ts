@@ -11,8 +11,8 @@
  * What a visitor earned is kept on the device, whoever they are. It becomes public only when they show it, which
  * they do by pressing: an achievement shown says that this person was in this world, and what they did there.
  */
-import { achievementsIn, cleanAchievementId, DEFAULT_RELAYS, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, ACHIEVEMENT_KIND, worldCoordinate, type Achievement, type AchievementHolders, type NostrEvent } from "@nswp/core";
-import { askWell, sendWell } from "./relay-book.js";
+import { achievementsIn, cleanAchievementId, DEFAULT_RELAYS, publishEvent, queryRelays, ACHIEVEMENT_KIND, worldCoordinate, type Achievement, type AchievementHolders, type NostrEvent } from "@nswp/core";
+import { askWell, relaysOf, sendWell } from "./relay-book.js";
 
 export interface AchievementHand {
   /** Who is signed in here, or null for a guest. */
@@ -114,15 +114,9 @@ export function createAchievements(opts: AchievementsOptions): Achievements {
     return list.filter((a) => all.has(a.id)).map((a) => a.id);
   };
 
-  let relaysKept: { key: string; at: number; found: Promise<string[]> } | null = null;
-  const ownRelays = (key: string): Promise<string[]> => {
-    if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 600_000) return relaysKept.found;
-    const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now })
-      .then((got) => readRelayList(got.events, key)?.write ?? [])
-      .catch(() => []);
-    relaysKept = { key, at: now(), found };
-    return found;
-  };
+  // Their own relays, by the relay book's rules for a person's list (relay-book.ts, `relaysOf`): waited for while
+  // the usual relays answer, kept on the device once known, a miss never kept.
+  const ownRelays = (key: string): Promise<string[]> => relaysOf(key, { usual: usual(), mine: true, query, publish, now });
 
   let events: NostrEvent[] = [];
   let asked = 0;

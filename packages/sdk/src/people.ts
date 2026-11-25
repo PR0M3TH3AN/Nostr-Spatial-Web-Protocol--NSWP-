@@ -14,8 +14,8 @@
  * The `hand` is whatever can have the list signed: in a world, the visitor's signer, once they have let that
  * world follow for them; in the visitor's own client, its own signer. Nothing here holds a key.
  */
-import { DEFAULT_RELAYS, FOLLOWS_KIND, followsIn, isFollowAsked, isHex64, newestFollows, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, verifyEvent, type NostrEvent } from "@nswp/core";
-import { askWell, sendWell } from "./relay-book.js";
+import { DEFAULT_RELAYS, FOLLOWS_KIND, followsIn, isFollowAsked, isHex64, newestFollows, publishEvent, queryRelays, verifyEvent, type NostrEvent } from "@nswp/core";
+import { askOwn, relaysOf, sendWell } from "./relay-book.js";
 
 export interface FollowHand {
   /** Whose follows these are: the key signed in here, or null for a guest. */
@@ -102,34 +102,38 @@ export function createPeople(opts: PeopleOptions): People {
     }
   };
 
-  let relaysKept: { key: string; at: number; found: Promise<string[]> } | null = null;
-  const ownRelays = (key: string): Promise<string[]> => {
-    if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 600_000) return relaysKept.found;
-    const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now })
-      .then((got) => readRelayList(got.events, key)?.write ?? [])
-      .catch(() => []);
-    relaysKept = { key, at: now(), found };
-    return found;
-  };
+  // Their own relays, by the relay book's rules for a person's list (relay-book.ts, `relaysOf`): waited for while
+  // the usual relays answer, kept on the device once known, a miss never kept.
+  const ownRelays = (key: string): Promise<string[]> => relaysOf(key, { usual: usual(), mine: true, query, publish, now });
 
   /** What is known: whose it is, their newest list, whether any relay answered, and when it was looked for. */
-  let known: { who: string; list: NostrEvent | null; answered: boolean; at: number } | null = null;
+  let known: { who: string; list: NostrEvent | null; answered: boolean; own: string[]; at: number } | null = null;
   let looking: Promise<void> | null = null;
   /** Someone they pressed to follow when no list was found: a second press starts a list. */
   let offered: { who: string; at: number } | null = null;
 
   const look = async (who: string): Promise<void> => {
     const kept = readKept(who);
-    const own = await ownRelays(who);
-    const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4000, now }).catch(() => null);
-    const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+    // Their own list, on their own device: looked for until it is found or every relay of theirs was asked, and put
+    // back where it is missing (relay-book.ts, `askOwn`). "None" only where enough relays answered to say so.
+    // A newer list from a slower relay, after this look has shown what came first: taken, kept and told.
+    const onNewer = (later: { events: NostrEvent[] }) => {
+      const newer = newestFollows(later.events.filter((e) => verifyEvent(e)), who);
+      if (!newer || !known || known.who !== who || (known.list && newer.created_at <= known.list.created_at)) return;
+      keep(newer);
+      known = { ...known, list: newer, answered: true };
+      changed();
+    };
+    const got = await askOwn({ kinds: [FOLLOWS_KIND], authors: [who], limit: 4 }, who, { usual: usual(), mine: { kept }, query, publish, timeoutMs: 4000, now, onNewer }).catch(() => null);
+    const answered = !!got && got.state !== "unreached";
+    const own = got?.own ?? [];
     const found = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who);
     const list = found && kept ? (kept.created_at > found.created_at ? kept : found) : (found ?? kept);
     // The device has a newer one than any relay: it was signed here and never arrived. It is sent again.
     if (kept && list === kept && answered && (!found || found.id !== kept.id)) void sendWell(kept, { own, usual: usual(), publish, query, now }).catch(() => null);
     if (list && list !== kept) keep(list);
     if (hand.pubkey() !== who) return;
-    known = { who, list, answered, at: now() };
+    known = { who, list, answered, own, at: now() };
     changed();
   };
 
@@ -180,7 +184,7 @@ export function createPeople(opts: PeopleOptions): People {
     // Checked again here, whoever the hand is: their own list, really signed, with that one change and no other.
     if (!signed || !isFollowAsked(signed, { list, ...asked, pubkey: who })) return { ok: false, why: "refused", said: "It couldn't be signed. Who you follow is as it was." };
     keep(signed);
-    known = { who, list: signed, answered: true, at: now() };
+    known = { who, list: signed, answered: true, own: known?.own ?? [], at: now() };
     changed();
     const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, query, now }).catch(() => null);
     if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Signed, but no relay took it. It is kept on this device and will be sent again.` };

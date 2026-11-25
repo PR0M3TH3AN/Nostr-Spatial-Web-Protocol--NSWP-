@@ -601,19 +601,39 @@ try {
     // 3. The visitor chooses a tab meanwhile, with the mouse: theirs stands.
     await ask("trial-chosen");
     await page.waitForTimeout(200);
+    let at = null;
     {
       const room = hud.getByRole("tab", { name: "Room", exact: true }).first();
       await room.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
       await page.waitForTimeout(250);
-      const at = await room.boundingBox();
+      // The tab's place, asked again for five seconds: on a page drawn without a graphics card the strip of tabs
+      // can be without a place for a moment while it is laid out again. Never a place: nothing to click, not judged.
+      for (const end = Date.now() + 5000; !at && Date.now() < end; ) {
+        at = await room.boundingBox().catch(() => null);
+        if (!at) await page.waitForTimeout(150);
+      }
+      if (!at) at = { noPlace: true };
+      if (!at.noPlace) {
+      // Whether the click reaches the Room tab at all, and what is under the mouse as it is made: so a click not
+      // taken can be told as the page being slow (it reached the tab, and Room comes late) from a press lost.
+      await page.evaluate(([x, y]) => {
+        const root = document.querySelector("nswp-hud").shadowRoot;
+        window.__tabClick = { reached: 0, under: (root.elementFromPoint(x, y)?.textContent ?? "").trim().slice(0, 30) };
+        root.addEventListener("click", (e) => { if (e.composedPath().some((n) => n.getAttribute?.("role") === "tab" && /Room/.test(n.textContent ?? ""))) window.__tabClick.reached++; }, { capture: true, once: true });
+      }, [at.x + at.width / 2, at.y + at.height / 2]);
       await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+      }
     }
     // The click must have been taken before there is anything to judge: Room chosen, by the visitor.
-    const choseRoom = await waitFor("Room", 3000);
+    const choseRoom = at.noPlace ? false : await waitFor("Room", 3000);
+    // Not in three seconds: did it reach the tab, and does Room come later? Reached and late is the page being
+    // slow; reached and never is a chosen tab lost, which fails; not reached says what was under the mouse.
+    const clickSeen = choseRoom ? null : at.noPlace ? { reached: 0, under: "nothing: the Room tab had no place in five seconds", cameLate: false } : { ...(await page.evaluate(() => window.__tabClick)), cameLate: await waitFor("Room", 10000) };
+    if (clickSeen && clickSeen.reached > 0 && !clickSeen.cameLate) check("a tab asked for early: a click that reached the Room tab chooses it", false, clickSeen);
     await addTab("trial-chosen", "Chosen");
     await page.waitForTimeout(800);
     const chosenName = "a tab asked for early: a tab the visitor chose meanwhile stands, and the one asked for doesn't take it";
-    if (!choseRoom) notJudged(chosenName, `the click on Room was not taken in three seconds (the tab up was ${await tabUp()}), so there was no choice of the visitor's to stand`);
+    if (!choseRoom) notJudged(chosenName, `the click on Room was not taken in three seconds (${clickSeen.reached ? `it reached the tab, and Room came ${clickSeen.cameLate ? "later: the page was slow" : "never"}` : `it did not reach the tab: under the mouse was "${clickSeen.under}"`}), so there was no choice of the visitor's to stand`);
     else check(chosenName, (await tabUp()) === "Room", await tabUp());
     // 4. The visitor puts the menu away meanwhile: it stays away.
     await ask("trial-away");

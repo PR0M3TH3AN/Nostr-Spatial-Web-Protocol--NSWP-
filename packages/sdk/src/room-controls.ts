@@ -5,8 +5,8 @@
  */
 import * as THREE from "three";
 import { mayShareScreen, screenNotHere } from "./client-frame.js";
-import { CHAT_LIMITS, cleanLightningAddress, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
-import { askWell, sendWell } from "./relay-book.js";
+import { CHAT_LIMITS, cleanLightningAddress, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
+import { askOwn, relaysOf, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
@@ -895,19 +895,11 @@ export function addRoomControls(
   const usualRelays = () => opts.noteRelays ?? DEFAULT_RELAYS;
   /**
    * Where this visitor's posts go and are read from: the relays they say they write to, in their own relay list
-   * (NIP-65, kind 10002), looked for on the usual relays. Asked for when they open their feed or send a post,
-   * and kept for ten minutes. Like their posts, it is their own key's, asked of a relay only then.
+   * (NIP-65, kind 10002), by the relay book's rules for a person's list (relay-book.ts, `relaysOf`): asked for
+   * when they open their feed or send a post, kept on the device once known, a miss never kept. Like their posts,
+   * it is their own key's, asked of a relay only then.
    */
-  let relaysKept: { key: string; at: number; found: Promise<string[]> } | null = null;
-  const ownRelays = (key: string | null | undefined): Promise<string[]> => {
-    if (!key) return Promise.resolve([]);
-    if (relaysKept && relaysKept.key === key && Date.now() - relaysKept.at < 600_000) return relaysKept.found;
-    const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usualRelays(), timeoutMs: 2500 })
-      .then((got) => readRelayList(got.events, key)?.write ?? [])
-      .catch(() => []);
-    relaysKept = { key, at: Date.now(), found };
-    return found;
-  };
+  const ownRelays = (key: string | null | undefined): Promise<string[]> => (key ? relaysOf(key, { usual: usualRelays(), mine: true }) : Promise.resolve([]));
   /** They pressed the row while signed out: once they are signed in, their feed is what they asked for. */
   let wantsFeed = false;
   const postNote = async (words: string): Promise<{ ok: boolean; said: string; id?: string }> => {
@@ -951,8 +943,10 @@ export function addRoomControls(
   const loadPosts = async (): Promise<FeedSource[] | null> => {
     const key = notes.pubkey?.();
     if (!key) return [];
-    const got = await askWell({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, { own: await ownRelays(key), usual: usualRelays(), timeoutMs: 5000 });
-    if (!got.events.length && !Object.values(got.relays).some((said) => said === "eose")) return null;
+    // Their posts get the first look of a person's own note (their relays and the usual ones, "none" never on one
+    // relay's word), and not the waves: a feed is opened often, and has nothing to put back.
+    const got = await askOwn({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, key, { usual: usualRelays(), timeoutMs: 5000 });
+    if (!got.events.length && got.state === "unreached") return null;
     // Their posts, and not their replies to other people: out of its thread a reply reads as nonsense.
     return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));
   };

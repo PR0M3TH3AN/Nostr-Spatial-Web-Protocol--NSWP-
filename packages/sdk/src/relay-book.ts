@@ -195,6 +195,9 @@ const newest = (events: NostrEvent[]): NostrEvent | null => events.slice().sort(
 const putBack = (note: NostrEvent, asked: Map<string, Asked>, o: { publish?: typeof publishEvent; now: () => number; first?: string[] }) => {
   // Outside a browser, only by what the caller handed in: a script or a test reaches no relay by this.
   if (!o.publish && typeof document === "undefined") return;
+  // Never a wrapped private message, whoever asks: it goes only where its reader said their messages reach them
+  // (sendWell keeps to that), and putting it back elsewhere would undo it.
+  if (note.kind === WRAP_KIND) return;
   const done = mended();
   const at = o.now();
   const missing = [...asked.entries()]
@@ -218,22 +221,69 @@ const putBack = (note: NostrEvent, asked: Map<string, Asked>, o: { publish?: typ
 };
 
 /**
- * A person's relay list (NIP-65), looked for on the usual relays. Where it is the visitor's own on their own device,
- * the newest known is kept there and put back on a usual relay that answered without it.
+ * Ask each relay on its own, and be done once one has given something and the rest have had `grace`, or once all
+ * have answered, or at `most`, whichever comes first. Those still asking go on answering into `into` after.
+ */
+const askFirst = (urls: string[], filter: Filter, most: number, grace: number, query: typeof queryRelays, now: () => number, into: Map<string, Asked>, events: Map<string, NostrEvent>, pending?: Promise<unknown>[]) =>
+  new Promise<void>((done) => {
+    let left = urls.length;
+    let graceTimer: ReturnType<typeof setTimeout> | null = null;
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (graceTimer) clearTimeout(graceTimer);
+      clearTimeout(cap);
+      done();
+    };
+    const cap = setTimeout(finish, most);
+    if (!left) return finish();
+    for (const url of urls) {
+      const asking = askEach([url], filter, most, query, now, into, events).then(() => {
+        left--;
+        if (events.size && !graceTimer) graceTimer = setTimeout(finish, grace);
+        if (left === 0) finish();
+      });
+      // Each asking, to the end of its own wait: what still comes after the step is done is not lost.
+      pending?.push(asking);
+    }
+  });
+
+/**
+ * A person's relay list (NIP-65), looked for on the usual relays: the best of them, as anything else is asked (a
+ * relay known not to answer is not chosen). Taken once one has given it and the rest have had
+ * `RELAY_PICK.graceMs`, or once all have answered, and never waited for longer than `RELAY_PICK.listWaitMs`: one
+ * relay that never answers no longer holds every look for six seconds (the orchestrator, reading #531, 2026-11-24).
+ * Where it is the visitor's own on their own device, the newest known is kept there and put back on a usual relay
+ * that answered without it.
  */
 const listOf = async (who: string, o: { usual: string[]; mine: boolean; query: typeof queryRelays; publish?: typeof publishEvent; now: () => number }): Promise<NostrEvent | null> => {
   const asked = new Map<string, Asked>();
   const events = new Map<string, NostrEvent>();
-  await askEach(openOf(o.usual, "read", o.now()), { kinds: [RELAY_LIST_KIND], authors: [who], limit: 4 }, RELAY_PICK.listWaitMs, o.query, o.now, asked, events);
+  const best = relaysWell({ own: [], usual: o.usual, for: "read" }, o.now()).relays;
+  await askFirst(best, { kinds: [RELAY_LIST_KIND], authors: [who], limit: 4 }, RELAY_PICK.listWaitMs, RELAY_PICK.graceMs, o.query, o.now, asked, events);
   const had = o.mine ? keptList(who) : (lists.get(who) ?? null);
-  const best = newest([...events.values(), ...(had ? [had] : [])].filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === who));
-  if (!best) return null;
+  const list = newest([...events.values(), ...(had ? [had] : [])].filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === who));
+  if (!list) return null;
   if (o.mine) {
-    keepList(best);
-    putBack(best, asked, o);
-  } else lists.set(who, best);
-  return best;
+    keepList(list);
+    putBack(list, asked, o);
+  } else lists.set(who, list);
+  return list;
 };
+
+/**
+ * A person's own relays, as their relay list gives them, for sending something of theirs: by the same rules as a
+ * look (`askOwn`). The visitor's own list (`mine`) is kept on their device once known and used at once, while a
+ * newer one is asked for behind; anyone else's is kept for the page's life. A list not found is never kept: it is
+ * asked for again next time. Empty where none was found.
+ */
+export async function relaysOf(who: string, o: { usual: string[]; mine?: boolean; query?: typeof queryRelays; publish?: typeof publishEvent; now?: () => number }): Promise<string[]> {
+  const known = o.mine ? keptList(who) : (lists.get(who) ?? null);
+  const coming = listOf(who, { usual: o.usual, mine: !!o.mine, query: o.query ?? queryRelays, ...(o.publish ? { publish: o.publish } : {}), now: o.now ?? (() => Date.now()) }).catch(() => null);
+  const list = known ?? (await coming);
+  return readRelayList(list ? [list] : [], who)?.write ?? [];
+}
 
 /**
  * Look for a person's own note: `filter` asks for it, `who` is whose it is.
@@ -256,7 +306,7 @@ const listOf = async (who: string, o: { usual: string[]; mine: boolean; query: t
 export async function askOwn(
   filter: Filter,
   who: string,
-  o: { usual: string[]; mine?: { kept?: NostrEvent | null } | false; query?: typeof queryRelays; publish?: typeof publishEvent; timeoutMs?: number; now?: () => number; onWave?: (wave: number) => void },
+  o: { usual: string[]; mine?: { kept?: NostrEvent | null } | false; query?: typeof queryRelays; publish?: typeof publishEvent; timeoutMs?: number; now?: () => number; onWave?: (wave: number) => void; onNewer?: (got: AskedOwn) => void },
 ): Promise<AskedOwn> {
   const query = o.query ?? queryRelays;
   const now = o.now ?? (() => Date.now());
@@ -264,7 +314,11 @@ export async function askOwn(
   const first = o.timeoutMs ?? 4000;
   const asked = new Map<string, Asked>();
   const events = new Map<string, NostrEvent>();
-  const ask = (urls: string[], ms: number) => askEach(urls.filter((u) => !asked.has(u)), filter, ms, query, now, asked, events);
+  // Each step of the look is done once something was found and the rest have had `RELAY_PICK.graceMs`, or once all
+  // have answered: one relay that never answers holds nothing up once another has answered with it.
+  // The askings still going when a step was done: a slower relay may hold a newer note than the first to answer.
+  const pending: Promise<unknown>[] = [];
+  const ask = (urls: string[], ms: number) => askFirst(urls.filter((u) => !asked.has(u)), filter, ms, RELAY_PICK.graceMs, query, now, asked, events, pending);
 
   // What is known of their list now, and what will be known when it comes.
   const known = mine ? keptList(who) : (lists.get(who) ?? null);
@@ -288,7 +342,7 @@ export async function askOwn(
     const late = [...asked.entries()].filter(([, a]) => a.said === "timeout").map(([url]) => url);
     for (let i = 0, wave = 1; i < late.length && events.size === 0; i += RELAY_PICK.wave, wave++) {
       o.onWave?.(wave);
-      await askEach(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, query, now, asked, events);
+      await askFirst(late.slice(i, i + RELAY_PICK.wave), filter, RELAY_PICK.lateMs, RELAY_PICK.graceMs, query, now, asked, events, pending);
     }
   }
 
@@ -309,10 +363,22 @@ export async function askOwn(
     const everyOne = !mine || openOf(own, "read", now()).every((u) => asked.has(u));
     state = n > 0 && answered() >= need && everyOne ? "none" : "unreached";
   }
-  if (o.mine) {
-    const note = newest([...all, ...(o.mine.kept ? [o.mine.kept] : [])]);
-    if (note && note.pubkey === who) putBack(note, asked, { ...(o.publish ? { publish: o.publish } : {}), now, first: own });
-  }
+  // Once every asking has come to its end: a newer note from a slower relay is taken when it comes, and the caller
+  // is told (`onNewer`); and only then is anything put back, the newest of all, so an older one is never put back
+  // over a newer (the orchestrator, giving `RELAY_PICK.graceMs`, 2026-11-24). What it keeps open: the sockets of
+  // relays that hadn't answered when the step was done, each to the end of its own wait, as before.
+  const ownDevice = o.mine;
+  const shown = newest(all);
+  void Promise.all(pending).then(() => {
+    const everything = [...events.values()];
+    const latest = newest(everything);
+    if (latest && shown && latest.id !== shown.id && latest.created_at > shown.created_at && o.onNewer)
+      o.onNewer({ events: everything, state: "found", relays: Object.fromEntries([...asked.entries()].map(([url, a]) => [url, a.said])), own });
+    if (ownDevice) {
+      const note = newest([...everything, ...(ownDevice.kept ? [ownDevice.kept] : [])]);
+      if (note && note.pubkey === who) putBack(note, asked, { ...(o.publish ? { publish: o.publish } : {}), now, first: own });
+    }
+  });
   return { events: all, state, relays, own };
 }
 

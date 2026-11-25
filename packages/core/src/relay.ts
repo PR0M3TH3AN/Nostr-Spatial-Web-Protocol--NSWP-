@@ -140,8 +140,14 @@ export const RELAY_PICK = {
    * own took it: a world that hasn't their relay list yet looks only there, and the list itself is found only there.
    */
   usual: 1,
-  /** How long a look waits for a person's relay list, while the usual relays are asked. */
+  /** How long a look waits for a person's relay list, at the most, while the usual relays are asked. */
   listWaitMs: 6000,
+  /**
+   * Once one relay has given what was asked for (a person's relay list, or their note), how long the rest are given
+   * before it is taken: a newer one may be on another. Sooner where every relay asked has answered. So one relay
+   * that never answers holds nothing up once another has answered with it.
+   */
+  graceMs: 1000,
 } as const;
 
 /** Whether a relay is closed to reading or to writing, by what is remembered of it. */
