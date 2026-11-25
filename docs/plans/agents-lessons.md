@@ -1952,6 +1952,29 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## The arena's Aim, Use Cover and Reload (D123, 2026-11-25; free)
+
+- **The arena gained a person's limits and the kit's:** aim that wobbles
+  after a fast turn and steadies (a 60 degree flick settles within 4
+  degrees in about 0.4 s); shots going where the gun points; health back
+  after 4 s unhurt (the kit's HEALTH); reloading by choice, with no firing
+  meanwhile; no firing over your own low cover while crouched; cover spots
+  worked out once per map.
+- **Measured on and off, 30 rounds each:** **Aim** hits 43% against 38%,
+  first hit 0.63 s against 0.77 s (small, and that is the finding: a shot
+  mid-turn wastes about one shot each pop-up). **Use Cover** took cover in
+  30 of 30, and was downed 4 times against 85. **Reload** was caught
+  reloading where it could be hit 43 times against 117.
+- **Mended:** Listen turned to the oldest shot it remembered and walked out
+  of cover toward an enemy already gone.
+- *For worlds:* low cover and tall walls declared as data are enough;
+  spots are worked out once per map. *For items:* a weapon's clip, reload
+  time and fire rate are data; aim wobble belongs to the body, not the
+  weapon. *For the kit:* HEALTH's regeneration and down time drive how
+  agents take cover, so a world changing them changes how they fight.
+  *For the protocol:* a fighter's threats are what it saw and heard
+  (seeing one fall included), never the true positions.
+
 ## Push-to-talk in the browser, and the FPS arena's first skills (D121, D122, 2026-11-25; free)
 
 - **Push-to-talk heard in the visitor's own browser** (built, D121, the
