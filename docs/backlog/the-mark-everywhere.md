@@ -10,8 +10,12 @@
   the mark the others take); BitPortal (its pages' icons and its own
   menu's button, from the kit's); BitBrowser (its app's icon, when the
   app is next built).
-- **State:** asked. Order: after the relay fix's second half, in kit
-  0.90.0 if it is small and ready by then, else the next.
+- **State:** built, in two pull requests for kit 0.91.0: the menu's
+  button (the mark, no words, the hover hint, the headset's button,
+  `markSvg`), then the kit's pictures of it (`packages/sdk/assets/mark/`,
+  `scripts/make-mark.mjs`) and each reference site's page icon. No web
+  app manifest: how a page installs on a phone is the owner's to say;
+  the 192, 512 and maskable pictures are made and kept for when he does.
 
 ## What the mark is
 
