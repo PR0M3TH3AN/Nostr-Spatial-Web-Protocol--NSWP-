@@ -23,6 +23,12 @@
   built, fetched or briefed. Asked whether the new look should be built
   after the menu's mends or sooner, the owner said, 2026-11-24: "After the
   menu".
+  **The second part's look, ready to try (2026-11-25):** the 3D artist's
+  hands and controllers (bitportal-art c30f660) on a trial page for the
+  owner's Quest, `/trial-pages/quest-hands/`, moved by trigger, grip and
+  thumb; it also writes down the profile ids and whether hands and
+  controllers are tracked together (`docs/owner-quest-checks.md`, check 9).
+  Nothing in the kit until the owner says yes to the look.
 
 ## Three parts
 

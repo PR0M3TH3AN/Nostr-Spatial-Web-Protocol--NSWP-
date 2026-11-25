@@ -3,3 +3,7 @@ dist/
 .vercel/
 *.nsec
 .env*
+
+# The hands page's own files, made by scripts/quest-hands.mjs: its bundle, and the art repository's models.
+trials/pages/quest-hands/*.js
+trials/pages/quest-hands/models/
