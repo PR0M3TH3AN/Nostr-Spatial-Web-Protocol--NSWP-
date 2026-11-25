@@ -55624,7 +55624,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (resized) clearTimeout(resized);
       resized = setTimeout(() => {
         resized = null;
-        if (open3) draw();
+        if (open3 && !sheet.hidden && lastView && lastLayOut) sizeSheet(lastView, lastLayOut);
       }, 120);
     };
     addEventListener("resize", onWindowSize);

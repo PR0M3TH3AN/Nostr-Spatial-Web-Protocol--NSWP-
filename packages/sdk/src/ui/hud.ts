@@ -1432,7 +1432,11 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     if (resized) clearTimeout(resized);
     resized = setTimeout(() => {
       resized = null;
-      if (open) draw();
+      // Sized again here, and not by a drawing: nothing in the view changed with the window, so a drawing stops
+      // before it sizes the sheet, and the sheet was left unheld until something else changed (found 2026-11-24 at
+      // a phone's width: turned with the menu up, the sheet went back to each tab's own height and grew with a long
+      // line, live since one size in 0.88.0). The rows are not made anew for it.
+      if (open && !sheet.hidden && lastView && lastLayOut) sizeSheet(lastView, lastLayOut);
     }, 120);
   };
   addEventListener("resize", onWindowSize);
