@@ -22,6 +22,11 @@
   a picture, which waits on his five minutes with the Quest. No code on
   that until he has.
 
+**Asked again, 2026-11-25,** from his Quest on the live sites: "The live
+sites menus in VR look old. They should look the same." Still waiting on
+Quest check 1 (`docs/owner-quest-checks.md`), which decides how it is
+built.
+
 ## What is true today
 
 In a headset the kit draws its own console (`console.ts`): one panel of
