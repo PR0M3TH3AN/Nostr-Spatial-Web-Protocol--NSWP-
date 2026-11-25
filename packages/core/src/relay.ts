@@ -19,6 +19,16 @@ export interface Filter {
 // announcements. relay.damus.io refused WebSocket upgrades from our test network.
 export const DEFAULT_RELAYS = ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"];
 
+/**
+ * Where a room's handshake happens (protocol/06-rooms.md, "Finding each other"): eight relays, the four above and
+ * four more, each run by someone else, so two visitors who each reach most of them share several. The owner,
+ * 2026-11-25: two of his computers met in the Grove's room on one relay only, one of them reaching nothing else.
+ * The four were chosen on 2026-11-25 by the relay monitors' reports (NIP-66), each one's own document (NIP-11: no
+ * sign-in, payment or proof of work asked) and an answer from here; all run strfry, which passes room handshakes on.
+ * That they carry them is untried until rooms use them. A world that names its own relays uses those instead.
+ */
+export const ROOM_RELAYS: readonly string[] = [...DEFAULT_RELAYS, "wss://offchain.pub", "wss://relay.nostr.net", "wss://nostr.bitcoiner.social", "wss://nostr.oxtr.dev"];
+
 /** A person's own relay list (NIP-65): the relays they say they write to and read from. */
 export const RELAY_LIST_KIND = 10002;
 

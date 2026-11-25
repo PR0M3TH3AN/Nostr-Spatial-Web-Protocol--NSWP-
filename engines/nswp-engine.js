@@ -5562,6 +5562,7 @@ var NSWP = (() => {
 
   // packages/core/dist/relay.js
   var DEFAULT_RELAYS = ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"];
+  var ROOM_RELAYS = [...DEFAULT_RELAYS, "wss://offchain.pub", "wss://relay.nostr.net", "wss://nostr.bitcoiner.social", "wss://nostr.oxtr.dev"];
   var RELAY_LIST_KIND = 10002;
   function cleanRelayUrl(url) {
     if (typeof url !== "string" || url.length > 200)
@@ -10636,6 +10637,7 @@ postMessage({ t: "started" });
       __publicField(this, "topic");
       __publicField(this, "status", "connecting");
       __publicField(this, "key");
+      /** The relays this room's handshake goes through: the world's own, or `ROOM_RELAYS`. */
       __publicField(this, "relays");
       /** Keys this visitor won't be in a room with: session keys, and the identity keys behind names. */
       __publicField(this, "blocked", /* @__PURE__ */ new Set());
@@ -10744,7 +10746,7 @@ postMessage({ t: "started" });
       }
       this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
       this.topic = roomTopic(world2, this.name);
-      this.relays = opts.relays ?? DEFAULT_RELAYS;
+      this.relays = opts.relays ?? [...ROOM_RELAYS];
       this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
       this.iceServers = opts.iceServers ?? DEFAULT_ICE;
       for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
@@ -58906,8 +58908,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const lost = [...unreachedAt.values()].filter((at) => now - at < UNREACHED_HELD_MS).length;
       const reached = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? lost ? "nobody else connected" : "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
       const who2 = lost && s.status !== "no-relays" ? `${reached}, and ${lost === 1 ? "1 person" : `${lost} people`} couldn't be reached` : reached;
+      const thin = thinRelays && s.status !== "no-relays" && s.relays.length >= 2 && s.relayCount < 2 ? ` ${relaysWords(s)}` : "";
       const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
-      return `${presence3.roomName ? "Private room" : "Open room"}: ${who2}.${as}${presence3.micOn ? " Your microphone is on." : ""}${presence3.musicOn ? ` Your music is offered to people near you: ${presence3.musicListeners === 0 ? "nobody is hearing it" : presence3.musicListeners === 1 ? "1 person is hearing it" : `${presence3.musicListeners} people are hearing it`}.` : ""}${presence3.screenOn ? ` You are sharing your screen: ${presence3.screenViewers === 0 ? "nobody is watching" : presence3.screenViewers === 1 ? "1 person is watching" : `${presence3.screenViewers} people are watching`}.` : ""}`;
+      return `${presence3.roomName ? "Private room" : "Open room"}: ${who2}.${thin}${as}${presence3.micOn ? " Your microphone is on." : ""}${presence3.musicOn ? ` Your music is offered to people near you: ${presence3.musicListeners === 0 ? "nobody is hearing it" : presence3.musicListeners === 1 ? "1 person is hearing it" : `${presence3.musicListeners} people are hearing it`}.` : ""}${presence3.screenOn ? ` You are sharing your screen: ${presence3.screenViewers === 0 ? "nobody is watching" : presence3.screenViewers === 1 ? "1 person is watching" : `${presence3.screenViewers} people are watching`}.` : ""}`;
     };
     const waitingFor = /* @__PURE__ */ new Map();
     let watchingSigner = false;
@@ -59348,6 +59351,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let chatFor = null;
     const unreachedAt = /* @__PURE__ */ new Map();
     const UNREACHED_HELD_MS = 9e4;
+    const RELAYS_SETTLE_MS = 1e4;
+    let thinRelays = false;
+    const relaysWords = (s) => `Only ${s.relayCount} of ${s.relays.length} room relays answered here; people may not find you.`;
     let chatStops = [];
     const CHAT_W = 768;
     const CHAT_H = 900;
@@ -59468,6 +59474,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       chatStops = [];
       chatFor = s;
       unreachedAt.clear();
+      thinRelays = false;
       controls2.chat.detach();
       closeChatPanel();
       if (!s) return;
@@ -59509,6 +59516,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           if (unreachedAt.delete(m.pubkey)) refresh();
         })
       );
+      const relaysLook = setTimeout(() => {
+        if (chatFor !== s || s.status === "no-relays" || s.relays.length < 2 || s.relayCount >= 2) return;
+        thinRelays = true;
+        tell2(relaysWords(s));
+        refresh();
+      }, RELAYS_SETTLE_MS);
+      chatStops.push(() => clearTimeout(relaysLook));
     };
     onChatChange(() => {
       if (!showsChat()) closeChatPanel();

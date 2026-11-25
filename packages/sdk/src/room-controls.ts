@@ -185,9 +185,10 @@ export function addRoomControls(
     const lost = [...unreachedAt.values()].filter((at) => now - at < UNREACHED_HELD_MS).length;
     const reached = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? (lost ? "nobody else connected" : "nobody else here yet") : others === 1 ? "1 other person here" : `${others} other people here`;
     const who = lost && s.status !== "no-relays" ? `${reached}, and ${lost === 1 ? "1 person" : `${lost} people`} couldn't be reached` : reached;
+    const thin = thinRelays && s.status !== "no-relays" && s.relays.length >= 2 && s.relayCount < 2 ? ` ${relaysWords(s)}` : "";
     // Say how the others see this visitor: by a name their own client vouched for, or as a guest.
     const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
-    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}${presence.musicOn ? ` Your music is offered to people near you: ${presence.musicListeners === 0 ? "nobody is hearing it" : presence.musicListeners === 1 ? "1 person is hearing it" : `${presence.musicListeners} people are hearing it`}.` : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
+    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${thin}${as}${presence.micOn ? " Your microphone is on." : ""}${presence.musicOn ? ` Your music is offered to people near you: ${presence.musicListeners === 0 ? "nobody is hearing it" : presence.musicListeners === 1 ? "1 person is hearing it" : `${presence.musicListeners} people are hearing it`}.` : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
   };
   // ---- Following (protocol/14-people-and-messages.md). A world follows for its visitor only once they have let
   // it, at their own sign-in address. So the first press here says what is wanted and opens that address's window;
@@ -727,6 +728,11 @@ export function addRoomControls(
    */
   const unreachedAt = new Map<string, number>();
   const UNREACHED_HELD_MS = 90_000;
+  /** How long a room's relays are given to answer before fewer than two of them is said. */
+  const RELAYS_SETTLE_MS = 10_000;
+  /** This room reached fewer than two of its relays when they were looked at (and is said to while it lasts). */
+  let thinRelays = false;
+  const relaysWords = (s: RoomSession) => `Only ${s.relayCount} of ${s.relays.length} room relays answered here; people may not find you.`;
   let chatStops: (() => void)[] = [];
   const CHAT_W = 768;
   const CHAT_H = 900;
@@ -852,6 +858,7 @@ export function addRoomControls(
     chatStops = [];
     chatFor = s;
     unreachedAt.clear();
+    thinRelays = false;
     controls.chat.detach();
     closeChatPanel();
     if (!s) return;
@@ -894,6 +901,15 @@ export function addRoomControls(
         if (unreachedAt.delete(m.pubkey)) refresh();
       }),
     );
+    // A room that reached fewer than two of its relays, once they have had time to answer: others reaching other
+    // relays may never find this visitor, so it is said, once, and kept in the room's line while it lasts.
+    const relaysLook = setTimeout(() => {
+      if (chatFor !== s || s.status === "no-relays" || s.relays.length < 2 || s.relayCount >= 2) return;
+      thinRelays = true;
+      tell(relaysWords(s));
+      refresh();
+    }, RELAYS_SETTLE_MS);
+    chatStops.push(() => clearTimeout(relaysLook));
   };
   onChatChange(() => {
     if (!showsChat()) closeChatPanel();

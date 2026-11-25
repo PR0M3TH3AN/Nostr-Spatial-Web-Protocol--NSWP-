@@ -26,6 +26,12 @@ room name is `lobby`. A private room has a name nobody else could guess, 4 to
 address. Because the topic is a hash, knowing a world's address is not enough
 to find its private rooms.
 
+Members meet on relays (below). Every member of a room should ask the same
+ones, and as many as it can reach: two members who share no relay never find
+each other. The kit's are `ROOM_RELAYS`, eight relays run by eight
+operators; a world may name its own. A client that reaches fewer than two of
+them tells its visitor so.
+
 Each member speaks with a **session key**: a throwaway. A guest's is made
 when they join and says nothing about who they are. Someone going by name
 uses the one their pass names ([NSWP-10](10-identity.md)).
