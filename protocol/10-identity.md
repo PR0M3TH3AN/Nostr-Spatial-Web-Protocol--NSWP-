@@ -448,6 +448,7 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
 | `save`, `find`, `open` | A save kept, found or opened for this world and no other: [NSWP-12](12-saves.md) |
 | `want`, with `more`: a list of names | `state`. It approves nothing: the signer remembers it for its own window ("Asking for more", below) |
+| `want`, with `family`: `"https://*.<registrable domain>"`, the world's own | `state`, with `familyTaken` true or false: whether the visitor's sign-in will be for every world under that domain, so it carries from one to the next. Asked once, before the first sign-in. A signer takes it only for a family it knows, judged by the browser's own origin; one that doesn't know the word says nothing of it, which is "not offered" |
 | `propose`, with `event`: `kind`, `content`, `tags`, of kind 0, 5 or 10002 | `asking` at once; then, under the same `id`, `signed` with the whole signed note, or `refused` ("Asking the person", below) |
 | `wallet` | `asking` at once; then, under the same `id`, `wallet` with `uri`, or `refused` ("Asking the person", below) |
 | `pay`, with `invoice`: a Lightning invoice the world made | `asking` at once; then, under the same `id`, `paid`, with `preimage` where there is one, or `refused` ("Asking the person", below) |
