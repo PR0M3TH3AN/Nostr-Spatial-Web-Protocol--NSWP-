@@ -971,6 +971,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // They left a headset moving the intense way: the same here.
     arrivedIntense: context?.moving === "intense" && !!context.immersive,
     accent,
+    // The kit's held hands, copied beside the page at build (scripts/build-sites.mjs).
+    handsAt: "/hands/kit/",
     pace,
     stepFrom: (i) => {
       aimFrom(controllers[i]!);

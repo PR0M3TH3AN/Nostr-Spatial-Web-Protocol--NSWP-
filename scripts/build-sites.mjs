@@ -227,6 +227,9 @@ for (const s of sites) {
     // The part of it that sends a guided run's log out: signing needs a library, and the test itself stays without one.
     writeFileSync(join(out, "xr-test", "post.js"), await xrTestPost());
     copySounds(join(root, "packages", "sdk", "sounds"), join(out, "sounds", "kit"));
+    // The kit's held hands, for a Quest's controllers (packages/sdk/src/held-hands.ts), beside its sounds: served by the
+    // world itself, never fetched from anyone else. Their licence and where they come from go with them.
+    cpSync(join(root, "packages", "sdk", "assets", "hands"), join(out, "hands", "kit"), { recursive: true });
     if (existsSync(join(dir, "sounds"))) copySounds(join(dir, "sounds"), join(out, "sounds"));
     // Previews this world mirrors by hash: its own, and those of the worlds its portals lead to.
     mkdirSync(join(out, "previews"), { recursive: true });
