@@ -11,10 +11,10 @@
 - **Who:** the NSWP builder (the kit's menu, `packages/sdk/src/ui/hud.ts`,
   which is the menu a world draws and the one BitPortal's shell draws; then
   the headset's). BitPortal follows by vendoring.
-- **State:** **the first of the three, one size, is built in the kit,
-  2026-11-24; not live.** The other two (motion) are not designed, and come
-  last in the builder's queue, with a film for the owner before they go
-  live.
+- **State:** one size live (kit 0.88.0, mended in 0.89.0 and 0.90.0).
+  **The motion (items 2 and 3) is built, 2026-11-25, and its look approved
+  by the owner** on a served copy: "yeah looks good". Not merged; for kit
+  0.92.0.
 
 ## And, once it was live: the sheet must not cover the row at the top (2026-11-24)
 
@@ -127,6 +127,24 @@ again.
 
 Its outline first, as fine lines, then filled in with what it holds; and
 the reverse to close.
+
+### As built, the motion (2026-11-25)
+
+- **Opening:** the outline is drawn out from the top as fine lines in the
+  accent (0.14 s); the glass and what it holds fill in (0.16 s); the lines
+  fade. **Closing:** the sheet goes at once, as it always has, and its
+  outline draws back where it was (0.16 s).
+- **Rows come in** a few at a time, only when a tab is chosen or the menu
+  comes up. A redraw for any other reason brings nothing in, so item 2's
+  known redraw (every row made anew when a description changes) doesn't
+  bring rows in again, and keeping rows by id isn't needed for the motion.
+- **Nothing pressable moves:** opacity, a clip and an outline only. A row
+  can be pressed in the frame its tab is chosen (`trials/menu-rows.mjs`).
+- **Off with less motion:** the device's setting turns the kit's `motion`
+  off as a world starts; then the menu appears at once. **None in a
+  headset:** its menu is a picture on one panel, untouched by this.
+- **The owner's look:** a build served on this machine with the motion on,
+  and with reduced motion honoured. "yeah looks good" (2026-11-25).
 
 ## What the design must hold to (the orchestrator)
 

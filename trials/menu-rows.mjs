@@ -140,6 +140,65 @@ try {
   await page.waitForFunction(() => window.__got.some((g) => g[0] === "copy"), null, { timeout: 5000 }).catch(() => {});
   check("the row that copies writes its text, and the world is told of the press", (await page.evaluate(() => navigator.clipboard.readText())) === "npub1trialkey" && (await page.evaluate(() => window.__got.some((g) => g[0] === "copy"))), await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e))));
 
+  // ---- The menu's motion (the owner, 2026-11-24): it opens as fine lines that fill in, and rows come in when a tab is
+  // chosen. Nothing that can be pressed moves, and all of it can be pressed from the first frame.
+  {
+    // A row of the world's own in Sound, counted by the world: pressed in the very frame its tab is chosen.
+    await page.evaluate(() => {
+      window.__motion = 0;
+      window.__nswpTest.controls.add({ id: "trial-motion", section: "sound", label: "Pressed as it comes in", act: () => void window.__motion++ });
+      window.__nswpTest.hud.setOpen(true, "room");
+    });
+    await page.waitForTimeout(500);
+    const strip = () => page.evaluate(() => { const r = document.querySelector("nswp-hud").shadowRoot.querySelector("section.sheet .tabbar").getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]; });
+    const before = await strip();
+    // Chosen, and pressed at once, while it is still coming in: by the page itself, in one go, so it is the first frame.
+    const pressed = await page.evaluate(async () => {
+      const root = document.querySelector("nswp-hud").shadowRoot;
+      [...root.querySelectorAll('section.sheet [role="tab"]')].find((t) => /Sound/.test(t.textContent))?.click();
+      const row = [...root.querySelectorAll(".rows button")].find((b) => /Pressed as it comes in/.test(b.textContent));
+      if (!row) return { found: false };
+      const r = row.getBoundingClientRect();
+      const top = root.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      const running = row.getAnimations().length;
+      const atFirst = [Math.round(r.left), Math.round(r.top)];
+      (top === row || row.contains(top) ? top : row).dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+      await new Promise((ok) => setTimeout(ok, 400));
+      const r2 = row.getBoundingClientRect();
+      return { found: true, onTop: top === row || row.contains(top), running, atFirst, atEnd: [Math.round(r2.left), Math.round(r2.top)], heard: window.__motion };
+    });
+    check("motion: a row is coming in as its tab is chosen", pressed.found && pressed.running > 0, pressed);
+    check("motion: and it is on top, where it will be, from the first frame: a press then is heard", pressed.found && pressed.onTop && pressed.heard === 1, pressed);
+    check("motion: and it doesn't move as it comes in", pressed.found && JSON.stringify(pressed.atFirst) === JSON.stringify(pressed.atEnd), pressed);
+    check("motion: the strip of tabs stays where it is as the tab changes", JSON.stringify(await strip()) === JSON.stringify(before), { before, after: await strip() });
+    // Drawn again for another reason (a world saying something changed), the rows are simply there: nothing comes in.
+    await page.waitForTimeout(500);
+    const redrawn = await page.evaluate(async () => {
+      const c = window.__nswpTest.controls;
+      c.setTheme({ scale: c.theme.scale }, true);
+      await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+      // Coming in is an animation of opacity (`hold-in`); a hover's or a colour's own transition is not coming in.
+      const all = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows > *")].flatMap((e) => e.getAnimations().map((x) => ({ kind: x.constructor.name, name: x.animationName ?? x.transitionProperty ?? "?", on: e.className || e.tagName })));
+      return { comingIn: all.filter((x) => x.kind === "CSSAnimation").length, all };
+    });
+    check("motion: rows drawn again for another reason don't come in again", redrawn.comingIn === 0, redrawn);
+    // Less motion, by the browser's own setting: nothing moves when the menu comes up.
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.evaluate(() => window.__nswpTest.controls.setTheme({ motion: !window.matchMedia("(prefers-reduced-motion: reduce)").matches }, true));
+    await page.waitForTimeout(200);
+    const still = await page.evaluate(async () => {
+      window.__nswpTest.hud.setOpen(true, "sound");
+      await new Promise((ok) => requestAnimationFrame(ok));
+      const root = document.querySelector("nswp-hud").shadowRoot;
+      return [root.querySelector("section.sheet"), ...root.querySelectorAll("section.sheet *")].reduce((n, e) => n + e.getAnimations().length, 0);
+    });
+    check("motion: with less motion asked for (the kit's switch, which the browser's own setting turns off as a world starts), nothing moves when the menu comes up", still === 0, still);
+    await page.evaluate(() => { window.__nswpTest.hud.setOpen(false); window.__nswpTest.controls.remove("trial-motion"); window.__nswpTest.controls.setTheme({ motion: true }, true); });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.waitForTimeout(300);
+  }
+
   // ---- The menu's button is the mark, with no words (the owner, 2026-11-24: "can we use this menu icon everywhere?
   // With no text?"). Its name is still read aloud and its key still opens it; a hint says both on hover with a mouse.
   {
