@@ -1952,6 +1952,24 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## A model choosing tactics in the arena (D126, 2026-11-25; $0.023)
+
+- **JEV chose among each fighter's top three skill offers** (shown only
+  its own state, never the enemies' true places), asked when the offers
+  changed, at most twice a second, the free rules acting meanwhile so the
+  body never waited. 897 requests, $0.023, median answer 0.24 s.
+- **It did worse than the rules:** downed 82 times against 64 over six
+  rounds of 10 seeds. Most of it in Disengage, where it went against the
+  rules on 114 of 168 answers and fell back in 4 rounds of 10 against 10.
+  A little better on Reload and Reposition, within the noise.
+- **The lesson, D117's from the other side:** a model asked whatever the
+  gap between the scores overrides clear calls. Rules first; a model only
+  where the rules can't tell.
+- *For the protocol:* a decision model handed a world's skill offers is
+  asked only when their scores are close. *For the kit and worlds:* skills
+  report how sure they are, not only what they would do; that is what lets
+  the model be asked rarely, which is also what keeps a crowd affordable.
+
 ## An agent's designation (D125, 2026-11-25; free)
 
 - **`designation: { emoji, title }`** (name given 2026-11-25, for the
