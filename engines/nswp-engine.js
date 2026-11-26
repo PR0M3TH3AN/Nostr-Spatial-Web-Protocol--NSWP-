@@ -975,10 +975,10 @@ var NSWP = (() => {
       throw new Error("sqrt is not defined for small field");
     aoddModulus(P, "tonelliShanks");
     let Q = P - _1n2;
-    let S = 0;
+    let S2 = 0;
     while (Q % _2n === _0n2) {
       Q /= _2n;
-      S++;
+      S2++;
     }
     let Z = _2n;
     const _Fp = Field(P);
@@ -986,7 +986,7 @@ var NSWP = (() => {
       if (Z++ > 1e3)
         throw new Error("Cannot find square root: probably non-prime P");
     }
-    if (S === 1)
+    if (S2 === 1)
       return sqrt3mod4;
     let cc = _Fp.pow(Z, Q);
     const Q1div2 = (Q + _1n2) / _2n;
@@ -996,7 +996,7 @@ var NSWP = (() => {
         return n;
       if (FpLegendre(F, n) !== 1)
         throw new Error("Cannot find square root");
-      let M = S;
+      let M = S2;
       let c = F.mul(F.ONE, cc);
       let t = F.pow(n, Q);
       let R = F.pow(n, Q1div2);
@@ -49961,8 +49961,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       this.quad(a, b, c, c, paint2, out);
     }
     /** A face with a panel pressed into it. Corners in order round the face; `out` is which way it faces. */
-    panel(corners, out, o, paint2 = {}) {
-      const [a, b, c, d] = corners.map((p) => new Vector3(...p));
+    panel(corners2, out, o, paint2 = {}) {
+      const [a, b, c, d] = corners2.map((p) => new Vector3(...p));
       const n = new Vector3(...out).normalize();
       const mid = new Vector3().add(a).add(b).add(c).add(d).multiplyScalar(0.25);
       const inner = [a, b, c, d].map((p, i, all2) => {
@@ -52737,8 +52737,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const TAIL = 22;
     const canvas = document.createElement("canvas");
     const g = canvas.getContext("2d");
-    const font = "500 42px system-ui, sans-serif";
-    g.font = font;
+    const font2 = "500 42px system-ui, sans-serif";
+    g.font = font2;
     const rows = wrapWords(text2, (t) => g.measureText(t).width, FULL - PAD * 2, 5);
     const wide = Math.ceil(Math.max(80, ...rows.map((r) => g.measureText(r).width))) + PAD * 2;
     canvas.width = Math.min(FULL, wide);
@@ -52752,7 +52752,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     g.lineTo(canvas.width / 2 + 18, h - 1);
     g.fill();
     g.fillStyle = "#141a22";
-    g.font = font;
+    g.font = font2;
     g.textBaseline = "middle";
     rows.forEach((row, i) => g.fillText(row, PAD, PAD * 0.7 + LINE * (i + 0.5), canvas.width - PAD * 2));
     const tex = new CanvasTexture(canvas);
@@ -55760,7 +55760,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (open3 && section === id3) setOpen2(false);
       else setOpen2(true, id3);
     };
-    const drawCard = (card, acts = [], onlyMeasured = false) => {
+    const drawCard2 = (card, acts = [], onlyMeasured = false) => {
       const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
       if (card.color) face.style.setProperty("--c", card.color);
       onlyMeasured || (onlyMeasured = measuringOnly);
@@ -56476,7 +56476,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       cardShown = about;
       const typingIn = typingNow();
       const at = typingIn ? [typingIn.input.selectionStart, typingIn.input.selectionEnd] : null;
-      rows.replaceChildren(current?.card ? drawCard(current.card, beside) : "", ...laid);
+      rows.replaceChildren(current?.card ? drawCard2(current.card, beside) : "", ...laid);
       if (open3 && (section !== rowsFor || !rowsOpen) && controls2.theme.motion) {
         [...rows.children].forEach((row, n) => row.style.setProperty("--n", String(n)));
         rows.classList.remove("arriving");
@@ -56509,7 +56509,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       sizeSheet(view2, (s) => {
         const within2 = new Set(s.card?.draw ? s.card.acts ?? [] : []);
-        return [s.card ? drawCard(s.card, lay(s.items.filter((i) => within2.has(i.id))), true) : "", ...lay(s.items.filter((i) => !within2.has(i.id)))];
+        return [s.card ? drawCard2(s.card, lay(s.items.filter((i) => within2.has(i.id))), true) : "", ...lay(s.items.filter((i) => !within2.has(i.id)))];
       });
       menu2.setAttribute("aria-expanded", String(open3));
       quiet.setAttribute("aria-expanded", String(open3));
@@ -57664,9 +57664,1033 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
   }
 
+  // packages/sdk/src/menu-drawing.ts
+  var S = SHEET_LOOK.text.size;
+  var LH = SHEET_LOOK.text.line;
+  var font = (scale, size = 1, weight = 500, mono = false) => `${weight} ${size * S * scale}px ${mono ? SHEET_LOOK.text.mono : SHEET_LOOK.text.family}`;
+  function wrapWords2(measure, text2, f, width) {
+    const out = [];
+    for (const para of String(text2).split("\n")) {
+      let line3 = "";
+      for (const word of para.split(/ +/)) {
+        const next = line3 ? `${line3} ${word}` : word;
+        if (!line3 || measure(next, f) <= width + 0.01) line3 = next;
+        else {
+          out.push(line3);
+          line3 = word;
+        }
+      }
+      out.push(line3);
+    }
+    return out;
+  }
+  var unreachable = (kind) => {
+    throw new Error(`the headset's menu doesn't draw a row of kind ${String(kind)}`);
+  };
+  function kindLaid(item) {
+    switch (item.kind) {
+      case "button":
+      case "copy":
+      case "save":
+        return item.tone === "primary" ? "full" : "half";
+      case "swatch":
+      case "tile":
+        return "run";
+      case "line":
+      case "field":
+      case "file":
+      case "slider":
+        return "full";
+      default:
+        return unreachable(item.kind);
+    }
+  }
+  function rowParts(measure, scale, item, w) {
+    const P = SHEET_LOOK.row;
+    const icon2 = item.icon ? SHEET_LOOK.text.icon * S * scale : 0;
+    const state = item.on === null ? 0 : measure(item.on ? "On" : "Off", font(scale, P.state));
+    const key = item.key ? Math.max(1.6 * 0.82 * S * scale, measure(item.key, font(scale, 0.82, 400, true)) + 10) : 0;
+    const room3 = w - 2 - 2 * P.pad[1] - (icon2 ? icon2 + P.gap : 0) - (state ? state + P.gap : 0) - (key ? key + P.gap : 0);
+    const lines = wrapWords2(measure, item.label, font(scale), room3);
+    const h = Math.max(P.height, 2 + 2 * P.pad[0] + Math.max(icon2, lines.length * S * scale * LH));
+    return { lines, h, icon: icon2, state, key };
+  }
+  function layRows(o, s, scale, inner) {
+    const m = o.measure;
+    const two = (o.width ?? SHEET_LOOK.sheet.wide) >= SHEET_LOOK.sheet.wide;
+    const gap = SHEET_LOOK.rows.gap;
+    const colW = two ? (inner - gap) / 2 : inner;
+    const boxes = [];
+    let y = 0;
+    let open3 = [];
+    const close = () => {
+      if (!open3.length) return;
+      const h = Math.max(...open3.map((b) => b.h));
+      for (const b of open3) b.h = h;
+      y += h + gap;
+      open3 = [];
+    };
+    const full = (b) => {
+      close();
+      const box = { ...b, x: 0, y, w: inner };
+      boxes.push(box);
+      open3 = [box];
+      close();
+      return box;
+    };
+    const half = (b) => {
+      if (!two) return full(b);
+      const box = { ...b, x: open3.length ? colW + gap : 0, y, w: colW };
+      boxes.push(box);
+      open3.push(box);
+      if (open3.length === 2) close();
+      return box;
+    };
+    if (s.card) full(layCard(m, scale, s.card, inner, two));
+    let whose = "";
+    let run2 = null;
+    const flushRun = () => {
+      if (!run2) return;
+      const r = run2;
+      run2 = null;
+      if (r.kind === "swatch") {
+        const W3 = SHEET_LOOK.swatch;
+        const pad = SHEET_LOOK.swatches.pad;
+        const per = Math.max(1, Math.floor((inner - pad[1] * 2 + SHEET_LOOK.swatches.gap[1]) / (W3.width + SHEET_LOOK.swatches.gap[1])));
+        const each = W3.arch[1] + W3.gap + Math.max(0, W3.sill[1] + W3.sillAt) + W3.gap + W3.text * S * scale * LH;
+        const rows = Math.ceil(r.items.length / per);
+        const box = full({ id: `swatches:${r.items[0].id}`, kind: "swatches", h: pad[0] + rows * each + (rows - 1) * SHEET_LOOK.swatches.gap[0] + pad[2] });
+        r.items.forEach((item, i) => boxes.push({ id: `act:${item.id}`, kind: "swatch", item, x: box.x + pad[1] + i % per * (W3.width + SHEET_LOOK.swatches.gap[1]), y: box.y + pad[0] + Math.floor(i / per) * (each + SHEET_LOOK.swatches.gap[0]), w: W3.width, h: each, lines: [item.label] }));
+      } else {
+        const T2 = SHEET_LOOK.tile;
+        const min = two ? SHEET_LOOK.tiles.min : SHEET_LOOK.tiles.narrowMin;
+        const per = Math.max(1, Math.floor((inner + SHEET_LOOK.tiles.gap) / (min + SHEET_LOOK.tiles.gap)));
+        const tw = (inner - (per - 1) * SHEET_LOOK.tiles.gap) / per;
+        const words2 = (item) => wrapWords2(m, item.label, font(scale, T2.text), tw - 2 - 2 * T2.pad[1]);
+        const pic = tw - 2 - 2 * T2.pad[1];
+        const heights = r.items.map((item) => 2 + T2.pad[0] + T2.pad[2] + pic + T2.gap + words2(item).length * T2.text * S * scale * T2.line);
+        const rows = Math.ceil(r.items.length / per);
+        const rowH = Array.from({ length: rows }, (_, k) => Math.max(...heights.slice(k * per, k * per + per)));
+        const box = full({ id: `tiles:${r.items[0].id}`, kind: "tiles", h: SHEET_LOOK.tiles.pad[0] + rowH.reduce((a, b) => a + b, 0) + (rows - 1) * SHEET_LOOK.tiles.gap + SHEET_LOOK.tiles.pad[2] });
+        let ty = box.y + SHEET_LOOK.tiles.pad[0];
+        for (let k = 0; k < rows; k++) {
+          r.items.slice(k * per, k * per + per).forEach((item, i) => boxes.push({ id: `act:${item.id}`, kind: "tile", item, x: i * (tw + SHEET_LOOK.tiles.gap), y: ty, w: tw, h: rowH[k], lines: words2(item) }));
+          ty += rowH[k] + SHEET_LOOK.tiles.gap;
+        }
+      }
+    };
+    for (const item of s.items) {
+      if ((item.from ?? "") !== whose) {
+        flushRun();
+        whose = item.from ?? "";
+        if (whose) full({ id: `from:${whose}`, kind: "from", h: SHEET_LOOK.from.top + SHEET_LOOK.from.text * S * scale * LH, lines: [whose.toUpperCase()] });
+      }
+      const laid = kindLaid(item);
+      if (laid === "run") {
+        if (run2 && run2.kind !== item.kind) flushRun();
+        run2 ?? (run2 = { kind: item.kind, items: [] });
+        run2.items.push(item);
+        continue;
+      }
+      flushRun();
+      if (item.kind === "line") {
+        const lines = wrapWords2(m, item.label, font(scale), inner - 2 * SHEET_LOOK.line.pad[1] - SHEET_LOOK.text.icon * S * scale - SHEET_LOOK.line.gap);
+        full({ id: `line:${item.id}`, kind: "line", item, lines, h: 2 * SHEET_LOOK.line.pad[0] + Math.max(lines.length * S * scale * LH, SHEET_LOOK.line.iconAt + SHEET_LOOK.text.icon * S * scale) });
+      } else if (item.kind === "field") {
+        const F = SHEET_LOOK.field;
+        const to = o.title ? [`What you type here goes to ${o.title}.`] : [];
+        full({ id: `act:${item.id}`, kind: "field", item, lines: to, h: 2 + 2 * F.pad[0] + F.box + (to.length ? F.gap[0] + F.to * S * scale * LH : 0) });
+      } else if (item.kind === "slider") {
+        const D2 = SHEET_LOOK.slide;
+        full({ id: `act:${item.id}`, kind: "slider", item, h: 2 + 2 * D2.pad[0] + Math.max(SHEET_LOOK.text.icon * S * scale, S * scale * LH) + D2.gap[0] + D2.bar });
+      } else if (item.kind === "file") {
+        const parts3 = rowParts(m, scale, item, inner);
+        const to = o.title ? [`The file you choose goes to ${o.title}.`] : [];
+        full({ id: `act:${item.id}`, kind: "file", item, lines: parts3.lines, h: parts3.h + (to.length ? SHEET_LOOK.takes.gap + SHEET_LOOK.takes.to * S * scale * LH : 0) });
+      } else {
+        const parts3 = rowParts(m, scale, item, laid === "full" ? inner : colW);
+        (laid === "full" ? full : half)({ id: `act:${item.id}`, kind: "row", item, lines: parts3.lines, h: parts3.h });
+      }
+    }
+    flushRun();
+    close();
+    return { boxes, height: Math.max(0, y - gap) };
+  }
+  function layCard(m, scale, card, inner, two) {
+    const C = SHEET_LOOK.card;
+    const line3 = S * scale * LH;
+    const head = C.title * S * scale * LH;
+    const keyline = Math.max(C.keyline * S * scale * LH, card.copy ? 2 + 4 + C.keyline * S * scale * LH : 0);
+    const content = inner - 2 - 2 * C.pad;
+    if (card.draw) {
+      const face = two ? C.thing : Math.max(112, content * 0.3);
+      const words2 = content - face - 14;
+      const text3 = card.text ? wrapWords2(m, card.text, font(scale), words2 - 12) : [];
+      const about = head + 5 + keyline + (text3.length ? 5 + 3 + 2 + text3.length * line3 : 0) + (card.now.length ? 5 + 5 + 0.9 * S * scale * LH : 0);
+      const h = two ? Math.max(face, about + 10) : Math.max(face, about) + 10;
+      return { id: "card", kind: "card", card, h: 2 + 2 * C.pad + h, lines: text3 };
+    }
+    const text2 = card.text ? wrapWords2(m, card.text, font(scale), content - 12) : [];
+    const top = Math.max(C.face, head + C.gap[0] + keyline);
+    const quote = text2.length ? C.gap[0] + C.quote + 2 + text2.length * line3 : 0;
+    const now = card.now.length ? C.gap[0] + 5 + 0.9 * S * scale * LH : 0;
+    return { id: "card", kind: "card", card, h: 2 + 2 * C.pad + top + quote + now, lines: text2 };
+  }
+  function laySheet(view2, sectionId, o) {
+    const scale = view2.theme.scale || 1;
+    const m = o.measure;
+    const width = o.width ?? SHEET_LOOK.sheet.wide;
+    const section = view2.sections.find((x) => x.id === sectionId) ?? view2.sections[0] ?? null;
+    const inner = width - 2 - 2 * SHEET_LOOK.rows.pad;
+    const T2 = SHEET_LOOK.tabs.tab;
+    const icon2 = SHEET_LOOK.text.icon * S * scale;
+    const tabH = T2.pad[0] + Math.max(icon2, S * scale * LH) + T2.pad[2] + T2.under;
+    const tabs = [];
+    let tx = 1 + SHEET_LOOK.tabs.pad[1];
+    for (const t of view2.sections) {
+      const w = T2.pad[1] + (t.icon ? icon2 + T2.gap : 0) + m(t.label, font(scale)) + T2.pad[1];
+      tabs.push({ id: `tab:${t.id}`, kind: "tab", x: tx, y: 1 + SHEET_LOOK.tabs.pad[0], w, h: tabH, lines: [t.label] });
+      tx += w + SHEET_LOOK.tabs.gap;
+    }
+    const stripEnd = tx - SHEET_LOOK.tabs.gap + SHEET_LOOK.tabs.pad[1];
+    const over = stripEnd > width - 2;
+    const chosen = tabs.find((t) => t.id === `tab:${section?.id}`);
+    let tabsScroll = 0;
+    if (over) {
+      const most = stripEnd - (width - 2);
+      tabsScroll = o.tabsScroll ?? 0;
+      if ((o.bring ?? true) && chosen) {
+        const clear = SHEET_LOOK.tabs.clear;
+        const left = chosen.x - 1 - clear;
+        const right = chosen.x - 1 + chosen.w + clear - (width - 2);
+        if (tabsScroll > left) tabsScroll = Math.max(0, left);
+        else if (tabsScroll < right) tabsScroll = right;
+      }
+      tabsScroll = Math.max(0, Math.min(most, tabsScroll));
+    }
+    const more = { left: over && tabsScroll > 0.5, right: over && tabsScroll < stripEnd - (width - 2) - 0.5 };
+    const stripBottom = 1 + SHEET_LOOK.tabs.pad[0] + tabH;
+    const noteW = width - 2 - SHEET_LOOK.note.inset;
+    const noteText = noteW - 2 - SHEET_LOOK.note.pad[1] - SHEET_LOOK.note.pad[3];
+    const noteLines = (s) => s.note ? wrapWords2(m, s.note, font(scale, SHEET_LOOK.note.text), noteText) : [];
+    const noteH = (lines) => lines.length ? SHEET_LOOK.note.pad[0] + lines.length * SHEET_LOOK.note.text * S * scale * LH : 0;
+    const saidLines = (s) => s.said ? wrapWords2(m, `${s.said.from} ${s.said.note}`, font(scale, SHEET_LOOK.note.text), noteText) : [];
+    const needs = (s) => {
+      const r = layRows(o, s, scale, inner);
+      return { r, h: 1 + 2 * SHEET_LOOK.rows.pad + r.height + noteH(noteLines(s)) + noteH(saidLines(s)) };
+    };
+    const saysH = S * scale * LH + SHEET_LOOK.says.pad;
+    const footH = Math.max(SHEET_LOOK.foot.close.height, 2 + 2 * SHEET_LOOK.foot.pin.pad[0] + Math.max(SHEET_LOOK.foot.pin.icon, SHEET_LOOK.foot.pin.text * S * scale * LH)) + SHEET_LOOK.foot.pad[2];
+    const around = stripBottom + saysH + SHEET_LOOK.says.after + footH + 1;
+    const tallest = Math.max(0, ...view2.sections.map((s) => needs(s).h));
+    const height = Math.min(o.most ?? SHEET_LOOK.sheet.tall.desk, Math.ceil(around + tallest));
+    const here = section ? needs(section) : { r: { boxes: [], height: 0 }, h: 0 };
+    const nLines = section ? noteLines(section) : [];
+    const sLines = section ? saidLines(section) : [];
+    const footTop = height - 1 - footH;
+    const saysTop = footTop - SHEET_LOOK.says.after - saysH;
+    const room3 = saysTop - stripBottom - noteH(nLines) - noteH(sLines);
+    const rowsH = Math.max(0, Math.min(1 + 2 * SHEET_LOOK.rows.pad + here.r.height, room3));
+    const rowsAt = { y: stripBottom, h: rowsH };
+    const rows = here.r.boxes.map((b) => ({ ...b, x: b.x + 1 + SHEET_LOOK.rows.pad, y: b.y + stripBottom + 1 + SHEET_LOOK.rows.pad }));
+    let y = stripBottom + rowsH;
+    const noteX = 1 + SHEET_LOOK.note.inset;
+    const note = nLines.length ? { id: "note", kind: "note", x: noteX, y, w: noteW, h: noteH(nLines), lines: nLines } : null;
+    if (note) y += note.h;
+    const said2 = sLines.length ? { id: "said", kind: "said", x: noteX, y, w: noteW, h: noteH(sLines), lines: sLines } : null;
+    const F = SHEET_LOOK.foot;
+    const pinWords = section?.pinned ? "On your bar. Take it off" : view2.pinsFull ? "Your bar is full" : "Keep this tab on your bar";
+    const pinH = 2 + 2 * F.pin.pad[0] + Math.max(F.pin.icon, F.pin.text * S * scale * LH);
+    const pinW = 2 + 2 * F.pin.pad[1] + F.pin.icon + F.pin.gap + m(pinWords, font(scale, F.pin.text));
+    const closeW = 2 + 2 * F.close.padX + m("Close", font(scale));
+    const footRow = footH - F.pad[2];
+    const pin = section && (o.bar ?? view2.presence === "full") ? { id: "pin", kind: "pin", x: 1 + F.pad[1], y: footTop + (footRow - pinH) / 2, w: pinW, h: pinH, lines: [pinWords] } : null;
+    const close = { id: "close", kind: "close", x: width - 1 - F.pad[1] - closeW, y: footTop + (footRow - F.close.height) / 2, w: closeW, h: F.close.height, lines: ["Close"] };
+    return {
+      width,
+      height,
+      section,
+      tabs,
+      tabsScroll,
+      more,
+      rowsAt,
+      rowsContent: 1 + 2 * SHEET_LOOK.rows.pad + here.r.height,
+      rows,
+      note,
+      said: said2,
+      says: { id: "says", kind: "says", x: 1 + SHEET_LOOK.rows.pad, y: saysTop, w: width - 2 - 2 * SHEET_LOOK.rows.pad, h: saysH },
+      pin,
+      close
+    };
+  }
+  function layBar(view2, o) {
+    const scale = view2.theme.scale || 1;
+    const B = SHEET_LOOK.bar;
+    const K = SHEET_LOOK.key;
+    const keys = [];
+    let x = B.pad[1];
+    const name = font(scale, K.name);
+    const lines = (words2) => wrapWords2(o.measure, words2, name, K.width);
+    const all = [...view2.hotbar.map((h) => ({ id: `act:${h.id}`, words: h.short || h.label, item: h })), ...view2.pins.map((p) => ({ id: `tab:${p.id}`, words: p.label, item: void 0 }))];
+    let theirs = null;
+    all.forEach((k, i) => {
+      if (i === view2.hotbar.length && view2.hotbar.length && view2.pins.length) {
+        theirs = x + 2;
+        x += 1 + 4 + B.gap;
+      }
+      const l = lines(k.words);
+      keys.push({ id: k.id, kind: "key", x, y: B.pad[0], w: K.width, h: K.arch[1] + K.gap + Math.max(0, K.sill[1] + K.sillAt) + K.gap + l.length * K.name * S * scale * K.line, lines: l, ...k.item ? { item: k.item } : {} });
+      x += K.width + B.gap;
+    });
+    const width = x - B.gap + B.pad[1];
+    const height = B.pad[0] + Math.max(0, ...keys.map((k) => k.h)) + B.pad[2];
+    return { width: Math.max(width, 2 * B.pad[1]), height, keys, theirs };
+  }
+  function boxAt(L2, id2, rowsScroll) {
+    const tab = L2.tabs.find((t) => t.id === id2);
+    if (tab) {
+      const x = tab.x - L2.tabsScroll;
+      const M = SHEET_LOOK.tabs.more;
+      const from = L2.more.left ? 1 + M.width : 1;
+      const to = L2.width - (L2.more.right ? 1 + M.width : 1);
+      if (x + tab.w / 2 < from || x + tab.w / 2 > to) return null;
+      return { ...tab, x };
+    }
+    if (id2 === "tabs-left" || id2 === "tabs-right") {
+      const side = id2 === "tabs-left" ? "left" : "right";
+      if (!L2.more[side]) return null;
+      const M = SHEET_LOOK.tabs.more;
+      const t0 = L2.tabs[0];
+      return { id: id2, kind: "more", x: side === "left" ? 1 : L2.width - 1 - M.width, y: t0?.y ?? 13, w: M.width, h: t0?.h ?? 39 };
+    }
+    if (L2.pin?.id === id2) return L2.pin;
+    if (L2.close.id === id2) return L2.close;
+    const row = L2.rows.find((b) => b.id === id2 && b.kind !== "line");
+    if (!row || !L2.rowsAt) return null;
+    const scroll = Math.max(0, Math.min(rowsScroll, L2.rowsContent - L2.rowsAt.h));
+    const y = row.y - scroll;
+    if (y + row.h < L2.rowsAt.y + 1 || y > L2.rowsAt.y + L2.rowsAt.h) return null;
+    return { ...row, y };
+  }
+  function iconAt(g, name, x, y, size, color) {
+    if (!name || !ICONS[name]) return;
+    g.save();
+    g.translate(x, y);
+    g.scale(size / 24, size / 24);
+    g.lineWidth = SHEET_LOOK.text.iconLine;
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    g.strokeStyle = color;
+    g.stroke(new Path2D(ICONS[name]));
+    g.restore();
+  }
+  var corners = (r) => typeof r === "number" ? [r, r, r, r] : [...r];
+  function drawSheet(g, view2, L2, o) {
+    const k = o.scale;
+    const scale = view2.theme.scale || 1;
+    const A2 = rgb(view2.theme.accent);
+    const I = rgb(view2.theme.ink);
+    const Gl = rgb(view2.theme.glass);
+    const Wn = rgb(view2.theme.warn);
+    const acc = (a) => `rgba(${A2}, ${a})`;
+    const ink = (a) => `rgba(${I}, ${a})`;
+    const glass = (a) => `rgba(${Gl}, ${a})`;
+    const box = (x, y, w, h, r) => {
+      g.beginPath();
+      g.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, corners(r));
+    };
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.clearRect(0, 0, L2.width, L2.height);
+    g.textAlign = "left";
+    box(0, 0, L2.width, L2.height, SHEET_LOOK.sheet.corners);
+    g.fillStyle = glass(o.glass ?? 0.95);
+    g.fill();
+    g.lineWidth = 1;
+    g.strokeStyle = acc(SHEET_LOOK.glass.edge);
+    g.stroke();
+    const top = g.createLinearGradient(0, 0, L2.width, 0);
+    top.addColorStop(0, acc(0));
+    top.addColorStop(0.5, acc(1));
+    top.addColorStop(1, acc(0));
+    g.save();
+    g.shadowColor = acc(1);
+    g.shadowBlur = SHEET_LOOK.sheet.top.glow * k;
+    g.fillStyle = top;
+    g.fillRect(SHEET_LOOK.sheet.corners[0], 0, L2.width - 2 * SHEET_LOOK.sheet.corners[0], SHEET_LOOK.sheet.top.line);
+    g.restore();
+    const textAt = (words2, x, y, f, color, middle = true) => {
+      g.font = f;
+      g.fillStyle = color;
+      g.textBaseline = middle ? "middle" : "top";
+      g.fillText(words2, x, y);
+    };
+    const icon2 = SHEET_LOOK.text.icon * S * scale;
+    const stripBottom = L2.tabs[0] ? L2.tabs[0].y + L2.tabs[0].h : 1 + SHEET_LOOK.tabs.pad[0];
+    g.save();
+    g.beginPath();
+    g.rect(1, 1, L2.width - 2, stripBottom - 1);
+    g.clip();
+    for (const t of L2.tabs) {
+      if (o.hollow === t.id) continue;
+      const x = t.x - L2.tabsScroll;
+      const on3 = t.id === `tab:${L2.section?.id}`;
+      const hot = o.hot === t.id;
+      const T2 = SHEET_LOOK.tabs.tab;
+      if (on3 || hot) {
+        box(x, t.y, t.w, t.h, [T2.corners, T2.corners, 0, 0]);
+        g.fillStyle = acc(on3 ? T2.on : T2.on * 0.7);
+        g.fill();
+      }
+      if (on3) {
+        g.fillStyle = acc(1);
+        g.fillRect(x, t.y + t.h - T2.under, t.w, T2.under);
+      }
+      const color = on3 ? acc(1) : hot ? ink(1) : ink(T2.ink);
+      const sec = view2.sections.find((s) => `tab:${s.id}` === t.id);
+      const mid = t.y + T2.pad[0] + (t.h - T2.pad[0] - T2.pad[2] - T2.under) / 2;
+      let left = x + T2.pad[1];
+      if (sec?.icon) {
+        iconAt(g, sec.icon, left, mid - icon2 / 2, icon2, color);
+        left += icon2 + T2.gap;
+      }
+      textAt(t.lines?.[0] ?? "", left, mid, font(scale), color);
+    }
+    for (const side of ["left", "right"]) {
+      if (!L2.more[side]) continue;
+      const M = SHEET_LOOK.tabs.more;
+      const x = side === "left" ? 1 : L2.width - 1 - M.width;
+      const fade = g.createLinearGradient(x, 0, x + M.width, 0);
+      const solid = glass(1);
+      const clear = glass(0);
+      if (side === "left") {
+        fade.addColorStop(0, solid);
+        fade.addColorStop(M.fade / 100, solid);
+        fade.addColorStop(1, clear);
+      } else {
+        fade.addColorStop(0, clear);
+        fade.addColorStop(1 - M.fade / 100, solid);
+        fade.addColorStop(1, solid);
+      }
+      g.fillStyle = fade;
+      g.fillRect(x, 1 + 2, M.width, stripBottom - 3);
+      g.textAlign = side === "left" ? "left" : "right";
+      textAt(side === "left" ? "\u2039" : "\u203A", side === "left" ? x + M.inset : x + M.width - M.inset, (1 + 2 + stripBottom) / 2, font(scale, SHEET_LOOK.text.icon), o.hot === `tabs-${side}` ? ink(1) : acc(1));
+      g.textAlign = "left";
+    }
+    g.restore();
+    if (L2.rowsAt) {
+      g.fillStyle = acc(SHEET_LOOK.rows.line);
+      g.fillRect(1, L2.rowsAt.y, L2.width - 2, 1);
+      const scroll = Math.max(0, Math.min(o.rowsScroll ?? 0, L2.rowsContent - L2.rowsAt.h));
+      g.save();
+      g.beginPath();
+      g.rect(1, L2.rowsAt.y + 1, L2.width - 2, L2.rowsAt.h - 1);
+      g.clip();
+      g.translate(0, -scroll);
+      for (const b of L2.rows) drawBox(g, view2, b, o, { acc, ink, glass, warn: (a) => `rgba(${Wn}, ${a})`, box, textAt, scale });
+      g.restore();
+      if (L2.rowsContent > L2.rowsAt.h + 0.5) {
+        const room3 = L2.rowsAt.h - 2;
+        const bh = Math.max(24, room3 * room3 / L2.rowsContent);
+        const by = L2.rowsAt.y + 1 + scroll / (L2.rowsContent - L2.rowsAt.h) * (room3 - bh);
+        box(L2.width - 7, by, 4, bh, 2);
+        g.fillStyle = acc(0.5);
+        g.fill();
+      }
+    }
+    for (const n of [L2.note, L2.said]) {
+      if (!n?.lines) continue;
+      const said2 = n.kind === "said";
+      g.fillStyle = said2 ? ink(0.3) : acc(SHEET_LOOK.note.edge);
+      g.fillRect(n.x, n.y, 2, n.h);
+      n.lines.forEach((line3, i) => textAt(line3, n.x + 2 + SHEET_LOOK.note.pad[3], n.y + SHEET_LOOK.note.pad[0] + i * SHEET_LOOK.note.text * S * scale * LH, font(scale, SHEET_LOOK.note.text), ink(SHEET_LOOK.note.ink), false));
+    }
+    const P = SHEET_LOOK.foot.pin;
+    if (L2.pin) {
+      const on3 = !!L2.section?.pinned;
+      const hot = o.hot === "pin";
+      box(L2.pin.x, L2.pin.y, L2.pin.w, L2.pin.h, P.corners);
+      if (on3 || hot) {
+        g.fillStyle = acc(on3 ? 0.12 : 0.08);
+        g.fill();
+      }
+      g.lineWidth = 1;
+      g.strokeStyle = on3 || hot ? acc(0.8) : ink(P.edge);
+      g.stroke();
+      const color = on3 || hot ? acc(1) : ink(P.ink);
+      iconAt(g, "pin", L2.pin.x + 1 + P.pad[1], L2.pin.y + (L2.pin.h - P.icon) / 2, P.icon, color);
+      textAt(L2.pin.lines?.[0] ?? "", L2.pin.x + 1 + P.pad[1] + P.icon + P.gap, L2.pin.y + L2.pin.h / 2, font(scale, P.text), color);
+    }
+    const C = SHEET_LOOK.foot.close;
+    const hotClose = o.hot === "close";
+    box(L2.close.x, L2.close.y, L2.close.w, L2.close.h, C.corners);
+    if (hotClose) {
+      g.fillStyle = ink(0.06);
+      g.fill();
+    }
+    g.strokeStyle = hotClose ? ink(1) : ink(C.edge);
+    g.stroke();
+    textAt("Close", L2.close.x + 1 + C.padX, L2.close.y + L2.close.h / 2, font(scale), ink(1));
+  }
+  function drawBox(g, view2, b, o, p) {
+    const { acc, ink, glass, box, textAt, scale } = p;
+    const R = SHEET_LOOK.row;
+    const icon2 = SHEET_LOOK.text.icon * S * scale;
+    const hot = o.hot === b.id;
+    const slot = (h, r) => {
+      box(b.x, b.y, b.w, h, r);
+      g.fillStyle = glass(0.6);
+      g.fill();
+      g.setLineDash([4, 4]);
+      g.strokeStyle = acc(0.35);
+      g.lineWidth = 1;
+      g.stroke();
+      g.setLineDash([]);
+    };
+    const row = (item, h) => {
+      const primary = item.tone === "primary";
+      box(b.x, b.y, b.w, h, R.corners);
+      g.fillStyle = hot ? acc(R.hoverFill) : primary ? acc(R.primaryFill) : ink(R.fill);
+      g.fill();
+      g.lineWidth = 1;
+      g.strokeStyle = hot ? acc(R.hoverEdge) : primary ? acc(R.primaryEdge) : item.on ? acc(R.onEdge) : ink(R.edge);
+      g.stroke();
+      const color = item.tone === "warn" ? p.warn(1) : ink(1);
+      const parts3 = { lines: b.lines ?? [item.label] };
+      const textH = parts3.lines.length * S * scale * LH;
+      const mid = b.y + h / 2;
+      let left = b.x + 1 + R.pad[1];
+      if (item.icon) {
+        iconAt(g, item.icon, left, mid - icon2 / 2, icon2, color);
+        left += icon2 + R.gap;
+      }
+      let right = b.x + b.w - 1 - R.pad[1];
+      if (item.key) {
+        const f = font(scale, 0.82, 400, true);
+        g.font = f;
+        const kw = Math.max(1.6 * 0.82 * S * scale, g.measureText(item.key).width + 10);
+        right -= kw;
+        box(right, mid - 10, kw, 20, 5);
+        g.strokeStyle = ink(0.3);
+        g.stroke();
+        g.textAlign = "center";
+        textAt(item.key, right + kw / 2, mid + 0.5, f, ink(0.8));
+        g.textAlign = "left";
+        right -= R.gap;
+      }
+      if (item.on !== null) {
+        const f = font(scale, R.state);
+        g.font = f;
+        const word = item.on ? "On" : "Off";
+        const ww = g.measureText(word).width;
+        textAt(word, right - ww, mid + 0.5, f, item.on ? acc(1) : ink(R.stateInk));
+      }
+      parts3.lines.forEach((line3, i) => textAt(line3, left, mid - textH / 2 + (i + 0.5) * S * scale * LH, font(scale), color));
+    };
+    switch (b.kind) {
+      case "row":
+        if (o.hollow === b.id) return slot(b.h, R.corners);
+        return row(b.item, b.h);
+      case "file": {
+        const rowH = b.h - SHEET_LOOK.takes.gap - SHEET_LOOK.takes.to * S * scale * LH;
+        if (o.hollow === b.id) slot(rowH, R.corners);
+        else row(b.item, rowH);
+        textAt(`The file you choose goes to ${view2.title}.`, b.x + R.pad[1], b.y + rowH + SHEET_LOOK.takes.gap, font(scale, SHEET_LOOK.takes.to), ink(SHEET_LOOK.takes.toInk), false);
+        return;
+      }
+      case "line": {
+        const item = b.item;
+        const on3 = item.on === true;
+        const L2 = SHEET_LOOK.line;
+        iconAt(g, item.icon, b.x + L2.pad[1], b.y + L2.pad[0] + L2.iconAt, icon2, on3 ? acc(1) : ink(L2.iconDim * L2.dim));
+        (b.lines ?? []).forEach((line3, i) => textAt(line3, b.x + L2.pad[1] + icon2 + L2.gap, b.y + L2.pad[0] + i * S * scale * LH, font(scale), on3 ? ink(1) : ink(L2.dim), false));
+        return;
+      }
+      case "field": {
+        const F = SHEET_LOOK.field;
+        box(b.x, b.y, b.w, b.h, R.corners);
+        g.fillStyle = ink(R.fill);
+        g.fill();
+        g.strokeStyle = ink(R.edge);
+        g.stroke();
+        const f = font(scale);
+        g.font = f;
+        const bw = 2 + 2 * F.buttonPad[1] + g.measureText(b.item.label).width;
+        const inside = b.y + 1 + F.pad[0];
+        box(b.x + 1 + F.pad[1], inside, b.w - 2 - 2 * F.pad[1] - bw - F.gap[1], F.box, F.boxCorners);
+        g.fillStyle = glass(F.boxGlass);
+        g.fill();
+        g.strokeStyle = ink(F.boxEdge);
+        g.stroke();
+        textAt("Press to type", b.x + 1 + F.pad[1] + 1 + F.boxPad[1], inside + F.box / 2, f, ink(0.4));
+        const bx = b.x + b.w - 1 - F.pad[1] - bw;
+        box(bx, inside, bw, F.box, F.boxCorners);
+        g.fillStyle = hot ? acc(0.3) : acc(R.hoverFill);
+        g.fill();
+        g.strokeStyle = acc(R.hoverEdge);
+        g.stroke();
+        textAt(b.item.label, bx + 1 + F.buttonPad[1], inside + F.box / 2, f, ink(1));
+        if (b.lines?.[0]) textAt(b.lines[0], b.x + 1 + F.pad[1], inside + F.box + F.gap[0], font(scale, F.to), ink(F.toInk), false);
+        return;
+      }
+      case "slider": {
+        const D2 = SHEET_LOOK.slide;
+        const item = b.item;
+        box(b.x, b.y, b.w, b.h, R.corners);
+        g.fillStyle = ink(R.fill);
+        g.fill();
+        g.strokeStyle = item.on ? acc(D2.onEdge) : ink(R.edge);
+        g.stroke();
+        const top = b.y + 1 + D2.pad[0];
+        const rowH = Math.max(icon2, S * scale * LH);
+        iconAt(g, item.icon, b.x + 1 + D2.pad[1], top + (rowH - icon2) / 2, icon2, item.on ? acc(1) : ink(1));
+        textAt(item.label, b.x + 1 + D2.pad[1] + icon2 + D2.gap[1], top + rowH / 2, font(scale), ink(1));
+        const at = item.slider ? Math.max(0, Math.min(1, item.slider.value() / Math.max(1, item.slider.max()))) : 0;
+        const words2 = item.slider?.text?.() ?? "";
+        const tf = font(scale, D2.time, 400, true);
+        g.font = tf;
+        const tw = g.measureText(words2).width;
+        const left = b.x + 1 + D2.pad[1];
+        const wide = b.w - 2 - 2 * D2.pad[1] - tw - D2.gap[1];
+        const ty = top + rowH + D2.gap[0] + D2.bar / 2;
+        box(left, ty - 2, wide, 4, 2);
+        g.fillStyle = ink(0.2);
+        g.fill();
+        box(left, ty - 2, Math.max(4, wide * at), 4, 2);
+        g.fillStyle = acc(1);
+        g.fill();
+        g.beginPath();
+        g.arc(left + wide * at, ty, hot ? 9 : 7, 0, Math.PI * 2);
+        g.fill();
+        textAt(words2, left + wide + D2.gap[1], ty, tf, ink(D2.timeInk));
+        return;
+      }
+      case "swatch": {
+        const W3 = SHEET_LOOK.swatch;
+        const item = b.item;
+        if (o.hollow === b.id) return;
+        const color = item.color || "#888888";
+        const ax = b.x + (W3.width - W3.arch[0]) / 2;
+        const ay = b.y - (hot ? 2 : 0);
+        const fill = g.createLinearGradient(0, ay, 0, ay + W3.arch[1]);
+        fill.addColorStop(0, color);
+        fill.addColorStop(1, `${color}4d`);
+        box(ax, ay, W3.arch[0], W3.arch[1], [W3.corners[0], W3.corners[0], W3.corners[1], W3.corners[1]]);
+        g.fillStyle = fill;
+        g.fill();
+        g.strokeStyle = color;
+        g.lineWidth = 1;
+        if (item.on) {
+          g.save();
+          g.shadowColor = color;
+          g.shadowBlur = 16 * o.scale;
+          g.stroke();
+          g.restore();
+        } else g.stroke();
+        g.fillStyle = item.on ? color : ink(W3.sillInk);
+        g.fillRect(b.x + (W3.width - W3.sill[0]) / 2, b.y + W3.arch[1] + W3.gap + W3.sillAt, W3.sill[0], W3.sill[1]);
+        g.textAlign = "center";
+        textAt(item.label, b.x + W3.width / 2, b.y + W3.arch[1] + W3.gap + Math.max(0, W3.sill[1] + W3.sillAt) + W3.gap, font(scale, W3.text), item.on ? ink(1) : ink(W3.ink), false);
+        g.textAlign = "left";
+        return;
+      }
+      case "tile": {
+        const T2 = SHEET_LOOK.tile;
+        const item = b.item;
+        if (o.hollow === b.id) return slot(b.h, [T2.corners[0], T2.corners[0], T2.corners[1], T2.corners[1]]);
+        box(b.x, b.y, b.w, b.h, [T2.corners[0], T2.corners[0], T2.corners[1], T2.corners[1]]);
+        if (item.faint) g.fillStyle = ink(R.fill);
+        else {
+          const glow = g.createRadialGradient(b.x + b.w / 2, b.y + b.h, 0, b.x + b.w / 2, b.y + b.h, b.w * 1.2);
+          glow.addColorStop(0, acc(T2.glow));
+          glow.addColorStop(0.7, ink(R.fill));
+          g.fillStyle = glow;
+        }
+        g.fill();
+        g.setLineDash(item.faint ? [5, 4] : []);
+        g.lineWidth = item.on ? 2 : 1;
+        g.strokeStyle = item.on ? acc(1) : hot ? acc(R.hoverEdge) : ink(R.edge);
+        g.stroke();
+        g.setLineDash([]);
+        g.lineWidth = 1;
+        const pic = b.w - 2 - 2 * T2.pad[1];
+        const px = b.x + 1 + T2.pad[1];
+        const py = b.y + 1 + T2.pad[0];
+        const shown4 = o.picture?.(item.id) ?? item.picture?.() ?? null;
+        if (shown4) {
+          g.save();
+          if (item.faint) {
+            g.globalAlpha = 0.5;
+            g.filter = "grayscale(1)";
+          }
+          g.drawImage(shown4, px, py, pic, pic);
+          g.restore();
+        } else {
+          g.textAlign = "center";
+          textAt([...item.short][0]?.toUpperCase() ?? "", px + pic / 2, py + pic / 2, font(scale, T2.letter, 700), ink(0.35));
+          g.textAlign = "left";
+        }
+        const natural = 2 + T2.pad[0] + T2.pad[2] + pic + T2.gap + (b.lines?.length ?? 0) * T2.text * S * scale * T2.line;
+        const extra = Math.max(0, b.h - natural);
+        g.textAlign = "center";
+        (b.lines ?? []).forEach((line3, i) => textAt(line3, b.x + b.w / 2, py + pic + extra + T2.gap + i * T2.text * S * scale * T2.line, font(scale, T2.text), item.faint ? ink(0.55) : ink(T2.ink), false));
+        g.textAlign = "left";
+        if (item.mark) {
+          const M = T2.mark;
+          const mx = b.x + b.w - 1 - M.inset - M.size;
+          const my = b.y + 1 + M.inset;
+          box(mx, my, M.size, M.size, M.corners);
+          g.fillStyle = glass(M.glass);
+          g.fill();
+          g.strokeStyle = acc(M.edge);
+          g.stroke();
+          iconAt(g, item.mark, mx + (M.size - M.icon) / 2, my + (M.size - M.icon) / 2, M.icon, acc(1));
+        }
+        return;
+      }
+      case "from":
+        textAt(b.lines?.[0] ?? "", b.x + SHEET_LOOK.from.padX, b.y + SHEET_LOOK.from.top, font(scale, SHEET_LOOK.from.text, 650), ink(SHEET_LOOK.from.ink), false);
+        return;
+      case "card":
+        return drawCard(g, view2, b, o, p);
+      case "swatches":
+      case "tiles":
+        return;
+      default:
+        return;
+    }
+  }
+  function drawCard(g, view2, b, o, p) {
+    const { acc, ink, glass, box, textAt, scale } = p;
+    const C = SHEET_LOOK.card;
+    const card = b.card;
+    if (!card) return;
+    box(b.x, b.y, b.w, b.h, [C.corners[0], C.corners[0], C.corners[1], C.corners[1]]);
+    g.fillStyle = acc(C.fill);
+    g.fill();
+    g.strokeStyle = acc(C.edge);
+    g.stroke();
+    const left = b.x + 1 + C.pad;
+    const top = b.y + 1 + C.pad;
+    let words2 = left + C.face + C.gap[1];
+    if (card.draw) {
+      const face = b.h - 2 - 2 * C.pad;
+      const size = Math.min(face, C.thing);
+      box(left, top, size, size, 14);
+      const glow = g.createRadialGradient(left + size / 2, top + size * 0.92, 0, left + size / 2, top + size * 0.92, size * 0.7);
+      glow.addColorStop(0, acc(0.3));
+      glow.addColorStop(1, ink(0.05));
+      g.fillStyle = glow;
+      g.fill();
+      const shown4 = o.picture?.("card") ?? card.draw();
+      if (shown4) g.drawImage(shown4, left + 8, top + 8, size - 16, size - 16);
+      words2 = left + size + 14;
+    } else {
+      g.beginPath();
+      g.arc(left + C.face / 2, top + C.face / 2, C.face / 2, 0, Math.PI * 2);
+      g.fillStyle = card.color || ink(0.2);
+      g.fill();
+      const face = o.picture?.("card") ?? card.face ?? null;
+      if (face) {
+        g.save();
+        g.clip();
+        g.drawImage(face, left, top, C.face, C.face);
+        g.restore();
+      } else {
+        g.textAlign = "center";
+        textAt([...card.title][0]?.toUpperCase() ?? "", left + C.face / 2, top + C.face / 2, font(scale, 1.5, 700), glass(1));
+        g.textAlign = "left";
+      }
+    }
+    const head = C.title * S * scale * LH;
+    const keylineH = Math.max(C.keyline * S * scale * LH, card.copy ? 2 + 4 + C.keyline * S * scale * LH : 0);
+    const over = card.draw ? 0 : Math.max(0, C.face - (head + C.gap[0] + keylineH)) / 2;
+    const tf = font(scale, C.title, 650);
+    g.font = tf;
+    const tw = g.measureText(card.title).width;
+    const nameMid = top + (head + over) / 2;
+    textAt(card.title, words2, nameMid, tf, ink(1));
+    if (card.tag) {
+      const f = font(scale, C.tag);
+      g.font = f;
+      const w = g.measureText(card.tag).width + 16;
+      const h = C.tag * S * scale * LH + 2;
+      box(words2 + tw + 8, nameMid - h / 2, w, h, h / 2);
+      g.strokeStyle = card.proven ? acc(0.8) : ink(0.3);
+      g.stroke();
+      textAt(card.tag, words2 + tw + 16, nameMid, f, card.proven ? acc(1) : ink(0.75));
+    }
+    const subMid = card.draw ? top + head + 5 + keylineH / 2 : top + head + over + C.gap[0] + (keylineH + over) / 2;
+    textAt(card.sub, words2, subMid, font(scale, C.keyline, card.copy ? 400 : 500, !!card.copy), ink(0.7));
+    const lines = b.lines ?? [];
+    if (lines.length) {
+      const keyline = Math.max(C.keyline * S * scale * LH, card.copy ? 2 + 4 + C.keyline * S * scale * LH : 0);
+      const qy = card.draw ? top + head + 5 + keyline + 5 + 3 : top + Math.max(C.face, head + C.gap[0] + keyline) + C.gap[0] + C.quote;
+      const qx = card.draw ? words2 : left;
+      g.fillStyle = acc(0.6);
+      g.fillRect(qx, qy, 2, lines.length * S * scale * LH + 2);
+      lines.forEach((line3, i) => textAt(line3, qx + 12, qy + 1 + i * S * scale * LH, font(scale), ink(0.95), false));
+    }
+  }
+  function drawBar(g, view2, L2, o) {
+    const k = o.scale;
+    const scale = view2.theme.scale || 1;
+    const A2 = rgb(view2.theme.accent);
+    const I = rgb(view2.theme.ink);
+    const Gl = rgb(view2.theme.glass);
+    const Wn = rgb(view2.theme.warn);
+    const acc = (a) => `rgba(${A2}, ${a})`;
+    const ink = (a) => `rgba(${I}, ${a})`;
+    const box = (x, y, w, h, r) => {
+      g.beginPath();
+      g.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, [...r]);
+    };
+    const B = SHEET_LOOK.bar;
+    const K = SHEET_LOOK.key;
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.clearRect(0, 0, L2.width, L2.height);
+    box(0, 0, L2.width, L2.height, [B.corners[0], B.corners[0], B.corners[1], B.corners[1]]);
+    g.fillStyle = `rgba(${Gl}, ${o.glass ?? 0.95})`;
+    g.fill();
+    g.lineWidth = 1;
+    g.strokeStyle = acc(SHEET_LOOK.glass.edge);
+    g.stroke();
+    if (L2.theirs !== null) {
+      g.fillStyle = ink(B.theirs);
+      g.fillRect(L2.theirs, B.pad[0] + 2, 1, L2.height - B.pad[0] - B.pad[2] - 10);
+    }
+    const icon2 = SHEET_LOOK.text.icon * S * scale;
+    for (const key of L2.keys) {
+      if (o.hollow === key.id) continue;
+      const pin = key.id.startsWith("tab:");
+      const item = key.item;
+      const on3 = pin ? o.open === key.id.slice(4) : item?.on === true;
+      const hot = o.hot === key.id;
+      const primary = item?.tone === "primary";
+      const warn2 = item?.tone === "warn";
+      const ax = key.x + (K.width - K.arch[0]) / 2;
+      const ay = key.y - (hot ? 2 : 0);
+      box(ax, ay, K.arch[0], K.arch[1], [K.corners[0], K.corners[0], K.corners[1], K.corners[1]]);
+      g.fillStyle = primary ? acc(1) : on3 ? acc(K.onFill) : hot ? acc(K.hoverFill) : warn2 ? `rgba(${Wn}, 0.08)` : acc(K.fill);
+      g.fill();
+      g.setLineDash(pin ? [4, 3] : []);
+      g.strokeStyle = primary || on3 || hot ? acc(1) : warn2 ? `rgba(${Wn}, 0.7)` : acc(K.edge);
+      g.stroke();
+      g.setLineDash([]);
+      const name = pin ? view2.pins.find((p) => `tab:${p.id}` === key.id)?.icon ?? "menu" : item?.icon ?? null;
+      iconAt(g, name, ax + (K.arch[0] - icon2) / 2, ay + (K.arch[1] - icon2) / 2, icon2, primary ? `rgba(${Gl}, 1)` : on3 ? acc(1) : warn2 ? `rgba(${Wn}, 1)` : ink(1));
+      g.fillStyle = on3 || hot ? acc(1) : ink(K.sillInk);
+      g.fillRect(key.x + (K.width - K.sill[0]) / 2, key.y + K.arch[1] + K.gap + K.sillAt, K.sill[0], K.sill[1]);
+      g.textAlign = "center";
+      g.textBaseline = "top";
+      g.font = font(scale, K.name);
+      g.fillStyle = ink(K.ink);
+      (key.lines ?? []).forEach((line3, i) => g.fillText(line3, key.x + K.width / 2, key.y + K.arch[1] + K.gap + Math.max(0, K.sill[1] + K.sillAt) + K.gap + i * K.name * S * scale * K.line));
+      g.textAlign = "left";
+      const num5 = item?.key ?? view2.pins.find((p) => `tab:${p.id}` === key.id)?.key ?? "";
+      if (num5) {
+        const f = font(scale, 0.82, 400, true);
+        g.font = f;
+        const nw = Math.max(1.6 * 0.82 * S * scale, g.measureText(num5).width + 10);
+        box(key.x + K.width + 2 - nw, key.y - 6, nw, 18, [5, 5, 5, 5]);
+        g.fillStyle = `rgba(${Gl}, 1)`;
+        g.fill();
+        g.strokeStyle = ink(0.3);
+        g.stroke();
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillStyle = ink(0.85);
+        g.fillText(num5, key.x + K.width + 2 - nw / 2, key.y + 3 + 0.5);
+        g.textAlign = "left";
+      }
+    }
+  }
+  function createMenuDrawing(controls2, opts = {}) {
+    const sheet = document.createElement("canvas");
+    const bar = document.createElement("canvas");
+    const gs = sheet.getContext("2d");
+    const gb = bar.getContext("2d");
+    const measureG = document.createElement("canvas").getContext("2d");
+    const measure = (text2, f) => {
+      measureG.font = f;
+      return measureG.measureText(text2).width;
+    };
+    const k = opts.scale ?? 2;
+    let sheetDrawn = "";
+    let barDrawn = "";
+    let sheetLayout = null;
+    let shownTab = "";
+    let barLayout = null;
+    const d = {
+      sheet,
+      bar,
+      section: "",
+      aimed: null,
+      hollow: null,
+      barAimed: null,
+      barHollow: null,
+      rowsScroll: 0,
+      tabsScroll: 0,
+      get sheetLayout() {
+        return sheetLayout;
+      },
+      get barLayout() {
+        return barLayout;
+      },
+      paint() {
+        if (opts.shown && !opts.shown()) return false;
+        const view2 = controls2.view();
+        if (!view2.sections.some((s) => s.id === d.section)) d.section = view2.sections[0]?.id ?? "";
+        const look = { aimed: d.aimed, hollow: d.hollow, rows: d.rowsScroll, tabs: d.tabsScroll, section: d.section };
+        const slid = (s) => ({ ...s, items: s.items.map((i) => i.slider ? { ...i, at: [i.slider.value(), i.slider.max(), i.slider.text?.() ?? ""] } : i) });
+        const sig = JSON.stringify([view2.title, view2.theme, view2.pins, view2.pinsFull, view2.sections.map(slid), look]);
+        let drew = false;
+        if (sig !== sheetDrawn) {
+          sheetDrawn = sig;
+          sheetLayout = laySheet(view2, d.section, { measure, width: opts.width ?? SHEET_LOOK.sheet.wide, most: opts.most ?? SHEET_LOOK.sheet.tall.desk, title: view2.title, tabsScroll: d.tabsScroll, bring: d.section !== shownTab });
+          shownTab = d.section;
+          d.tabsScroll = sheetLayout.tabsScroll;
+          sheet.width = Math.round(sheetLayout.width * k);
+          sheet.height = Math.round(sheetLayout.height * k);
+          drawSheet(gs, view2, sheetLayout, { scale: k, glass: opts.glass ?? 0.95, hot: d.aimed, hollow: d.hollow, rowsScroll: d.rowsScroll });
+          opts.painted?.("sheet");
+          drew = true;
+        }
+        const barSig = JSON.stringify([view2.theme, view2.hotbar, view2.pins, d.section, d.barAimed, d.barHollow]);
+        if (barSig !== barDrawn) {
+          barDrawn = barSig;
+          barLayout = layBar(view2, { measure });
+          bar.width = Math.max(1, Math.round(barLayout.width * k));
+          bar.height = Math.max(1, Math.round(barLayout.height * k));
+          drawBar(gb, view2, barLayout, { scale: k, glass: opts.glass ?? 0.95, hot: d.barAimed, hollow: d.barHollow, open: d.section });
+          opts.painted?.("bar");
+          drew = true;
+        }
+        return drew;
+      },
+      again() {
+        sheetDrawn = "";
+        barDrawn = "";
+      },
+      sheetAt(x, y) {
+        const L2 = sheetLayout;
+        if (!L2) return null;
+        const within2 = (b, dx = 0, dy = 0) => x >= b.x - dx && x < b.x - dx + b.w && y >= b.y - dy && y < b.y - dy + b.h;
+        for (const side of ["left", "right"]) {
+          const M = SHEET_LOOK.tabs.more;
+          if (L2.more[side] && y < (L2.tabs[0]?.y ?? 0) + (L2.tabs[0]?.h ?? 0) && (side === "left" ? x < 1 + M.width : x >= L2.width - 1 - M.width)) return `tabs-${side}`;
+        }
+        for (const t of L2.tabs) if (within2(t, L2.tabsScroll)) return t.id;
+        if (L2.rowsAt && y >= L2.rowsAt.y + 1 && y < L2.rowsAt.y + L2.rowsAt.h) {
+          const scroll = Math.max(0, Math.min(d.rowsScroll, L2.rowsContent - L2.rowsAt.h));
+          for (const b of L2.rows) if (b.item && b.kind !== "line" && within2(b, 0, scroll)) return b.id;
+          return null;
+        }
+        for (const b of [L2.pin, L2.close]) if (b && within2(b)) return b.id;
+        return null;
+      },
+      barAt(x, y) {
+        for (const key of barLayout?.keys ?? []) if (x >= key.x && x < key.x + key.w && y >= key.y - 6 && y < key.y + key.h) return key.id;
+        return null;
+      }
+    };
+    return d;
+  }
+  var CHAT_LOOK = { width: 340, header: { pad: [9, 8, 8, 14], tab: 30, gap: 8 }, list: { pad: [10, 14], gap: 7 }, form: { pad: 8, gap: 6, box: 16 * 1.35 + 16 + 2 }, corners: [14, 6, 6, 14], edge: 2 };
+  function sliderTrack(b, words2, measure, scale) {
+    const D2 = SHEET_LOOK.slide;
+    const tw = measure(words2, font(scale, D2.time, 400, true));
+    return { left: b.x + 1 + D2.pad[1], wide: b.w - 2 - 2 * D2.pad[1] - tw - D2.gap[1] };
+  }
+
+  // packages/sdk/src/menu-press.ts
+  function pickFile(controls2, item) {
+    const accept = item.accept ?? [];
+    outOfVr(
+      controls2,
+      () => {
+        const picker = document.createElement("input");
+        picker.type = "file";
+        picker.accept = accept.map((k) => `${k}/*`).join(",");
+        picker.hidden = true;
+        const done = () => picker.remove();
+        picker.addEventListener("cancel", done);
+        picker.addEventListener("change", () => {
+          const file = picker.files?.[0];
+          done();
+          if (!file) return;
+          const kind = menuFileKind(file.type);
+          if (!kind || !accept.includes(kind)) return controls2.say("That kind of file can't go here.");
+          if (file.size > MENU_LIMITS.file) return controls2.say("That file is too large to hand over: 64 MB at most.");
+          if (file.size < 1) return controls2.say("That file is empty.");
+          controls2.run(item.id, void 0, file);
+        });
+        document.body.append(picker);
+        picker.click();
+        return { shown: true, gone: whenScreenGone(false) };
+      },
+      "file"
+    );
+  }
+  function pressMenu(controls2, d, id2, o) {
+    const view2 = controls2.view();
+    if (id2.startsWith("bar:")) {
+      const key = id2.slice(4);
+      if (key.startsWith("tab:")) {
+        if (o.section() === key.slice(4)) return "close";
+        o.setSection(key.slice(4));
+      } else if (key.startsWith("act:")) controls2.run(key.slice(4));
+      return;
+    }
+    if (id2 === "close") return "close";
+    if (id2.startsWith("tab:")) return o.setSection(id2.slice(4));
+    if (id2 === "tabs-left" || id2 === "tabs-right") {
+      d.tabsScroll = Math.max(0, d.tabsScroll + (id2 === "tabs-left" ? -240 : 240));
+      return;
+    }
+    if (id2 === "pin") {
+      const here = view2.sections.find((x) => x.id === o.section());
+      if (here) controls2.setPinned(here.id, !here.pinned);
+      return;
+    }
+    if (!id2.startsWith("act:")) return;
+    const item = view2.sections.flatMap((x) => x.items).find((i) => i.id === id2.slice(4));
+    if (item?.kind === "copy") {
+      const words2 = item.copy ?? "";
+      void (navigator.clipboard?.writeText(words2) ?? Promise.reject(new Error("no clipboard"))).then(
+        () => controls2.say("Copied."),
+        () => controls2.say(words2)
+      );
+    } else if (item?.kind === "field" && o.ask) {
+      void o.ask({ title: `${item.label}: what you type goes to ${view2.title}.`, maxLength: MENU_LIMITS.field }).then((text2) => {
+        if (text2?.trim()) controls2.run(item.id, text2);
+      });
+    } else if (item?.kind === "slider" && item.slider) {
+      const L2 = d.sheetLayout;
+      const b = L2 ? boxAt(L2, id2, d.rowsScroll) : null;
+      if (b && o.at) {
+        const track = sliderTrack(b, item.slider.text?.() ?? "", o.measure, view2.theme.scale || 1);
+        const at = Math.max(0, Math.min(1, (o.at.x - track.left) / Math.max(1, track.wide)));
+        controls2.run(item.id, String(Math.round(at * item.slider.max())));
+      }
+    } else if (item?.kind === "file") pickFile(controls2, item);
+    else controls2.run(id2.slice(4));
+  }
+
+  // packages/sdk/src/ui/sheet-asked.ts
+  var sheetAsked = () => {
+    try {
+      return new URLSearchParams(globalThis.location?.search ?? "").get("menu") === "sheet";
+    } catch {
+      return false;
+    }
+  };
+
   // packages/sdk/src/engine-console.ts
+  var SHEET_IN_ENGINES = { scale: 1.6, wide: 1, barGap: 39, top: 0.12, most: 520 };
   var CONSOLE_PLACE = { wide: 0.84, reach: 1.05, drop: 0.18, least: 0.4, away: 2.6 };
   var made = null;
+  var sheetMade = null;
   var open2 = false;
   var stamp = 0;
   var asked = false;
@@ -57682,6 +58706,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const stopSignals = controls2.onSignal((name) => {
       if (!name.startsWith("show:") || !engineParts()?.presenting) return;
       drawing.section = name.slice(5);
+      if (sheetMade) sheetMade.d.section = name.slice(5);
       setOpen(true);
       tellEngine({ type: "console", open: true });
     });
@@ -57712,6 +58737,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function engineConsole(input) {
     const parts3 = engineParts();
     if (!parts3) return JSON.stringify({ open: false, stamp, w: CONSOLE_W, h: CONSOLE_H, ...CONSOLE_PLACE, rows: [] });
+    if (sheetAsked()) return sheetConsole(parts3.controls, parts3.presenting, input);
     const { drawing } = drawingFor(parts3.controls);
     let ask = {};
     try {
@@ -57745,9 +58771,110 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function consolePixels() {
     const parts3 = engineParts();
     if (!parts3 || !open2) return null;
+    if (sheetAsked()) {
+      const m = sheetFor(parts3.controls);
+      if (composeSheet(m)) stamp++;
+      return m.g.getImageData(0, 0, m.canvas.width, m.canvas.height).data;
+    }
     const { drawing, g } = drawingFor(parts3.controls);
     if (drawing.paint()) stamp++;
     return g.getImageData(0, 0, CONSOLE_W, CONSOLE_H).data;
+  }
+  function sheetFor(controls2) {
+    if (sheetMade?.controls === controls2) return sheetMade;
+    sheetMade?.stop();
+    const canvas = document.createElement("canvas");
+    const g = canvas.getContext("2d", { willReadFrequently: true });
+    const measureG = document.createElement("canvas").getContext("2d");
+    const measure = (text2, f) => {
+      measureG.font = f;
+      return measureG.measureText(text2).width;
+    };
+    const d = createMenuDrawing(controls2, { width: SHEET_LOOK.sheet.wide, scale: SHEET_IN_ENGINES.scale, glass: 0.95, most: SHEET_IN_ENGINES.most, shown: () => open2 });
+    const stopView = controls2.subscribe(() => d.again());
+    sheetMade = { controls: controls2, d, canvas, g, measure, rows: [], stop: stopView };
+    return sheetMade;
+  }
+  function composeSheet(m) {
+    const { d, canvas, g } = m;
+    if (!d.paint() && canvas.width > 1) return false;
+    const L2 = d.sheetLayout;
+    const B = d.barLayout;
+    if (!L2) return false;
+    const k = SHEET_IN_ENGINES.scale;
+    const view2 = m.controls.view();
+    const withBar = view2.presence === "full" && !!B && B.keys.length > 0;
+    const gap = SHEET_IN_ENGINES.barGap;
+    const W3 = Math.round(L2.width * k);
+    const H3 = Math.round((L2.height + (withBar && B ? gap + B.height : 0)) * k);
+    canvas.width = W3;
+    canvas.height = H3;
+    g.clearRect(0, 0, W3, H3);
+    g.drawImage(d.sheet, 0, 0);
+    const barX = withBar && B ? (L2.width - B.width) / 2 : 0;
+    const barY = L2.height + gap;
+    if (withBar) g.drawImage(d.bar, Math.round(barX * k), Math.round(barY * k));
+    const lit = (corners2) => ({ fill: view2.theme.accent, fillAlpha: SHEET_LOOK.row.hoverFill, stroke: view2.theme.accent, strokeAlpha: SHEET_LOOK.row.hoverEdge, line: 1.5 * k, corners: corners2.map((c) => c * k) });
+    const at = (b, dx = 0, dy = 0) => ({ x: (b.x + dx) * k, y: (b.y + dy) * k, w: b.w * k, h: b.h * k });
+    const rows = [];
+    for (const t of L2.tabs) {
+      const b = boxAt(L2, t.id, d.rowsScroll);
+      if (b) rows.push({ id: t.id, ...at(b), lit: lit([SHEET_LOOK.tabs.tab.corners, SHEET_LOOK.tabs.tab.corners, 0, 0]) });
+    }
+    for (const side of ["tabs-left", "tabs-right"]) {
+      const b = boxAt(L2, side, d.rowsScroll);
+      if (b) rows.push({ id: side, ...at(b), lit: null });
+    }
+    const T2 = SHEET_LOOK.tile.corners;
+    for (const r of L2.rows) {
+      if (!r.item || r.kind === "line") continue;
+      const b = boxAt(L2, r.id, d.rowsScroll);
+      if (!b) continue;
+      const corners2 = r.kind === "tile" ? [T2[0], T2[0], T2[1], T2[1]] : r.kind === "swatch" ? [SHEET_LOOK.swatch.corners[0], SHEET_LOOK.swatch.corners[0], SHEET_LOOK.swatch.corners[1], SHEET_LOOK.swatch.corners[1]] : [SHEET_LOOK.row.corners, SHEET_LOOK.row.corners, SHEET_LOOK.row.corners, SHEET_LOOK.row.corners];
+      rows.push({ id: r.id, ...at(r.kind === "file" ? { ...b, h: SHEET_LOOK.row.height } : b), lit: lit(corners2) });
+    }
+    if (L2.pin) rows.push({ id: "pin", ...at(L2.pin), lit: lit([SHEET_LOOK.foot.pin.corners, SHEET_LOOK.foot.pin.corners, SHEET_LOOK.foot.pin.corners, SHEET_LOOK.foot.pin.corners]) });
+    rows.push({ id: "close", ...at(L2.close), lit: lit([SHEET_LOOK.foot.close.corners, SHEET_LOOK.foot.close.corners, SHEET_LOOK.foot.close.corners, SHEET_LOOK.foot.close.corners]) });
+    if (withBar && B) {
+      const K = SHEET_LOOK.key;
+      for (const key of B.keys) rows.push({ id: `bar:${key.id}`, ...at({ x: key.x + (K.width - K.arch[0]) / 2, y: key.y, w: K.arch[0], h: K.arch[1] }, barX, barY), lit: lit([K.corners[0], K.corners[0], K.corners[1], K.corners[1]]) });
+    }
+    m.rows = rows;
+    return true;
+  }
+  function sheetConsole(controls2, presenting, input) {
+    const m = sheetFor(controls2);
+    const { d } = m;
+    let ask = {};
+    try {
+      const read6 = input ? JSON.parse(input) : {};
+      if (read6 && typeof read6 === "object") ask = read6;
+    } catch {
+    }
+    const k = SHEET_IN_ENGINES.scale;
+    if (typeof ask.open === "boolean") setOpen(ask.open);
+    if (open2 && typeof ask.scroll === "number" && Number.isFinite(ask.scroll) && d.sheetLayout?.rowsAt) {
+      const L2 = d.sheetLayout;
+      d.rowsScroll = Math.max(0, Math.min(L2.rowsContent - (L2.rowsAt?.h ?? 0), d.rowsScroll + Math.max(-400, Math.min(400, ask.scroll))));
+    }
+    if (open2 && typeof ask.press === "string" && m.rows.some((r) => r.id === ask.press)) {
+      const where = Array.isArray(ask.at) && ask.at.length === 2 && ask.at.every((n) => typeof n === "number") ? { x: ask.at[0] / k, y: ask.at[1] / k } : void 0;
+      const said2 = pressMenu(controls2, d, ask.press, { ...where ? { at: where } : {}, measure: m.measure, section: () => d.section, setSection: (id2) => {
+        d.section = id2;
+        d.rowsScroll = 0;
+      } });
+      if (said2 === "close") setOpen(false);
+    }
+    if (presenting && !asked) {
+      asked = true;
+      askHowTheyMove();
+    }
+    if (open2 && composeSheet(m)) stamp++;
+    const fresh = open2 && ask.have !== stamp;
+    const tall = m.canvas.height / k;
+    const wide = SHEET_IN_ENGINES.wide;
+    const place = { ...CONSOLE_PLACE, wide, drop: tall * wide / SHEET_LOOK.sheet.wide / 2 - SHEET_IN_ENGINES.top };
+    return JSON.stringify({ open: open2, stamp, w: m.canvas.width, h: m.canvas.height, ...place, scrolls: true, ...fresh ? { rows: m.rows } : {} });
   }
 
   // packages/sdk/src/bag.ts
@@ -58896,15 +60023,6 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     on.play.second();
     return true;
   }
-
-  // packages/sdk/src/ui/sheet-asked.ts
-  var sheetAsked = () => {
-    try {
-      return new URLSearchParams(globalThis.location?.search ?? "").get("menu") === "sheet";
-    } catch {
-      return false;
-    }
-  };
 
   // packages/sdk/src/messages.ts
   var MOST2 = 300;
