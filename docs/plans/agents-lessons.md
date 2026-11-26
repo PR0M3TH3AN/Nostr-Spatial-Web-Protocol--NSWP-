@@ -1952,6 +1952,22 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## The Docent's face and chest screens (D129, 2026-11-25; free)
+
+- **A face per sentence:** an emoji the mind writes is taken out of what is
+  said (and out of what the voice is sent), and shown on the eye; with
+  none, the line's feeling or sound cue picks the face (face ids are the
+  cue names). The mind is told it may write an emoji only when its body
+  has a face screen, so no other agent's prompt changed.
+- **Played and drawn:** the artist's atlas, any other emoji drawn from the
+  device's own font into a spare tile, a blink over any face, back to idle
+  after `ms`, the rim glowing with the face's feeling; both screens drawn
+  as LEDs on the Docent's own materials, the chest emoji inside a dark
+  border (the owner's).
+- *For the protocol:* a face is a field of what an agent says (an emoji or
+  a feeling), not part of its words. *For worlds and the kit:* a body with
+  a face screen says so, and only then is the mind told it may use one.
+
 ## Weapons as data, sharing what is seen, and two against two (D128, 2026-11-25; free)
 
 - **Weapons as data:** clip, fire rate, reload, spread, pellets and reach.
