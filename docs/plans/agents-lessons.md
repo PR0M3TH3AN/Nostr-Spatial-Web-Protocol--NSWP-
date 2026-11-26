@@ -1952,6 +1952,18 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## "Stand up", and a body's own clearance (D132, 2026-11-25; free)
+
+- **"Stand up"** (eight phrasings) takes a seated body back to where it
+  stood; seated, "look up" doesn't, and standing, it moves nowhere. The
+  first try offered it always, with "up" among its words, and broke four
+  tests ("look up" stood up; "get" widened "get me the box").
+- **Clearance per body:** each body declares its half-width, so the Docent
+  keeps 0.37 m from walls and solid things and others 0.3 m.
+- *For worlds and the kit:* a body's radius is in its declaration. *For
+  skills:* an offer that exists only in one state (seated) avoids word
+  clashes in every other.
+
 ## The Docent replaces Lumen (D131, 2026-11-25; free)
 
 - **The walker drives the artist's rigged bones:** it measures the legs and
