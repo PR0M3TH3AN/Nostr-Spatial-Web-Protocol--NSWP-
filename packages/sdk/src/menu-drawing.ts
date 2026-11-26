@@ -795,10 +795,9 @@ function drawBox(g: G, view: UiView, b: MenuBox, o: DrawOptions, p: Paint): void
         textAt([...item.short][0]?.toUpperCase() ?? "", px + pic / 2, py + pic / 2, font(scale, T.letter, 700), ink(0.35));
         g.textAlign = "left";
       }
-      // A tile stretched to its row (a neighbour's longer name) shares the room between its picture's row and its
-      // name's, as the flat menu's grid does: its name sits that much lower.
+      // A tile stretched to its row (a neighbour's longer name) keeps its name at its foot, as the flat menu's does.
       const natural = 2 + T.pad[0] + T.pad[2] + pic + T.gap + (b.lines?.length ?? 0) * T.text * S * scale * T.line;
-      const extra = Math.max(0, b.h - natural) / 2;
+      const extra = Math.max(0, b.h - natural);
       g.textAlign = "center";
       (b.lines ?? []).forEach((line, i) => textAt(line, b.x + b.w / 2, py + pic + extra + T.gap + i * T.text * S * scale * T.line, font(scale, T.text), item.faint ? ink(0.55) : ink(T.ink), false));
       g.textAlign = "left";
