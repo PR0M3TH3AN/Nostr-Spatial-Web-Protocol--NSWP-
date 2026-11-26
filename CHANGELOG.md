@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.94.0
+
 - **BitLogin from a headset: out of VR for a moment, in one press, and back in one press: `outOfVr`** (SDK `ui/vr-aside.ts`, `ui/headset.ts`, `three.ts`, `engine-menu.ts`, `signer.ts`, `ui/identity.ts`, `room-controls.ts`, `front-room.ts`; `trials/out-of-vr.mjs`; `docs/owner-quest-checks.md`, check 11). The owner, 2026-11-25: "just make it as rare and a seemless as possible", and "the only thing that should force us out of VR is the initial phone pairing and the browsers immurrsive VR site to site limitation". Names given 2026-11-25.
   - **In a headset, Sign in is "Sign In using Phone"** (the owner's words). One press opens BitLogin's own page, `/headset/`, as a window of its own (BitLogin's "Way 1": the code and QR are never drawn in a world). It ends the session, and puts up **"Back into VR"**, dimmed while that page is open. Once the page has closed, the signer is asked how it stands, once, and one press on Back into VR goes back in, where they were. Ending a session moves nothing.
   - **`outOfVr(controls, open, why)`**, the kit's own. It opens BitLogin's screen first, in the press, then ends the session, then offers Back into VR. Where the browser refuses a window from inside VR, the flat page offers one **"Open BitLogin"** press instead, then Back into VR. Before the first time on a device it says: "This opens BitLogin outside VR for a moment. Press Back into VR when you're done." (kept as `nswp:vr-aside-told`).
