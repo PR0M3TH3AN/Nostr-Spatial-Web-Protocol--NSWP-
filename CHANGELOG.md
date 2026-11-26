@@ -4,6 +4,20 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The headset's menu, step 1 of the build: the flat menu drawn on a canvas, the same to 2 px** (SDK `ui/sheet-look.ts`: `SHEET_LOOK`; `menu-drawing.ts`: `createMenuDrawing`, `laySheet`, `layBar`, `drawSheet`, `drawBar`, `kindLaid`; `ui/hud.ts`; `test/menu-drawing.test.ts`; `trials/headset-menu-same.mjs`). The owner, 2026-11-25, of the design: "Yes, build it" (`docs/plans/headset-menu.md`). Names given 2026-11-25. Nothing is shown in a headset yet: that is the next step.
+  - **`SHEET_LOOK`, one table of the menu's measures:** every size, gap, corner and alpha of the sheet, its rows and the bar. The flat menu's styles are now written from it. **They are the same as before, character for character** (39,681 of them, compiled from main and from this branch and compared), so nothing on a flat screen changes.
+  - **`createMenuDrawing(controls)`:** the menu on two canvases, the sheet and the bar, from `controls.view()`. It lays out as the flat menu does:
+    - the tabs, slid along to bring the open one into sight, with their arrows;
+    - rows in two columns at a desk and one on the wrist, side by side as tall as the taller;
+    - wide presses, lines, boxes to type in, a song's bar, rows that take a file, colours, tiles, a person's or a thing's card;
+    - the note, the said line's strip, the foot (Keep this tab on your bar, where the bar is shown, and Close), and one size on every tab, the tallest's;
+    - the bar's keys, and the tabs kept on it after a line.
+
+    Where every pressable thing is comes with it (`sheetAt`, `barAt`). Laying out is apart from drawing, and takes a way to measure words, so it is tested without a browser.
+  - **A new kind of row can't be missed:** the flat menu and the drawing each choose by a switch on the row's kind with no default (`kindLaid`). A kind added to `ui/model.ts` fails the type check until both draw it. Today's console drops kinds it doesn't know without a word (a song's bar, for one).
+  - **`trials/headset-menu-same.mjs`:** every tab of the Gallery, the Grove and the Arcade, with stand-in rows so that every kind appears. Each box of the flat menu, as the browser lays it out, is held to its twin in the drawing: every tab, row, line, box, bar, colour, tile and card, the note, the foot, the sheet's height and the bar's keys. It runs at a desk, at a phone's width (the wrist's layout) and with larger text. **Each must be within 2 px; the worst is 1.4 px**, over 73 tabs.
+  - **`test/menu-drawing.test.ts`:** the layout held to numbers worked out by hand from the flat menu's styles, in the gate.
+
 ## 0.95.0
 
 - **Rooms ask the owner's TURN service, now live: two visitors who can't reach each other directly still meet** (SDK `room.ts`: `ICE_FROM`; `services/ice/README.md`; `trials/turn-live.mjs`). On the owner's "Can you set up the turn server with the API keys and the connector?", `bitblocks-ice` was deployed on 2026-11-25 at `https://bitblocks-ice.bitunlock.workers.dev/`, with its four secrets.

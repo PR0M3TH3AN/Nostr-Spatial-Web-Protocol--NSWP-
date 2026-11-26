@@ -13,10 +13,14 @@
 // What is real: this checkout's build of each world and its kit, a real Chrome. Made up: the stand-in rows, and
 // BitLogin (a stand-in signer: nobody is signed in). Nothing is fetched from anywhere else.
 //
-//   npm run build && npm run trial -- trials/headset-menu-same.mjs
-import { existsSync, readFileSync } from "node:fs";
+//   npm run build && npm run trial -- trials/headset-menu-same.mjs [--pictures]
+//
+// With --pictures, each desk tab of each world is also saved twice in SHOTS, as the browser draws it and as the
+// headset draws it (`drawSheet`), to look at side by side. Never committed.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
-import { ROOT as NSWP } from "./lib.mjs";
+import { ROOT as NSWP, SHOTS } from "./lib.mjs";
+const PICTURES = process.argv.includes("--pictures");
 const pw = await import(`${NSWP}/node_modules/playwright-core/index.mjs`);
 const { build } = await import(`${NSWP}/node_modules/esbuild/lib/main.js`);
 
@@ -26,7 +30,7 @@ const WORLDS = ["gallery", "grove", "arcade"];
 const TOLERANCE = 2;
 
 // The kit's own layout, from its source, for the page.
-const DRAWING = (await build({ entryPoints: [join(NSWP, "packages", "sdk", "src", "menu-drawing.ts")], bundle: true, format: "iife", globalName: "__menuDrawing", target: "es2022", write: false, logLevel: "warning" })).outputFiles[0].text;
+const DRAWING = (await build({ entryPoints: [join(NSWP, "packages", "sdk", "src", "menu-drawing.ts")], bundle: true, format: "iife", globalName: "__menuDrawing", target: "es2022", write: false, logLevel: "warning" })).outputFiles[0].text + "\nwindow.__menuDrawing = __menuDrawing;";
 
 const results = {};
 const fail = [];
@@ -94,7 +98,9 @@ const flatBoxes = () => {
   const b = bar.getBoundingClientRect();
   return {
     sheet: { w: s.width, h: s.height },
-    tabs: [...sheet.querySelectorAll(".tab")].map((e) => at(e)),
+    // Along the strip from its start, not where it is slid to: how far the flat menu's strip is slid is its own
+    // moment's (a tab brought into sight before larger text has settled stops short), and is checked apart, below.
+    tabs: (() => { const slid = sheet.querySelector(".tabs").scrollLeft; return [...sheet.querySelectorAll(".tab")].map((e) => ({ ...at(e), x: at(e).x + slid })); })(),
     rows,
     note: note && note.getBoundingClientRect().height > 0 ? at(note) : null,
     pin: (() => { const p = sheet.querySelector(".pin-it"); return p && !p.hidden ? at(p) : null; })(),
@@ -104,16 +110,19 @@ const flatBoxes = () => {
 };
 
 /** The headset's layout of the same view, by the kit's own code, in the same page. */
-const drawnBoxes = ([tab, width]) => {
+const drawnBoxes = ([tab, width, before]) => {
   const g = document.createElement("canvas").getContext("2d");
   const measure = (text, f) => { g.font = f; return g.measureText(text).width; };
   const view = window.__nswpTest.controls.view();
-  const L = window.__menuDrawing.laySheet(view, tab, { measure, width, title: view.title });
+  const L = window.__menuDrawing.laySheet(view, tab, { measure, width, title: view.title, tabsScroll: before, bring: true });
   const B = window.__menuDrawing.layBar(view, { measure });
   const pick = (b) => ({ x: b.x, y: b.y, w: b.w, h: b.h });
   return {
+    scroll: L.tabsScroll,
     sheet: { w: L.width, h: L.height },
-    tabs: L.tabs.map((t) => ({ ...pick(t), x: t.x - L.tabsScroll })),
+    tabs: L.tabs.map((t) => pick(t)),
+    // The open tab, as the drawing slides the strip: wholly in sight.
+    inSight: (() => { const t = L.tabs.find((x) => x.id === `tab:${L.section?.id}`); return !t || (t.x - L.tabsScroll >= 1 - 0.01 && t.x - L.tabsScroll + t.w <= L.width - 1 + 0.01); })(),
     rows: L.rows.map((b) => ({ kind: b.kind, ...pick(b) })),
     note: L.note && pick(L.note),
     pin: L.pin && pick(L.pin),
@@ -123,7 +132,7 @@ const drawnBoxes = ([tab, width]) => {
 };
 
 /** Every box against its twin: how far the worst is out, and every one more than the tolerance. */
-const compare = (flat, drawn) => {
+const compare = (flat, drawn, keys) => {
   const bad = [];
   let worst = 0;
   const near = (where, a, b, sides = ["x", "y", "w", "h"]) => {
@@ -139,6 +148,7 @@ const compare = (flat, drawn) => {
     }
   };
   near("sheet", flat.sheet, drawn.sheet, ["w", "h"]);
+  if (!drawn.inSight) bad.push("the open tab isn't wholly in sight in the drawing's strip");
   if (flat.tabs.length !== drawn.tabs.length) bad.push(`tabs: ${flat.tabs.length} flat, ${drawn.tabs.length} drawn`);
   flat.tabs.forEach((t, i) => near(`tab ${i}`, t, drawn.tabs[i]));
   const kinds = (r) => r.map((b) => b.kind).join(",");
@@ -147,8 +157,12 @@ const compare = (flat, drawn) => {
   near("note", flat.note, drawn.note);
   near("pin", flat.pin, drawn.pin);
   near("close", flat.close, drawn.close);
-  if (flat.keys.length !== drawn.keys.length) bad.push(`keys: ${flat.keys.length} flat, ${drawn.keys.length} drawn`);
-  flat.keys.forEach((k, i) => near(`key ${i}`, k, drawn.keys[i], ["x", "y", "w"]));
+  // The bar: where it is shown at all (a quiet world keeps it away), and only at a desk. A phone's bar is its own
+  // smaller keys; a headset's bar is always the desk's, and the wrist has none.
+  if (keys && flat.keys.some((k) => k.w > 0)) {
+    if (flat.keys.length !== drawn.keys.length) bad.push(`keys: ${flat.keys.length} flat, ${drawn.keys.length} drawn`);
+    flat.keys.forEach((k, i) => near(`key ${i}`, k, drawn.keys[i], ["x", "y", "w"]));
+  }
   return { worst: Math.round(worst * 10) / 10, bad };
 };
 
@@ -167,7 +181,7 @@ try {
       const WORLD = `https://${name}.test`;
       const DIST = join(NSWP, "sites", name, "dist");
       if (!existsSync(join(DIST, "index.html"))) throw new Error("Build the sites first: npm run build");
-      const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: pass.viewport });
+      const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: pass.viewport, deviceScaleFactor: PICTURES ? 2 : 1 });
       await ctx.routeWebSocket(/^wss?:\/\//, (ws) => ws.onMessage((m) => { let msg; try { msg = JSON.parse(String(m)); } catch { return; } if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]])); }));
       await ctx.route("**/*", (route) => {
         const url = new URL(route.request().url());
@@ -196,13 +210,33 @@ try {
       const tabs = await page.evaluate(() => window.__nswpTest.controls.view().sections.map((s) => s.id));
       const outs = [];
       let worst = 0;
+      // The strip of tabs is slid from where it was, in both: the drawing keeps its own, as the flat menu does.
+      let slid = 0;
       for (const tab of tabs) {
         await page.evaluate((id) => window.__nswpTest.hud.setOpen(true, id), tab);
         // Up, laid out, and its motion done: the rows arrive over a few hundred milliseconds.
         await page.waitForTimeout(700);
         const flat = await page.evaluate(flatBoxes);
-        const drawn = await page.evaluate(drawnBoxes, [tab, flat.sheet.w]);
-        const got = compare(flat, drawn);
+        const drawn = await page.evaluate(drawnBoxes, [tab, flat.sheet.w, slid]);
+        slid = drawn.scroll;
+        const got = compare(flat, drawn, pass.width >= 780);
+        if (PICTURES && pass.name === "desk") {
+          mkdirSync(SHOTS, { recursive: true });
+          const box = await page.locator("nswp-hud").locator(".sheet").boundingBox();
+          if (box) await page.screenshot({ path: join(SHOTS, `headset-menu-same-${name}-${tab}-flat.png`), clip: box });
+          const png = await page.evaluate((tab) => {
+            const canvas = document.createElement("canvas");
+            const g = canvas.getContext("2d");
+            const measure = (text, f) => { g.font = f; return g.measureText(text).width; };
+            const view = window.__nswpTest.controls.view();
+            const L = window.__menuDrawing.laySheet(view, tab, { measure, width: 780, title: view.title });
+            canvas.width = L.width * 2;
+            canvas.height = L.height * 2;
+            window.__menuDrawing.drawSheet(g, view, L, { scale: 2, glass: 0.82 });
+            return canvas.toDataURL("image/png");
+          }, tab);
+          writeFileSync(join(SHOTS, `headset-menu-same-${name}-${tab}-drawn.png`), Buffer.from(png.split(",")[1], "base64"));
+        }
         worst = Math.max(worst, got.worst);
         tabsChecked++;
         if (got.bad.length) outs.push({ tab, bad: got.bad.slice(0, 12) });

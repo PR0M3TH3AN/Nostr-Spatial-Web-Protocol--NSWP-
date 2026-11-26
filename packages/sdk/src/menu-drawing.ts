@@ -116,8 +116,18 @@ export interface LayOptions {
   most?: number;
   /** The world's name, for the line under a row that sends something to it. */
   title?: string;
-  /** How far the strip of tabs is slid along; left out, as far as brings the open tab into sight. */
+  /** How far the strip of tabs was slid along before (from its start, 0, where left out). */
   tabsScroll?: number;
+  /**
+   * Bring the open tab into sight, as the flat menu does when a tab is chosen or the menu comes up: from where the
+   * strip was, slid only as far as it takes, clear of the arrows. Left out, so; false keeps it where it was.
+   */
+  bring?: boolean;
+  /**
+   * Whether the bar is shown, and with it the foot's "Keep this tab on your bar": as at a desk, only where the
+   * world's presence is "full" (a quiet world, a game, keeps the bar away). Left out, so.
+   */
+  bar?: boolean;
 }
 
 /** A row's words and what is beside them: its icon, its On or Off, its key. */
@@ -144,7 +154,9 @@ function layRows(o: LayOptions, s: UiSectionView, scale: number, inner: number):
   let open: MenuBox[] = [];
   const close = () => {
     if (!open.length) return;
+    // Things side by side are as tall as the taller, as a grid stretches them.
     const h = Math.max(...open.map((b) => b.h));
+    for (const b of open) b.h = h;
     y += h + gap;
     open = [];
   };
@@ -235,19 +247,31 @@ function layRows(o: LayOptions, s: UiSectionView, scale: number, inner: number):
   return { boxes, height: Math.max(0, y - gap) };
 }
 
-/** A card at the head of a tab: a person's (a face, a name, how they are known, their words) or a thing's. */
+/**
+ * A card at the head of a tab: a person's (a face, a name, how they are known, their words) or a thing's (its
+ * picture large, its words beside it). By the flat menu's grid: a gap between each of its rows, its words in a quote.
+ */
 function layCard(m: Measure, scale: number, card: UiCard, inner: number, two: boolean): Omit<MenuBox, "x" | "y" | "w"> {
   const C = LOOK.card;
+  const line = S * scale * LH;
   const head = C.title * S * scale * LH;
-  const keyline = C.keyline * S * scale * LH + 4;
+  const keyline = Math.max(C.keyline * S * scale * LH, card.copy ? 2 + 4 + C.keyline * S * scale * LH : 0);
+  const content = inner - 2 - 2 * C.pad;
   if (card.draw) {
-    const face = two ? C.thing : Math.max(112, inner * 0.3);
-    const text = card.text ? wrapWords(m, card.text, font(scale), inner - 2 - 2 * C.pad - face - 14 - 12) : [];
-    return { id: "card", kind: "card", card, h: 2 + 2 * C.pad + Math.max(face, head + C.gap[0] + keyline + (text.length ? 3 + text.length * S * scale * LH : 0)), lines: text };
+    // A thing: its picture in a column of its own (200 at a desk, 30% and at least 112 on a phone), its words beside.
+    const face = two ? C.thing : Math.max(112, content * 0.3);
+    const words = content - face - 14;
+    const text = card.text ? wrapWords(m, card.text, font(scale), words - 12) : [];
+    const about = head + 5 + keyline + (text.length ? 5 + 3 + 2 + text.length * line : 0) + (card.now.length ? 5 + 5 + 0.9 * S * scale * LH : 0);
+    // Under it a row for what to do with the thing, empty here, with the grid's gap of 10 above it.
+    const h = two ? Math.max(face, about + 10) : Math.max(face, about) + 10;
+    return { id: "card", kind: "card", card, h: 2 + 2 * C.pad + h, lines: text };
   }
-  const text = card.text ? wrapWords(m, card.text, font(scale), inner - 2 - 2 * C.pad - 12) : [];
+  const text = card.text ? wrapWords(m, card.text, font(scale), content - 12) : [];
   const top = Math.max(C.face, head + C.gap[0] + keyline);
-  return { id: "card", kind: "card", card, h: 2 + 2 * C.pad + top + (text.length ? C.quote + text.length * S * scale * LH + 2 : 0) + (card.now.length ? 5 + 0.9 * S * scale * LH : 0), lines: text };
+  const quote = text.length ? C.gap[0] + C.quote + 2 + text.length * line : 0;
+  const now = card.now.length ? C.gap[0] + 5 + 0.9 * S * scale * LH : 0;
+  return { id: "card", kind: "card", card, h: 2 + 2 * C.pad + top + quote + now, lines: text };
 }
 
 /** The sheet laid out for the tab `section` (its id), with every tab measured for the sheet's one size. */
@@ -274,24 +298,30 @@ export function laySheet(view: UiView, sectionId: string, o: LayOptions): SheetL
   let tabsScroll = 0;
   if (over) {
     const most = stripEnd - (width - 2);
-    if (o.tabsScroll !== undefined) tabsScroll = Math.max(0, Math.min(most, o.tabsScroll));
-    else if (chosen) {
+    tabsScroll = o.tabsScroll ?? 0;
+    if ((o.bring ?? true) && chosen) {
+      // The flat menu's rule (ui/hud.ts): past the tab's left, back to it; short of its right, on to it; else still.
       const clear = LOOK.tabs.clear;
+      const left = chosen.x - 1 - clear;
       const right = chosen.x - 1 + chosen.w + clear - (width - 2);
-      tabsScroll = Math.max(0, Math.min(most, right > 0 ? right : 0));
-      if (chosen.x - 1 - tabsScroll < clear) tabsScroll = Math.max(0, chosen.x - 1 - clear);
+      if (tabsScroll > left) tabsScroll = Math.max(0, left);
+      else if (tabsScroll < right) tabsScroll = right;
     }
+    tabsScroll = Math.max(0, Math.min(most, tabsScroll));
   }
   const more = { left: over && tabsScroll > 0.5, right: over && tabsScroll < stripEnd - (width - 2) - 0.5 };
   // Each tab's rows, note and said line: the sheet is as tall as the tallest needs.
   const stripBottom = 1 + LOOK.tabs.pad[0] + tabH;
-  const noteLines = (s: UiSectionView) => (s.note ? wrapWords(m, s.note, font(scale, LOOK.note.text), width - 2 - LOOK.note.inset - 2 - LOOK.note.pad[1] - LOOK.note.pad[3] - LOOK.note.inset) : []);
+  // A note stands in from the left only, by its edge and room: its words are as wide as what is left.
+  const noteW = width - 2 - LOOK.note.inset;
+  const noteText = noteW - 2 - LOOK.note.pad[1] - LOOK.note.pad[3];
+  const noteLines = (s: UiSectionView) => (s.note ? wrapWords(m, s.note, font(scale, LOOK.note.text), noteText) : []);
   const noteH = (lines: string[]) => (lines.length ? LOOK.note.pad[0] + lines.length * LOOK.note.text * S * scale * LH : 0);
-  const saidLines = (s: UiSectionView) => (s.said ? wrapWords(m, `${s.said.from} ${s.said.note}`, font(scale, LOOK.note.text), width - 2 - LOOK.note.inset - 2 - LOOK.note.pad[1] - LOOK.note.pad[3] - LOOK.note.inset) : []);
+  const saidLines = (s: UiSectionView) => (s.said ? wrapWords(m, `${s.said.from} ${s.said.note}`, font(scale, LOOK.note.text), noteText) : []);
+  // The list is always there, an empty tab's too: the flat menu's `hidden` on it is outweighed by its own display.
   const needs = (s: UiSectionView) => {
-    const shown = s.items.length > 0 || !!s.card;
-    const r = shown ? layRows(o, s, scale, inner) : null;
-    return { r, h: (r ? 1 + 2 * LOOK.rows.pad + r.height : 0) + noteH(noteLines(s)) + noteH(saidLines(s)) };
+    const r = layRows(o, s, scale, inner);
+    return { r, h: 1 + 2 * LOOK.rows.pad + r.height + noteH(noteLines(s)) + noteH(saidLines(s)) };
   };
   const saysH = S * scale * LH + LOOK.says.pad;
   const footH = Math.max(LOOK.foot.close.height, 2 + 2 * LOOK.foot.pin.pad[0] + Math.max(LOOK.foot.pin.icon, LOOK.foot.pin.text * S * scale * LH)) + LOOK.foot.pad[2];
@@ -299,20 +329,20 @@ export function laySheet(view: UiView, sectionId: string, o: LayOptions): SheetL
   const tallest = Math.max(0, ...view.sections.map((s) => needs(s).h));
   const height = Math.min(o.most ?? LOOK.sheet.tall.desk, Math.ceil(around + tallest));
   // This tab, in that height.
-  const here = section ? needs(section) : { r: null, h: 0 };
+  const here = section ? needs(section) : { r: { boxes: [], height: 0 }, h: 0 };
   const nLines = section ? noteLines(section) : [];
   const sLines = section ? saidLines(section) : [];
   const footTop = height - 1 - footH;
   const saysTop = footTop - LOOK.says.after - saysH;
   const room = saysTop - stripBottom - noteH(nLines) - noteH(sLines);
-  const rowsH = here.r ? Math.max(0, Math.min(1 + 2 * LOOK.rows.pad + here.r.height, room)) : 0;
-  const rowsAt = here.r ? { y: stripBottom, h: rowsH } : null;
-  const rows = (here.r?.boxes ?? []).map((b) => ({ ...b, x: b.x + 1 + LOOK.rows.pad, y: b.y + stripBottom + 1 + LOOK.rows.pad }));
+  const rowsH = Math.max(0, Math.min(1 + 2 * LOOK.rows.pad + here.r.height, room));
+  const rowsAt = { y: stripBottom, h: rowsH };
+  const rows = here.r.boxes.map((b) => ({ ...b, x: b.x + 1 + LOOK.rows.pad, y: b.y + stripBottom + 1 + LOOK.rows.pad }));
   let y = stripBottom + rowsH;
   const noteX = 1 + LOOK.note.inset;
-  const note = nLines.length ? { id: "note", kind: "note", x: noteX, y, w: width - 2 - 2 * LOOK.note.inset, h: noteH(nLines), lines: nLines } : null;
+  const note = nLines.length ? { id: "note", kind: "note", x: noteX, y, w: noteW, h: noteH(nLines), lines: nLines } : null;
   if (note) y += note.h;
-  const said = sLines.length ? { id: "said", kind: "said", x: noteX, y, w: width - 2 - 2 * LOOK.note.inset, h: noteH(sLines), lines: sLines } : null;
+  const said = sLines.length ? { id: "said", kind: "said", x: noteX, y, w: noteW, h: noteH(sLines), lines: sLines } : null;
   // The foot.
   const F = LOOK.foot;
   const pinWords = section?.pinned ? "On your bar. Take it off" : view.pinsFull ? "Your bar is full" : "Keep this tab on your bar";
@@ -320,7 +350,7 @@ export function laySheet(view: UiView, sectionId: string, o: LayOptions): SheetL
   const pinW = 2 + 2 * F.pin.pad[1] + F.pin.icon + F.pin.gap + m(pinWords, font(scale, F.pin.text));
   const closeW = 2 + 2 * F.close.padX + m("Close", font(scale));
   const footRow = footH - F.pad[2];
-  const pin = section ? { id: "pin", kind: "pin", x: 1 + F.pad[1], y: footTop + (footRow - pinH) / 2, w: pinW, h: pinH, lines: [pinWords] } : null;
+  const pin = section && (o.bar ?? view.presence === "full") ? { id: "pin", kind: "pin", x: 1 + F.pad[1], y: footTop + (footRow - pinH) / 2, w: pinW, h: pinH, lines: [pinWords] } : null;
   const close = { id: "close", kind: "close", x: width - 1 - F.pad[1] - closeW, y: footTop + (footRow - F.close.height) / 2, w: closeW, h: F.close.height, lines: ["Close"] };
   return {
     width,
@@ -330,7 +360,7 @@ export function laySheet(view: UiView, sectionId: string, o: LayOptions): SheetL
     tabsScroll,
     more,
     rowsAt,
-    rowsContent: here.r ? 1 + 2 * LOOK.rows.pad + here.r.height : 0,
+    rowsContent: 1 + 2 * LOOK.rows.pad + here.r.height,
     rows,
     note,
     said,
@@ -765,8 +795,12 @@ function drawBox(g: G, view: UiView, b: MenuBox, o: DrawOptions, p: Paint): void
         textAt([...item.short][0]?.toUpperCase() ?? "", px + pic / 2, py + pic / 2, font(scale, T.letter, 700), ink(0.35));
         g.textAlign = "left";
       }
+      // A tile stretched to its row (a neighbour's longer name) shares the room between its picture's row and its
+      // name's, as the flat menu's grid does: its name sits that much lower.
+      const natural = 2 + T.pad[0] + T.pad[2] + pic + T.gap + (b.lines?.length ?? 0) * T.text * S * scale * T.line;
+      const extra = Math.max(0, b.h - natural) / 2;
       g.textAlign = "center";
-      (b.lines ?? []).forEach((line, i) => textAt(line, b.x + b.w / 2, py + pic + T.gap + i * T.text * S * scale * T.line, font(scale, T.text), item.faint ? ink(0.55) : ink(T.ink), false));
+      (b.lines ?? []).forEach((line, i) => textAt(line, b.x + b.w / 2, py + pic + extra + T.gap + i * T.text * S * scale * T.line, font(scale, T.text), item.faint ? ink(0.55) : ink(T.ink), false));
       g.textAlign = "left";
       if (item.mark) {
         const M = T.mark;
@@ -837,24 +871,31 @@ function drawCard(g: G, view: UiView, b: MenuBox, o: DrawOptions, p: Paint): voi
     }
   }
   const head = C.title * S * scale * LH;
+  const keylineH = Math.max(C.keyline * S * scale * LH, card.copy ? 2 + 4 + C.keyline * S * scale * LH : 0);
+  // A person's face is taller than their name and key line: the grid shares what is over between those two rows,
+  // and each is centred in its own.
+  const over = card.draw ? 0 : Math.max(0, C.face - (head + C.gap[0] + keylineH)) / 2;
   const tf = font(scale, C.title, 650);
   g.font = tf;
   const tw = g.measureText(card.title).width;
-  textAt(card.title, words, top + head / 2, tf, ink(1));
+  const nameMid = top + (head + over) / 2;
+  textAt(card.title, words, nameMid, tf, ink(1));
   if (card.tag) {
     const f = font(scale, C.tag);
     g.font = f;
     const w = g.measureText(card.tag).width + 16;
     const h = C.tag * S * scale * LH + 2;
-    box(words + tw + 8, top + (head - h) / 2, w, h, h / 2);
+    box(words + tw + 8, nameMid - h / 2, w, h, h / 2);
     g.strokeStyle = card.proven ? acc(0.8) : ink(0.3);
     g.stroke();
-    textAt(card.tag, words + tw + 16, top + head / 2, f, card.proven ? acc(1) : ink(0.75));
+    textAt(card.tag, words + tw + 16, nameMid, f, card.proven ? acc(1) : ink(0.75));
   }
-  textAt(card.sub, words, top + head + C.gap[0] + 2, font(scale, C.keyline, card.copy ? 400 : 500, !!card.copy), ink(0.7), false);
+  const subMid = card.draw ? top + head + 5 + keylineH / 2 : top + head + over + C.gap[0] + (keylineH + over) / 2;
+  textAt(card.sub, words, subMid, font(scale, C.keyline, card.copy ? 400 : 500, !!card.copy), ink(0.7));
   const lines = b.lines ?? [];
   if (lines.length) {
-    const qy = card.draw ? top + head + C.gap[0] + C.keyline * S * scale * LH + 4 + 3 : top + Math.max(C.face, head + C.gap[0] + C.keyline * S * scale * LH + 4) + C.quote;
+    const keyline = Math.max(C.keyline * S * scale * LH, card.copy ? 2 + 4 + C.keyline * S * scale * LH : 0);
+    const qy = card.draw ? top + head + 5 + keyline + 5 + 3 : top + Math.max(C.face, head + C.gap[0] + keyline) + C.gap[0] + C.quote;
     const qx = card.draw ? words : left;
     g.fillStyle = acc(0.6);
     g.fillRect(qx, qy, 2, lines.length * S * scale * LH + 2);
@@ -964,9 +1005,9 @@ export interface MenuDrawing {
   aimed: string | null;
   /** What has come forward off the sheet, left an empty slot where it was. */
   hollow: string | null;
-  /** How far the list of rows, and the strip of tabs, are slid along. */
+  /** How far the list of rows, and the strip of tabs, are slid along. The strip is slid to the open tab as it opens. */
   rowsScroll: number;
-  tabsScroll: number | undefined;
+  tabsScroll: number;
   /** The layouts last drawn: where every pressable thing is, in the flat menu's CSS pixels. */
   readonly sheetLayout: SheetLayout | null;
   readonly barLayout: ReturnType<typeof layBar> | null;
@@ -997,6 +1038,8 @@ export function createMenuDrawing(controls: Controls, opts: MenuDrawingOptions =
   let sheetDrawn = "";
   let barDrawn = "";
   let sheetLayout: SheetLayout | null = null;
+  /** The tab last drawn: a tab newly up has the strip slid to it, as the flat menu's is. */
+  let shownTab = "";
   let barLayout: ReturnType<typeof layBar> | null = null;
   const d: MenuDrawing = {
     sheet,
@@ -1005,7 +1048,7 @@ export function createMenuDrawing(controls: Controls, opts: MenuDrawingOptions =
     aimed: null,
     hollow: null,
     rowsScroll: 0,
-    tabsScroll: undefined,
+    tabsScroll: 0,
     get sheetLayout() {
       return sheetLayout;
     },
@@ -1022,7 +1065,9 @@ export function createMenuDrawing(controls: Controls, opts: MenuDrawingOptions =
       let drew = false;
       if (sig !== sheetDrawn) {
         sheetDrawn = sig;
-        sheetLayout = laySheet(view, d.section, { measure, width: opts.width ?? LOOK.sheet.wide, most: opts.most ?? LOOK.sheet.tall.desk, title: view.title, ...(d.tabsScroll === undefined ? {} : { tabsScroll: d.tabsScroll }) });
+        sheetLayout = laySheet(view, d.section, { measure, width: opts.width ?? LOOK.sheet.wide, most: opts.most ?? LOOK.sheet.tall.desk, title: view.title, tabsScroll: d.tabsScroll, bring: d.section !== shownTab });
+        shownTab = d.section;
+        d.tabsScroll = sheetLayout.tabsScroll;
         sheet.width = Math.round(sheetLayout.width * k);
         sheet.height = Math.round(sheetLayout.height * k);
         drawSheet(gs, view, sheetLayout, { scale: k, glass: opts.glass ?? 0.95, hot: d.aimed, hollow: d.hollow, rowsScroll: d.rowsScroll });
