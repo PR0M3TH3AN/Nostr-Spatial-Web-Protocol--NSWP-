@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A room test steadied for a busy machine** (SDK `test/room-fill.test.ts`). "Stays in a room by name, and at the last lobby" timed out at the usual 5 s in 0.94.0's release tests, at a load of about 18; alone it passes in about a second. Its timers are already made up, so it waits on nothing: the time is the signing and opening of 64 real events, walking a newcomer through all 32 lobbies. It is given 30 s; nothing else changes.
+
 ## 0.94.0
 
 - **BitLogin from a headset: out of VR for a moment, in one press, and back in one press: `outOfVr`** (SDK `ui/vr-aside.ts`, `ui/headset.ts`, `three.ts`, `engine-menu.ts`, `signer.ts`, `ui/identity.ts`, `room-controls.ts`, `front-room.ts`; `trials/out-of-vr.mjs`; `docs/owner-quest-checks.md`, check 11). The owner, 2026-11-25: "just make it as rare and a seemless as possible", and "the only thing that should force us out of VR is the initial phone pairing and the browsers immurrsive VR site to site limitation". Names given 2026-11-25.
