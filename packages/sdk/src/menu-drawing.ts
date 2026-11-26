@@ -401,7 +401,22 @@ export function layBar(view: UiView, o: { measure: Measure }): { width: number; 
  */
 export function boxAt(L: SheetLayout, id: string, rowsScroll: number): MenuBox | null {
   const tab = L.tabs.find((t) => t.id === id);
-  if (tab) return { ...tab, x: tab.x - L.tabsScroll };
+  if (tab) {
+    const x = tab.x - L.tabsScroll;
+    // Slid out of sight along the strip, or under an arrow: not where a ray can press it.
+    const M = LOOK.tabs.more;
+    const from = L.more.left ? 1 + M.width : 1;
+    const to = L.width - (L.more.right ? 1 + M.width : 1);
+    if (x + tab.w / 2 < from || x + tab.w / 2 > to) return null;
+    return { ...tab, x };
+  }
+  if (id === "tabs-left" || id === "tabs-right") {
+    const side = id === "tabs-left" ? "left" : "right";
+    if (!L.more[side]) return null;
+    const M = LOOK.tabs.more;
+    const t0 = L.tabs[0];
+    return { id, kind: "more", x: side === "left" ? 1 : L.width - 1 - M.width, y: t0?.y ?? 13, w: M.width, h: t0?.h ?? 39 };
+  }
   if (L.pin?.id === id) return L.pin;
   if (L.close.id === id) return L.close;
   const row = L.rows.find((b) => b.id === id && b.kind !== "line");

@@ -112,6 +112,19 @@ try {
   const where = (label) => page.evaluate((label) => window.__nswpTest.console.sheet?.whereIs(label) ?? null, label);
   const state = () => page.evaluate(() => window.__nswpTest.console.sheet?.state ?? null);
   const said = () => page.evaluate(() => window.__nswpTest.console.describe());
+  /** Where a tab is, pressing the strip's right arrow (as a visitor would) until it is in sight. */
+  const tabAt = async (label) => {
+    for (let i = 0; i < 8; i++) {
+      const at = await where(label);
+      if (at) return at;
+      const arrow = await where("tabs-right");
+      if (!arrow) return null;
+      await aimAt("right", arrow);
+      await page.waitForTimeout(250);
+      await trigger("right");
+    }
+    return null;
+  };
   // Hands held low and out of the way, to begin.
   await page.evaluate(() => { for (const side of ["left", "right"]) { const c = window.__xr.controllers[side]; c.position.y = 0.6; } });
 
@@ -127,7 +140,7 @@ try {
   check("every part of it is drawn before the hands (under 40, input.ts's HANDS_ORDER)", parts.orders.every((x) => typeof x === "number" && x < 40), parts.orders);
 
   // ---- A tab pointed at comes forward; pressed, it is up.
-  const sound = await where("Sound");
+  const sound = await tabAt("Sound");
   if (sound) await aimAt("right", sound);
   await page.waitForTimeout(400);
   const p1 = await pointed();
@@ -159,7 +172,7 @@ try {
   check("a key on the bar pointed at comes forward off the bar", !!keyAt && (s3?.forward ?? "").startsWith("bar:"), { keyWords, keyAt, state: s3 });
 
   // ---- A long tab: pointing at it and pushing a stick scrolls it, and doesn't walk or turn the visitor.
-  const longAt = await where("Long");
+  const longAt = await tabAt("Long");
   if (longAt) await aimAt("right", longAt);
   await page.waitForTimeout(300);
   await trigger("right");
@@ -180,7 +193,7 @@ try {
 
   // ---- Movement turned down: nothing comes forward; it is lit where it is.
   await page.evaluate(() => window.__nswpTest.controls.setTheme({ motion: false }));
-  const look = await where("Display");
+  const look = await tabAt("Display");
   if (look) await aimAt("right", look);
   await page.waitForTimeout(400);
   const s5 = await state();

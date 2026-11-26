@@ -23,6 +23,11 @@ const BAR_TILT = (28 * Math.PI) / 180;
 const TOP = 0.3;
 /** Canvas pixels to each of the flat menu's: sharper than a Quest 3S shows the sheet. */
 const SCALE = 2;
+/**
+ * The most the sheet may be tall, in the flat menu's pixels: floating, 520 (0.67 m, about 35° down at 1.05 m with
+ * the bar, the design's B); on the wrist, a phone's 640 (0.48 m). A longer tab scrolls, as on a flat screen.
+ */
+export const SHEET_MOST = { floating: 520, wrist: LOOK.sheet.tall.narrow } as const;
 
 export interface SheetMenu {
   /** Its meshes, to add to the console's group. */
@@ -59,8 +64,8 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
   const order = opts.menuOrder ?? MENU_ORDER;
   const root = new THREE.Group();
   root.name = "nswp-menu-sheet";
-  const desk = createMenuDrawing(controls, { width: LOOK.sheet.wide, scale: SCALE, glass: 0.95, shown: opts.shown });
-  const narrow = createMenuDrawing(controls, { width: LOOK.sheet.narrow, scale: SCALE, glass: 0.95, shown: opts.shown });
+  const desk = createMenuDrawing(controls, { width: LOOK.sheet.wide, scale: SCALE, glass: 0.95, most: SHEET_MOST.floating, shown: opts.shown });
+  const narrow = createMenuDrawing(controls, { width: LOOK.sheet.narrow, scale: SCALE, glass: 0.95, most: SHEET_MOST.wrist, shown: opts.shown });
   let mount: "wrist" | "floating" = "floating";
   const drawing = (): MenuDrawing => (mount === "wrist" ? narrow : desk);
 
@@ -330,6 +335,7 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
         size = { w: B?.width ?? 1, h: B?.height ?? 1 };
         if (!bar.visible) return null;
       } else if (label === "Close") box = L.close;
+      else if (label === "tabs-left" || label === "tabs-right") box = boxAt(L, label, d.rowsScroll);
       else if (L.pin && label === L.pin.lines?.[0]) box = L.pin;
       else {
         const tab = view.sections.find((x) => x.label === label);
