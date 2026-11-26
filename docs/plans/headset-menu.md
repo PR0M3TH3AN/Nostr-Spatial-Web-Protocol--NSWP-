@@ -49,7 +49,7 @@ first ones to look at:
 | `vr-3-bag-tiles.png` | The Bag's things as tiles, one pointed at |
 | `vr-4-display-swatches.png` | Display, with its colours. A tab in the strip is pointed at |
 | `vr-5-wallet.png` to `vr-9-confirm.png` | **The VR way:** BitLogin's wallet, receiving, Files, purchases, and its careful question, drawn with the menu's own rows inside the You tab |
-| `vr-10-wrist-narrow.png` | The narrow layout, one column, at the wrist's size, as it would sit above a raised left wrist |
+| `vr-10-wrist-narrow.png` | The narrow layout, one column, at the wrist's size (0.36 m wide), hung a little to the left and near. It isn't on a raised wrist: the made-up headset's hands don't move in these pictures |
 | `vr-<n>-sharp.png` | The middle of each at about 20 pixels to a degree, which is what a Quest 3S shows. **Judge the size of words from these** |
 | `vr-0-today-console.png` | Today's console, for comparison |
 
