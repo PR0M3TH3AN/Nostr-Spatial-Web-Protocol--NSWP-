@@ -90,7 +90,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.93.0";
+  var KIT_VERSION = "0.95.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -10733,7 +10733,7 @@ postMessage({ t: "started" });
   var PLAY_WORD = /^(shot|hit|did|st|tint):/;
   var PLAY_SAID = { burst: 40, perSecond: 30 };
   var DEFAULT_ICE = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
-  var ICE_FROM = null;
+  var ICE_FROM = "https://bitblocks-ice.bitunlock.workers.dev/";
   var ICE_FROM_WAIT_MS = 3e3;
   async function askIce(url) {
     try {

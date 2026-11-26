@@ -4,6 +4,17 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.95.0
+
+- **Rooms ask the owner's TURN service, now live: two visitors who can't reach each other directly still meet** (SDK `room.ts`: `ICE_FROM`; `services/ice/README.md`; `trials/turn-live.mjs`). On the owner's "Can you set up the turn server with the API keys and the connector?", `bitblocks-ice` was deployed on 2026-11-25 at `https://bitblocks-ice.bitunlock.workers.dev/`, with its four secrets.
+  - **`ICE_FROM` names it.** A room asks it once as it is joined, waits at most 3 seconds, and uses the TURN servers it hands out beside the room's own STUN. It asks again before they run out (an hour). This was all built in 0.93.0 behind an address that was still empty.
+  - **It answers pages of bitblocks.network only.** Any other page gets a refusal at once, and its rooms go on with STUN alone, as before. A world with a TURN service of its own names it in `iceFrom`, and `iceFrom: null` asks nowhere.
+  - **The engine script carries the same address** (one line of it changes).
+  - **Tried against the live Worker** (`trials/turn-live.mjs`): two Chromes, each a guest in the Grove at its own address, both held to relayed paths only, so no direct path could be used. Both pressed Join the room, each was answered by the Worker with TURN credentials, and they met, over a path relayed at both ends. The Nostr relays were the trial's own; nothing went to a real relay.
+- **A room test steadied for a busy machine** (SDK `test/room-fill.test.ts`). "Stays in a room by name, and at the last lobby" timed out at the usual 5 s in 0.94.0's release tests, at a load of about 18; alone it passes in about a second. Its timers are already made up, so it waits on nothing: the time is the signing and opening of 64 real events, walking a newcomer through all 32 lobbies. It is given 30 s; nothing else changes.
+
+## 0.94.0
+
 - **BitLogin from a headset: out of VR for a moment, in one press, and back in one press: `outOfVr`** (SDK `ui/vr-aside.ts`, `ui/headset.ts`, `three.ts`, `engine-menu.ts`, `signer.ts`, `ui/identity.ts`, `room-controls.ts`, `front-room.ts`; `trials/out-of-vr.mjs`; `docs/owner-quest-checks.md`, check 11). The owner, 2026-11-25: "just make it as rare and a seemless as possible", and "the only thing that should force us out of VR is the initial phone pairing and the browsers immurrsive VR site to site limitation". Names given 2026-11-25.
   - **In a headset, Sign in is "Sign In using Phone"** (the owner's words). One press opens BitLogin's own page, `/headset/`, as a window of its own (BitLogin's "Way 1": the code and QR are never drawn in a world). It ends the session, and puts up **"Back into VR"**, dimmed while that page is open. Once the page has closed, the signer is asked how it stands, once, and one press on Back into VR goes back in, where they were. Ending a session moves nothing.
   - **`outOfVr(controls, open, why)`**, the kit's own. It opens BitLogin's screen first, in the press, then ends the session, then offers Back into VR. Where the browser refuses a window from inside VR, the flat page offers one **"Open BitLogin"** press instead, then Back into VR. Before the first time on a device it says: "This opens BitLogin outside VR for a moment. Press Back into VR when you're done." (kept as `nswp:vr-aside-told`).

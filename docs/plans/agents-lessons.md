@@ -1952,6 +1952,61 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## A model choosing tactics in the arena (D126, 2026-11-25; $0.023)
+
+- **JEV chose among each fighter's top three skill offers** (shown only
+  its own state, never the enemies' true places), asked when the offers
+  changed, at most twice a second, the free rules acting meanwhile so the
+  body never waited. 897 requests, $0.023, median answer 0.24 s.
+- **It did worse than the rules:** downed 82 times against 64 over six
+  rounds of 10 seeds. Most of it in Disengage, where it went against the
+  rules on 114 of 168 answers and fell back in 4 rounds of 10 against 10.
+  A little better on Reload and Reposition, within the noise.
+- **The lesson, D117's from the other side:** a model asked whatever the
+  gap between the scores overrides clear calls. Rules first; a model only
+  where the rules can't tell.
+- *For the protocol:* a decision model handed a world's skill offers is
+  asked only when their scores are close. *For the kit and worlds:* skills
+  report how sure they are, not only what they would do; that is what lets
+  the model be asked rarely, which is also what keeps a crowd affordable.
+
+## An agent's designation (D125, 2026-11-25; free)
+
+- **`designation: { emoji, title }`** (name given 2026-11-25, for the
+  Docent's chest screen, the owner's "the chest for designation like "bar
+  tender" or "librarian""): `emoji` is one emoji as a person sees one
+  (joined sequences, skin tones and flags whole); `title` is plain words,
+  at most 40 characters, told to the mind as its work here. A title with
+  brackets, markup or a new line is refused, so it can't pass as a cue or
+  an instruction.
+- *For the protocol:* the designation belongs in the agent's declaration a
+  world or cast publishes, and its title, being shown to a model, is
+  checked as plain words wherever it is read.
+
+## Responding to fire, repositioning, safety and falling back (D124, 2026-11-25; free)
+
+- **The arena gained:** the way a hit came from (a rough bearing, about 15
+  degrees off, never who or how far, as a player's damage indicator); a
+  skill's own notes between decisions (its cover spot, where it falls back
+  to); fall-back points a world declares; and holding fire for a friend
+  judged against the shot's real cone at the moment of firing.
+- **Measured on and off, 30 rounds each:** **Respond to Damage** saw a
+  shooter behind it in 30 of 30 (0.47 s) against 7 (4.4 s); **Reposition**,
+  flanked, safe from both in 18 against 6 (the weakest: the walk to cover
+  is under fire); **Seek Safety** never closed on the shooter (without it,
+  up to 9 m toward); **Disengage** fell back to the declared base in 29 of
+  30. Each downed far less. **Aim**, with the firing-time friend check,
+  hit in 156 of 180 pop-ups against 102: its worth is around friends.
+  Fifty fighters now take 1.45 ms a step. Still open: Reload is downed a
+  little more with it than without.
+- *For worlds:* declare fall-back points (a base, spawns, where friends
+  gather) as data; without them an agent can only run out of sight. *For
+  the kit and protocol:* a hit tells its target roughly where it came
+  from, and nothing more. *For items:* a weapon's spread is what friendly
+  safety is judged against, so it stays in the weapon's data. *For the
+  protocol:* a fighter's own notes are its state, cleared when it goes
+  down.
+
 ## The arena's Aim, Use Cover and Reload (D123, 2026-11-25; free)
 
 - **The arena gained a person's limits and the kit's:** aim that wobbles
