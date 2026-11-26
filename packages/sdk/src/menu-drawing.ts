@@ -395,6 +395,23 @@ export function layBar(view: UiView, o: { measure: Measure }): { width: number; 
   return { width: Math.max(width, 2 * B.pad[1]), height, keys, theirs };
 }
 
+/**
+ * Where a pressable thing is on the sheet just now, by its id: with the strip of tabs and the list as they are slid.
+ * Null where it isn't on the sheet, or is slid out of sight.
+ */
+export function boxAt(L: SheetLayout, id: string, rowsScroll: number): MenuBox | null {
+  const tab = L.tabs.find((t) => t.id === id);
+  if (tab) return { ...tab, x: tab.x - L.tabsScroll };
+  if (L.pin?.id === id) return L.pin;
+  if (L.close.id === id) return L.close;
+  const row = L.rows.find((b) => b.id === id && b.kind !== "line");
+  if (!row || !L.rowsAt) return null;
+  const scroll = Math.max(0, Math.min(rowsScroll, L.rowsContent - L.rowsAt.h));
+  const y = row.y - scroll;
+  if (y + row.h < L.rowsAt.y + 1 || y > L.rowsAt.y + L.rowsAt.h) return null;
+  return { ...row, y };
+}
+
 // ------------------------------------------------------------------------------------------------ drawing
 
 /** How the menu is drawn: its scale, its glass, what is pointed at, and what has come forward off it. */
@@ -1004,6 +1021,9 @@ export interface MenuDrawing {
   aimed: string | null;
   /** What has come forward off the sheet, left an empty slot where it was. */
   hollow: string | null;
+  /** The same for the bar: what is pointed at on it, and what has come forward off it. */
+  barAimed: string | null;
+  barHollow: string | null;
   /** How far the list of rows, and the strip of tabs, are slid along. The strip is slid to the open tab as it opens. */
   rowsScroll: number;
   tabsScroll: number;
@@ -1046,6 +1066,8 @@ export function createMenuDrawing(controls: Controls, opts: MenuDrawingOptions =
     section: "",
     aimed: null,
     hollow: null,
+    barAimed: null,
+    barHollow: null,
     rowsScroll: 0,
     tabsScroll: 0,
     get sheetLayout() {
@@ -1073,13 +1095,13 @@ export function createMenuDrawing(controls: Controls, opts: MenuDrawingOptions =
         opts.painted?.("sheet");
         drew = true;
       }
-      const barSig = JSON.stringify([view.theme, view.hotbar, view.pins, d.section, d.aimed, d.hollow]);
+      const barSig = JSON.stringify([view.theme, view.hotbar, view.pins, d.section, d.barAimed, d.barHollow]);
       if (barSig !== barDrawn) {
         barDrawn = barSig;
         barLayout = layBar(view, { measure });
         bar.width = Math.max(1, Math.round(barLayout.width * k));
         bar.height = Math.max(1, Math.round(barLayout.height * k));
-        drawBar(gb, view, barLayout, { scale: k, glass: opts.glass ?? 0.95, hot: d.aimed, hollow: d.hollow, open: d.section });
+        drawBar(gb, view, barLayout, { scale: k, glass: opts.glass ?? 0.95, hot: d.barAimed, hollow: d.barHollow, open: d.section });
         opts.painted?.("bar");
         drew = true;
       }
