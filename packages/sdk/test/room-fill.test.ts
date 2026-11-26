@@ -150,7 +150,10 @@ describe("someone told a lobby is full", () => {
     expect(last.s.name).toBe("lobby-32");
     await told(last, key(200));
     expect(last.s.name).toBe("lobby-32");
-  });
+    // The timers are made up, so nothing here waits: the time is the signing and opening of 64 real events, a
+    // second or so on a quiet machine. A release's tests run while the machine is busy (load 18 on 2026-11-25, when
+    // this passed alone in 1.3 s and timed out at the usual 5 s), so this one is given room for that.
+  }, 30_000);
 });
 
 describe("a full, taken only while it may be", () => {
