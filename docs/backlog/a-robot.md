@@ -39,3 +39,15 @@ the conversation (the artist's drawn set first, then the device's emoji
 font), full colour; a chest screen shows the agent's role, declared as
 `designation: { emoji, title }` (name given 2026-11-25) by its world or
 cast.
+
+## Paint per agent (asked 2026-11-25)
+
+The owner, to the 3D artist: "can we make the accent color set by the the
+agent? So like "red team" vs "blue team" As well as the primary color.
+Right now its like a cream color. It would be nice if we could customize
+it with other carpaint style colors", then "the accent colors should
+glow" / "like the screen". Declared per agent as `paint: { primary,
+accent, finish }` (name given 2026-11-25): `accent` a colour or red, blue,
+green, gold or purple, glowing as the screens do; `finish` gloss,
+metallic, pearl, matte or chrome. A bad colour falls back to the
+Docent's own, said in the console.
