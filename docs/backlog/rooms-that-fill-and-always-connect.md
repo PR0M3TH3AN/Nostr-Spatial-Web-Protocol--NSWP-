@@ -12,8 +12,12 @@
   (said when it fails, `unreached`) merged 2026-11-25 (444a549), not live;
   part 4 (`ROOM_RELAYS`, eight) merged (16baaa2), not live; part 3 (lobbies
   that fill, `full`) merged (8a4bbef), not live. Part 1 (TURN): the Worker
-  `services/ice/` and the kit's `iceFrom` built, not merged; not deployed,
-  which is the owner's (its README).
+  `services/ice/` and the kit's `iceFrom` built and merged. **The Worker is
+  deployed, 2026-11-25,** on the owner's "Can you set up the turn server
+  with the API keys and the connector?", at
+  `https://bitblocks-ice.bitunlock.workers.dev/`. The kit's `ICE_FROM` names
+  it from the next version (step 7), with the two-visitors trial through the
+  real TURN (step 6, `trials/turn-live.mjs`).
 
 ## What was seen (the orchestrator, 2026-11-25, listening only)
 

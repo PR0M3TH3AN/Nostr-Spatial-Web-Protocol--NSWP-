@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * A room's TURN servers, asked for where it is told to (`iceFrom`, services/ice/): once as it is joined, at most 3
- * seconds waited, and again before they run out, for connections already made too. Nothing is reached: the address
- * asked is a stand-in, and so are the sockets and connections.
+ * seconds waited, and again before they run out, for connections already made too. Nothing is reached: every
+ * fetch here is a stand-in (the kit's own address included), and so are the sockets and connections.
  */
 const WHERE = "https://ice.example/";
 let room: typeof import("../src/room.js").room;
@@ -42,12 +42,27 @@ const good = (o: { ttl?: number; username?: string } = {}) => async () => new Re
 const connect = (s: Awaited<ReturnType<typeof room.join>>, pubkey = "f".repeat(64)) => (s as unknown as { createPeer(p: string): unknown }).createPeer(pubkey);
 
 describe("a room's TURN servers", () => {
-  it("are asked nowhere by default, until the kit names its own", async () => {
-    expect(ICE_FROM).toBeNull();
+  it("are asked of the kit's own bitblocks-ice by default (here a stand-in answers for it), and nowhere with iceFrom: null", async () => {
+    expect(ICE_FROM).toBe("https://bitblocks-ice.bitunlock.workers.dev/");
     answer = good();
     const s = await room.join({ world: "https://world.example/", relays: [] });
+    expect(asked).toEqual([ICE_FROM]);
     connect(s);
+    expect(made[0]!.config.iceServers!.some((x) => x.username)).toBe(true);
+    s.leave();
+    asked = [];
+    const none = await room.join({ world: "https://world.example/", relays: [], iceFrom: null });
+    connect(none);
     expect(asked).toEqual([]);
+    expect(made[1]!.config.iceServers!.some((x) => x.username)).toBe(false);
+    none.leave();
+  });
+
+  it("go on with STUN alone, at once, for a page the service refuses (any page not of bitblocks.network)", async () => {
+    answer = async () => new Response("", { status: 403 });
+    const s = await room.join({ world: "https://world.example/", relays: [] });
+    connect(s);
+    expect(asked).toEqual([ICE_FROM]);
     expect(made[0]!.config.iceServers!.some((x) => x.username)).toBe(false);
     s.leave();
   });

@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Rooms ask the owner's TURN service, now live: two visitors who can't reach each other directly still meet** (SDK `room.ts`: `ICE_FROM`; `services/ice/README.md`; `trials/turn-live.mjs`). On the owner's "Can you set up the turn server with the API keys and the connector?", `bitblocks-ice` was deployed on 2026-11-25 at `https://bitblocks-ice.bitunlock.workers.dev/`, with its four secrets.
+  - **`ICE_FROM` names it.** A room asks it once as it is joined, waits at most 3 seconds, and uses the TURN servers it hands out beside the room's own STUN. It asks again before they run out (an hour). This was all built in 0.93.0 behind an address that was still empty.
+  - **It answers pages of bitblocks.network only.** Any other page gets a refusal at once, and its rooms go on with STUN alone, as before. A world with a TURN service of its own names it in `iceFrom`, and `iceFrom: null` asks nowhere.
+  - **The engine script carries the same address** (one line of it changes).
+  - **Tried against the live Worker** (`trials/turn-live.mjs`): two Chromes, each a guest in the Grove at its own address, both held to relayed paths only, so no direct path could be used. Both pressed Join the room, each was answered by the Worker with TURN credentials, and they met, over a path relayed at both ends. The Nostr relays were the trial's own; nothing went to a real relay.
 - **A room test steadied for a busy machine** (SDK `test/room-fill.test.ts`). "Stays in a room by name, and at the last lobby" timed out at the usual 5 s in 0.94.0's release tests, at a load of about 18; alone it passes in about a second. Its timers are already made up, so it waits on nothing: the time is the signing and opening of 64 real events, walking a newcomer through all 32 lobbies. It is given 30 s; nothing else changes.
 
 ## 0.94.0
