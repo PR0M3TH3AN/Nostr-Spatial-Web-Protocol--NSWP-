@@ -10,44 +10,15 @@ Say the answers in the orchestrator's session (the NSWP one), in any words.
 A "no" is as useful as a "yes". Nothing here needs an account, and none of
 it sends anything anywhere.
 
-The first two are new and want doing first. Together they take about ten
-minutes. The rest are older and can be done on the same evening or another.
+Check 1 is struck (below, with why). Check 2 is the one to do first; it
+takes two minutes. The rest can be done on the same evening or another.
 
-## 1. Can the Quest's browser make the menu's picture? (five minutes; asked 2026-11-24)
+## 1. Struck, 2026-11-25: the Quest's browser making the menu's picture
 
-**Why:** you asked for the flat screen's menu in the headset, and chose B
-(1.0 m wide). The plan is for the headset to show the flat menu's own
-picture, made by the browser, so there is one menu and not two drawings.
-Chrome on a desk can do it. Whether the Quest's browser can is not known,
-and the build waits on this answer.
-
-**Needs:** this laptop on and awake, and the Quest on the home network. The
-page is served from the laptop only; it is not on the internet and is never
-deployed.
-
-1. Put the headset on, open its browser, and go to:
-   `https://192.168.68.84:4301/trial-pages/quest-picture/`
-2. The first time, the browser warns about the certificate. Before
-   accepting, check the fingerprint it shows is this one:
-   `87:A5:B3:64:44:5C:C9:BD:30:54:52:ED:BB:50:FB:12:39:C7:4A:95:DE:17:78:23:81:FC:E8:D8:59:B8:B8:D2`
-3. Nothing to press. The page answers in a second or two. Say what it says:
-   - **"Yes." in green:** the two times in milliseconds, and whether the
-     right-hand box looks like the left-hand one (the words, the two drawn
-     icons, the round corners, the slider).
-   - **"No." in red:** the whole line, with "Step that failed:" one, two or
-     three.
-   - **"Not started." still there after a few seconds:** say that.
-   - And the last line, "This browser says it is:", as far as its first
-     number.
-
-**If the address doesn't answer:** the laptop's address on the network, or
-the certificate, may have changed. The service prints both as it starts,
-and those are the ones to trust. Ask the orchestrator for them, or on the
-laptop run:
-
-```bash
-journalctl --user -u nswp-local-sites -n 40 --no-pager
-```
+**Not needed any more.** The headset now draws the menu itself, from the
+same description as the flat menu, which works in every browser
+(`docs/plans/headset-menu.md`), so nothing waits on this answer. The page
+for it, `trials/pages/quest-picture/`, still works if you're curious.
 
 ## 2. Is the menu drawn over your hands? (two minutes; asked 2026-11-24)
 

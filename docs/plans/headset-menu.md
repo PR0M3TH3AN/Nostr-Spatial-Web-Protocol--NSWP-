@@ -111,7 +111,7 @@ each one works in a headset.
 | A row that copies (`copy`) | Copies at the press | **The same.** Whether a select counts as a press for copying is for the Quest's check. If it doesn't, the row says so and shows what it would have copied |
 | A row to type in (`field`) | A box, and its button | **The same box and button.** Pressing the box brings up the kit's own keyboard in VR (`keyboard.ts`), and the words go into the box |
 | A song's bar (`slider`) | A bar to drag | **The same bar.** Held and moved along with the pointer. Today's console leaves it out |
-| A row that takes a file (`file`) | The browser's file chooser | **A question for the orchestrator** (end of this page) |
+| A row that takes a file (`file`) | The browser's file chooser | **For a visitor who chose the VR way, their BitLogin Files, in VR.** Otherwise it goes out of VR for a moment (`outOfVr`, reason `"file"`). No browser lets a page pick a file from the headset's own storage inside immersive VR: the same kind of limit as going from site to site. Picking a device file inside VR is on BitBrowser's list |
 | A card about a person, or about a thing | At the head of the tab | **The same** |
 | The said line in the sheet | A strip above the foot | **The same strip** |
 | The world's own part, under its name (`from`) | Its name over its rows | **The same** |
@@ -195,13 +195,13 @@ This is the part that has to hold for ever. Today's console drifted from
 the flat menu because it is a second drawing with its own layout.
 
 1. **One table of measures, read by both.** Every size, gap, corner and
-   colour of the sheet and the bar goes in one table in the kit (proposed:
+   colour of the sheet and the bar goes in one table in the kit (given:
    `SHEET_LOOK`, in `ui/sheet-look.ts`). The flat menu's styles are written
    from it, as they already are from `MARK` for the mark. The headset's
    drawing reads the same table. A measure changed for one is changed for
    both.
 2. **One drawing for every headset menu.** It replaces today's console
-   drawing (proposed: `createMenuDrawing` in `menu-drawing.ts`, in place of
+   drawing (given: `createMenuDrawing` in `menu-drawing.ts`, in place of
    `createConsoleDrawing`). The Three.js console, the engine script and the
    Godot add-on all show its picture, as they show today's.
 3. **A new kind of row can't be left out of either.** Each renderer chooses
@@ -209,7 +209,7 @@ the flat menu because it is a second drawing with its own layout.
    added to `ui/model.ts` fails the type check until both draw it. Today a
    kind the console doesn't know is dropped, and nothing says so
    (`slider`, for one).
-4. **A check that compares the two, tab by tab.** A trial (proposed:
+4. **A check that compares the two, tab by tab.** A trial (given:
    `trials/headset-menu-same.mjs`) opens every tab of three worlds, with
    the stand-in rows. For each one it holds the flat menu's boxes, as the
    browser lays them out, against the drawing's places. It needs the same
@@ -265,7 +265,7 @@ Each step is a pull request, with the names in it proposed.
 2. **The drawing** (`menu-drawing.ts`), every kind of row, the card, the
    strip, the foot and the bar. With it, the gate's layout test and
    `trials/headset-menu-same.mjs`. Not yet shown in a headset.
-3. **The headset shows it,** behind an address flag (proposed:
+3. **The headset shows it,** behind an address flag (given:
    `?menu=sheet`), in the Gallery. Today's console stays the default. This
    step brings pointing, pressing, scrolling, coming forward, still for
    `motion: reduced`, and the widened hands check. **Then the owner's
@@ -341,19 +341,12 @@ Each step is a pull request, with the names in it proposed.
 2. **The chat, posts and letters panel** to the right of the sheet in a
    headset: yes? (Today a headset has none.)
 
-## For the orchestrator
+## Answered by the orchestrator, 2026-11-25
 
-1. **The names** proposed above: `SHEET_LOOK` (`ui/sheet-look.ts`),
-   `createMenuDrawing` (`menu-drawing.ts`), `trials/headset-menu-same.mjs`,
-   and the flag `?menu=sheet`.
-2. **A row that takes a file, in a headset.** A browser's file chooser
-   can't be seen in VR. I propose: for a visitor who chose the VR way, it
-   offers their BitLogin Files in VR (`filesList`/`fileOpen`); for anyone
-   else it goes out of VR for a moment, as a seventh reason in `VR_ASIDE`
-   (proposed: `"file"`). The owner's rule allows only the first pairing and
-   the browser's own limit between sites, so a file from the headset
-   itself is arguably that limit. Or it says plainly that files from this
-   headset are chosen on a flat screen.
-3. **Quest check 1** (the browser making the menu's picture) is no longer
-   needed. Strike it from `docs/owner-quest-checks.md`, or keep it only
-   for its own interest.
+1. **The names are given:** `SHEET_LOOK` (`ui/sheet-look.ts`),
+   `createMenuDrawing` (`menu-drawing.ts`, replacing `createConsoleDrawing`),
+   `trials/headset-menu-same.mjs`, and the flag `?menu=sheet`.
+2. **A row that takes a file:** BitLogin Files in VR for whoever chose the
+   VR way; otherwise `outOfVr` with a seventh reason, `"file"` (given). See
+   the table above.
+3. **Quest check 1 is struck,** since nothing waits on it now.
