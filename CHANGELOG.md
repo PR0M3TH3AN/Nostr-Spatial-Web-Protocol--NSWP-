@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.95.0
+
 - **Rooms ask the owner's TURN service, now live: two visitors who can't reach each other directly still meet** (SDK `room.ts`: `ICE_FROM`; `services/ice/README.md`; `trials/turn-live.mjs`). On the owner's "Can you set up the turn server with the API keys and the connector?", `bitblocks-ice` was deployed on 2026-11-25 at `https://bitblocks-ice.bitunlock.workers.dev/`, with its four secrets.
   - **`ICE_FROM` names it.** A room asks it once as it is joined, waits at most 3 seconds, and uses the TURN servers it hands out beside the room's own STUN. It asks again before they run out (an hour). This was all built in 0.93.0 behind an address that was still empty.
   - **It answers pages of bitblocks.network only.** Any other page gets a refusal at once, and its rooms go on with STUN alone, as before. A world with a TURN service of its own names it in `iceFrom`, and `iceFrom: null` asks nowhere.
