@@ -1,7 +1,8 @@
 # In a headset, the flat screen's menu: a design, with pictures
 
-**State:** a design, second version, 2026-11-25, with pictures. Nothing is
-built.
+**State:** a design, second version, 2026-11-25, with pictures. **The
+owner, having seen them: "Yes, build it",** the design as it stands, chat
+panel included. Being built, in the pull requests below.
 
 **What the owner has already settled (2026-11-24):**
 - **The size:** "B I think." The sheet is 1.0 m wide.
@@ -256,9 +257,37 @@ this, from the same code and the visitor's own settings (the client's-menu
 plan, section 8). It is one design whether the menu on a flat screen is
 the world's own or the client's.
 
-## The build, in order, once the owner has said yes
+## The build, in order
 
-Each step is a pull request, with the names in it proposed.
+The owner said "Yes, build it" on 2026-11-25. Each step is a pull request,
+one at a time, each from main.
+
+1. **This design.**
+2. **`SHEET_LOOK` and `createMenuDrawing`.** The flat menu's styles are
+   written from `SHEET_LOOK`, and nothing is seen to change: its style
+   text is the same, character for character. The drawing covers every
+   kind of row, the card, the said strip, the foot and the bar. With it
+   come the exhaustive switch on kinds of row, the gate's layout test, and
+   `trials/headset-menu-same.mjs`. Not yet shown in a headset.
+3. **The headset shows it,** behind `?menu=sheet`. This step brings:
+   - pointing, pressing, scrolling, and coming forward (still for
+     `motion: reduced`);
+   - typed rows on the kit's keyboard, the song's bar, copying and saving;
+   - file rows (BitLogin Files in VR for the VR way, else `outOfVr`
+     `"file"`);
+   - the chat, posts and letters panel, and the wrist;
+   - the hands drawn last, with `trials/hands-over-menu.mjs` widened to
+     the new menu.
+4. **The engine script and the Godot add-on.**
+5. **On by default,** and `console-drawing.ts` taken out. **This doesn't
+   wait for the owner's Quest** (the orchestrator, on the owner's standing
+   "anything waiting on me to test, ship it to live"): it goes on once
+   steps 2 to 4 pass their trials in the made-up headset. The owner's Quest
+   check follows on the live site.
+6. **The VR way's screens,** drawn to BitLogin's message names, and off
+   until BitLogin's half is released.
+
+The earlier order, kept for what each step holds:
 
 1. **`SHEET_LOOK`, with the flat menu's styles written from it.** Nothing
    is seen to change: pictures of every tab before and after must match.
