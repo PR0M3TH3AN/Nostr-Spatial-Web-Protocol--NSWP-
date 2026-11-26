@@ -1952,6 +1952,28 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Weapons as data, sharing what is seen, and two against two (D128, 2026-11-25; free)
+
+- **Weapons as data:** clip, fire rate, reload, spread, pellets and reach.
+  The dart blaster plays as before; a rifle (tight, slow, 30 m) and a
+  shotgun (four pellets in 7 degrees, close only) added; several carried,
+  each keeping its clip, 0.5 s to switch. **Equip** (the right weapon for
+  the range) downed its hostile in 15 of 30 against 7, and switched from a
+  wrong start in 11 of 15, never from a right one.
+- **Two against two:** **Reserve** keeps teammates off one cover spot and
+  one lost enemy. **Share Knowledge** brings both in a little sooner but
+  alone doesn't win (7 won, 9 lost, 14 drawn, against 13 to 10 without;
+  within the noise).
+- **Mended:** Listen turned teammates toward each other's footsteps;
+  sharing sent both after one sighting; and each counted both enemies
+  against itself alone, so it fell back from an even fight (now squad
+  against squad).
+- *For items:* reach and spread (and pellets) are a weapon's data, not
+  only clip and fire rate, or an agent can't choose between weapons. *For
+  the protocol:* sharing sightings in a squad goes with knowing where
+  squad-mates are, or the odds are misjudged. *For skills:* knowing more
+  isn't winning more; it needs Coordinate and Support to pay off.
+
 ## A model asked only where the rules are unsure (D127, 2026-11-25; $0.0054)
 
 - **JEV asked only when the top two offers' scores are within 0.5**, and
