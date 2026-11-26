@@ -93,6 +93,11 @@ export interface XrInputOptions {
    * can't be had, the kit's own drawing is kept, as for any other controller.
    */
   handsAt?: string;
+  /**
+   * Whether the sticks are the menu's just now: while a ray rests on the headset's menu, a stick scrolls it and
+   * doesn't also walk or turn the visitor (`XrConsole.scrolling`). Left out, never.
+   */
+  sticksTaken?: () => boolean;
 }
 
 export interface XrInputInfo {
@@ -503,7 +508,9 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       sheet.visible = false;
       for (const slot of [...held.keys()]) release(slot);
     } else {
-      const pads = read();
+      const read_ = read();
+      // While the menu has the sticks, nothing walks or turns: the pads go on with their sticks at rest.
+      const pads = opts.sticksTaken?.() ? read_.map((p) => ({ ...p, pad: { ...p.pad, stick: [0, 0] as [number, number] } })) : read_;
       const intent = loco.frame(dt, pads, keeper.comfort);
       if (intent.turn !== 0) {
         turnVisitor(rig, camera, intent.turn);

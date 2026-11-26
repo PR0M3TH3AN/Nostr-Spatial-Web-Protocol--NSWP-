@@ -986,6 +986,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     onJump: () => void jump.jump(),
     // The visitor's own way to their controls, whatever this world is showing: the menu button held.
     onSummon: () => xrConsole.setOpen(true),
+    // While a ray rests on the menu, a stick scrolls it and doesn't also walk or turn them.
+    sticksTaken: () => xrConsole.scrolling,
   });
   for (const [object, options] of toHold) input.grabbable(object, options);
   hooks.input = () => input!.info();

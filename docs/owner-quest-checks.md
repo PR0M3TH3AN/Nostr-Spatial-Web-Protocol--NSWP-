@@ -198,6 +198,27 @@ press inside VR open a window, so this is the check.
 - Say: whether you were back where you stood, facing the same way, with the same thing in hand.
 - Say: whether the menu now says you're signed in.
 
+## 12. The flat screen's menu in your headset (five minutes; on the live site, once the kit with it is live)
+
+**Why:** you said "Yes, build it" to the headset menu that is the flat screen's own, every tab, 1.0 m wide with the
+bar under it. It is built behind a switch in the address until the rest of it is in, so you can try it first:
+`?menu=sheet` after any world's address (for example `https://gallery.bitblocks.network/?menu=sheet`).
+
+1. Open that address in the Quest's browser, enter VR, and open the menu (the Menu button, or hold B or Y).
+2. Read a row without leaning in. Point at tabs and rows: each comes forward a little as you point at it.
+3. Press a tab, then a row (Sound, then Effects, say). Point at a key on the bar under the menu.
+4. On a long tab, point at the menu and push a thumbstick up or down: the list scrolls, and you don't move.
+5. Hold each hand in front of the menu, at its edges and middle, and over the bar.
+6. Press Close.
+
+- Say: whether you could read it without leaning in, and whether it is too big, too small, too near or too far.
+- Say: whether the coming forward feels right, too much or too little, and whether it flickers when your hand shakes.
+- Say: whether your hands were ever covered by any part of it.
+- Say: whether it looks "the same or better" than the flat screen's.
+
+Typing into a row, a song's bar, rows that take a file, the chat panel, and the engine-made worlds (Godot) come in the
+next pull requests; then it is the menu everywhere without the switch.
+
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 
 Live since kit 0.88.0 (deployed 2026-11-24). On a desk, in BitPortal's room

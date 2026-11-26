@@ -28,6 +28,7 @@
  */
 import * as THREE from "three";
 import { CONSOLE_H, CONSOLE_W, createConsoleDrawing, SANS, strokeIcon } from "./console-drawing.js";
+import { createSheetMenu } from "./console-sheet.js";
 import type { Controls } from "./ui/model.js";
 import { MARK, paintMark } from "./ui/mark.js";
 import { rgb } from "./ui/theme.js";
@@ -50,7 +51,27 @@ export interface XrConsole {
   describe(): { showing: boolean; open: boolean; mount: "wrist" | "floating"; section: string; sections: string[]; buttons: string[]; lines: string[]; linesPage: { page: number; pages: number }; note: string; card: string };
   /** Press the thing with these words: a button, a section, "Menu" or "Close". For tests. */
   pressLabelled(label: string): boolean;
+  /**
+   * Whether a ray rests on the menu, so that a stick scrolls it and doesn't also walk or turn the visitor: give it to
+   * the input layer (`createXrInput({ sticksTaken: () => xrConsole.scrolling })`). Only the flat menu's drawing
+   * (`?menu=sheet`) scrolls; today's console never does.
+   */
+  readonly scrolling: boolean;
+  /** For tests, with the flat menu's drawing only: where a thing is in the room (console-sheet.ts, `whereIs`), and its state. */
+  sheet?: { whereIs(label: string): [number, number, number] | null; readonly state: { rowsScroll: number; forward: string; lifted: number } };
 }
+
+/**
+ * Whether the headset shows the flat menu's own drawing (console-sheet.ts) in place of today's console: asked for by
+ * the address, `?menu=sheet`, until it is the default (docs/plans/headset-menu.md, step 5).
+ */
+export const sheetAsked = (): boolean => {
+  try {
+    return new URLSearchParams(globalThis.location?.search ?? "").get("menu") === "sheet";
+  } catch {
+    return false;
+  }
+};
 
 const W = CONSOLE_W;
 const H = CONSOLE_H;
@@ -83,10 +104,16 @@ function holoMaterial(map: THREE.Texture): THREE.ShaderMaterial {
   });
 }
 
-export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLRenderer; rig: THREE.Object3D }): XrConsole {
+export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLRenderer; rig: THREE.Object3D; sheet?: boolean }): XrConsole {
   const group = new THREE.Group();
   group.name = "nswp-console";
   group.visible = false;
+  // The flat menu's own drawing, where it is asked for: the sheet, the bar under it, what is pointed at come forward.
+  const sm = (opts.sheet ?? sheetAsked()) ? createSheetMenu(controls, { menuOrder: MENU_ORDER, motion: () => controls.theme.motion, shown: () => group.visible }) : null;
+  if (sm) {
+    sm.root.visible = false;
+    group.add(sm.root);
+  }
 
   // ------------------------------------------------------------ the panel
   const canvas = document.createElement("canvas");
@@ -173,6 +200,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
   controls.onSignal((name) => {
     if (!name.startsWith("show:") || !opts.renderer.xr.isPresenting) return;
     d.section = name.slice(5);
+    if (sm) sm.section = name.slice(5);
     setOpen(true, "floating");
   });
   const setOpen = (next: boolean, where: "wrist" | "floating" = "floating") => {
@@ -183,16 +211,22 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     placed = false;
     d.aimed = null;
     unfold = controls.theme.motion && next ? 0 : 1;
-    panel.visible = next;
+    panel.visible = next && !sm;
+    if (sm) {
+      sm.root.visible = next;
+      sm.aim(null);
+    }
     opener.visible = !next;
     if (next) {
       d.again();
-      paint();
+      if (sm) sm.paint(where);
+      else paint();
     }
   };
 
   const stop = controls.subscribe(() => {
     d.again();
+    if (sm && open) sm.paint(mount);
     paintOpener(d.aimed === "open");
   });
   void stop;
@@ -203,10 +237,15 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     get open() {
       return open;
     },
+    get scrolling() {
+      return !!sm && open && sm.holding;
+    },
+    ...(sm ? { sheet: { whereIs: (label: string) => sm.whereIs(label), get state() { return sm.state; } } } : {}),
     setOpen: (next) => setOpen(next, "floating"),
     pick(raycaster) {
       if (!group.visible) return null;
       if (!open) return opener.visible && raycaster.intersectObject(opener, false).length ? "open" : null;
+      if (sm) return sm.pick(raycaster);
       const hit = raycaster.intersectObject(panel, false)[0];
       if (!hit?.uv) return null;
       const x = hit.uv.x * W;
@@ -215,6 +254,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       return d.regions.find((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)?.id ?? "pane";
     },
     aim(hit) {
+      if (sm && open) return sm.aim(hit);
       const next = hit === "pane" ? null : hit;
       if (next === d.aimed) return;
       d.aimed = next;
@@ -223,6 +263,12 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     },
     press(hit) {
       if (hit === "open") return setOpen(true, "floating");
+      if (sm && open) {
+        if (hit === "pane") return;
+        if (sm.press(hit) === "close") setOpen(false, mount);
+        sinceRead = 1;
+        return;
+      }
       if (hit === "close") return setOpen(false, mount);
       if (hit.startsWith("tab:")) {
         d.section = hit.slice(4);
@@ -304,7 +350,16 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       }
       group.visible = true;
 
-      if (open) {
+      if (open && sm) {
+        // The flat menu's drawing: it unfolds upward as the console does, then scrolls and brings things forward.
+        unfold = Math.min(1, unfold + dt * 4.5);
+        sm.root.scale.set(1, t.motion ? 0.2 + 0.8 * (1 - (1 - unfold) ** 2) : 1, 1);
+        sm.update(dt, opts.renderer.xr.getSession(), mount, presence);
+        if ((sinceRead += dt) > 0.3) {
+          sinceRead = 0;
+          sm.paint(mount);
+        }
+      } else if (open) {
         unfold = Math.min(1, unfold + dt * 4.5);
         material.uniforms.uOpen!.value = unfold;
         material.uniforms.uTime!.value = t.motion ? clock : 0;
@@ -319,6 +374,10 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       }
     },
     describe() {
+      if (sm) {
+        const said = sm.describe();
+        return { showing: group.visible, open, mount, section: open ? said.section : "", sections: open ? said.sections : [], buttons: open ? said.buttons : opener.visible ? ["Menu"] : [], lines: open ? said.lines : [], linesPage: { page: open ? 1 : 0, pages: open ? 1 : 0 }, note: open ? said.note : "", card: open ? said.card : "" };
+      }
       const view = controls.view();
       const current = view.sections.find((s) => s.id === d.section) ?? view.sections[0];
       return {
@@ -339,6 +398,13 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         if (label !== "Menu" || !opener.visible) return false;
         con.press("open");
         return true;
+      }
+      if (sm) {
+        if (label === "Close") {
+          setOpen(false, mount);
+          return true;
+        }
+        return sm.pressLabelled(label);
       }
       paint();
       const region = d.regions.find((r) => r.label === label);

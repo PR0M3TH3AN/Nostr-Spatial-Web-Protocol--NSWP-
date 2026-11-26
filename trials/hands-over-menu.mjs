@@ -20,11 +20,15 @@
 // Nothing leaves this machine: the page is served from the build, every other request is refused, and no WebSocket
 // reaches anything.
 //
-//   npm run build && node trials/hands-over-menu.mjs
+//   npm run build && npm run trial -- trials/hands-over-menu.mjs [--sheet]
+//
+// With --sheet, the same for the flat menu's own drawing in a headset (`?menu=sheet`, console-sheet.ts): the hands at
+// nine places across its sheet, and the menu taken out whole (the sheet, the bar under it, a thing come forward).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { ROOT as NSWP, SHOTS } from "./lib.mjs";
 const pw = await import(`${NSWP}/node_modules/playwright-core/index.mjs`);
+const SHEET = process.argv.includes("--sheet");
 
 const WORLD = "https://gallery.test";
 const DIST = join(NSWP, "sites", "gallery", "dist");
@@ -61,7 +65,7 @@ try {
   page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
   const until = async (ask, ms = 15000) => { const end = Date.now() + ms; for (;;) { const got = await Promise.resolve().then(ask).catch(() => null); if (got || Date.now() > end) return got; await page.waitForTimeout(100); } };
   await page.bringToFront();
-  await page.goto(`${WORLD}/`, { timeout: 60000 });
+  await page.goto(`${WORLD}/${SHEET ? "?menu=sheet" : ""}`, { timeout: 60000 });
   await until(() => page.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
   await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "look"));
   const enter = page.locator("nswp-hud").getByRole("button", { name: /Enter VR/ }).first();
@@ -126,7 +130,7 @@ try {
   const where = () => page.evaluate(() => {
     const c = window.__nswpTest.console;
     const h = window.__hands;
-    const [panel, opener] = [c.group.children.find((x) => x.material?.uniforms?.map), c.group.children.find((x) => x.material?.isMeshBasicMaterial)];
+    const [panel, opener] = [(c.group.getObjectByName("sheet") ?? c.group.children.find((x) => x.material?.uniforms?.map)), c.group.children.find((x) => x.material?.isMeshBasicMaterial)];
     c.group.updateMatrixWorld(true);
     const at = (o, x, y) => o.localToWorld(o.position.clone().set(x, y, 0)).toArray();
     const high = panel.geometry.parameters.height;
@@ -139,14 +143,14 @@ try {
   /** The console's own picture with nothing pointed at, kept to tell a lit row by. Taken with both hands held low. */
   const keepPlain = () => page.evaluate(() => {
     const c = window.__nswpTest.console;
-    const canvas = c.group.children.find((x) => x.material?.uniforms?.map).material.uniforms.map.value.image;
+    const canvas = (c.group.getObjectByName("sheet") ?? c.group.children.find((x) => x.material?.uniforms?.map)).material.uniforms?.map.value.image ?? (window.__nswpTest.console.group.getObjectByName("sheet")?.material.map?.image);
     window.__hands.plain = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data.slice();
   });
   /** The row lit just now, if a hand points at one: where it is in the view, in the page's own pixels. */
   const litBox = () => page.evaluate(() => {
     const h = window.__hands;
-    const panel = window.__nswpTest.console.group.children.find((x) => x.material?.uniforms?.map);
-    const canvas = panel.material.uniforms.map.value.image;
+    const panel = (window.__nswpTest.console.group.getObjectByName("sheet") ?? window.__nswpTest.console.group.children.find((x) => x.material?.uniforms?.map));
+    const canvas = panel.material.uniforms?.map.value.image ?? (window.__nswpTest.console.group.getObjectByName("sheet")?.material.map?.image);
     const now = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
     let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1, n = 0;
     for (let y = 0; y < canvas.height; y += 2) for (let x = 0; x < canvas.width; x += 2) { const i = (y * canvas.width + x) * 4; if (Math.abs(now[i] - h.plain[i]) + Math.abs(now[i + 1] - h.plain[i + 1]) + Math.abs(now[i + 2] - h.plain[i + 2]) > 24) { n++; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } }
@@ -173,7 +177,7 @@ try {
   // Taking the menu out: by its paints, which the console never touches. (It says every frame whether its group is
   // shown, so a group hidden from here is shown again a frame later: the first writing of this did that, and every
   // place "passed" with the menu still in both pictures. The old-way place below is what caught it.)
-  const menuShown = (shown) => page.evaluate((shown) => { for (const part of window.__nswpTest.console.group.children) if (part.material) part.material.visible = shown; }, shown);
+  const menuShown = (shown) => page.evaluate((shown) => { window.__nswpTest.console.group.traverse((part) => { if (part.material) part.material.visible = shown; }); }, shown);
   const along = (from, to, far) => { const d = [to[0] - from[0], to[1] - from[1], to[2] - from[2]]; const len = Math.hypot(...d); return [from[0] + (d[0] / len) * far, from[1] + (d[1] / len) * far, from[2] + (d[2] / len) * far]; };
   const lengthOf = (from, to) => Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
   /** Count, in two pictures of the same view: the hand's pixels with the menu out, and how many of those are not a hand's with it in. */
