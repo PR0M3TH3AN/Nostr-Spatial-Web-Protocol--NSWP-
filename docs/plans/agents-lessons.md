@@ -1952,6 +1952,30 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Responding to fire, repositioning, safety and falling back (D124, 2026-11-25; free)
+
+- **The arena gained:** the way a hit came from (a rough bearing, about 15
+  degrees off, never who or how far, as a player's damage indicator); a
+  skill's own notes between decisions (its cover spot, where it falls back
+  to); fall-back points a world declares; and holding fire for a friend
+  judged against the shot's real cone at the moment of firing.
+- **Measured on and off, 30 rounds each:** **Respond to Damage** saw a
+  shooter behind it in 30 of 30 (0.47 s) against 7 (4.4 s); **Reposition**,
+  flanked, safe from both in 18 against 6 (the weakest: the walk to cover
+  is under fire); **Seek Safety** never closed on the shooter (without it,
+  up to 9 m toward); **Disengage** fell back to the declared base in 29 of
+  30. Each downed far less. **Aim**, with the firing-time friend check,
+  hit in 156 of 180 pop-ups against 102: its worth is around friends.
+  Fifty fighters now take 1.45 ms a step. Still open: Reload is downed a
+  little more with it than without.
+- *For worlds:* declare fall-back points (a base, spawns, where friends
+  gather) as data; without them an agent can only run out of sight. *For
+  the kit and protocol:* a hit tells its target roughly where it came
+  from, and nothing more. *For items:* a weapon's spread is what friendly
+  safety is judged against, so it stays in the weapon's data. *For the
+  protocol:* a fighter's own notes are its state, cleared when it goes
+  down.
+
 ## The arena's Aim, Use Cover and Reload (D123, 2026-11-25; free)
 
 - **The arena gained a person's limits and the kit's:** aim that wobbles
