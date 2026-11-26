@@ -59,6 +59,11 @@ describe("the kit's entries", () => {
     expect(readFileSync(join(sdk, "src", "library.ts"), "utf8")).toMatch(/export \{ fileStore \};/);
   });
 
+  it("hands on from nswp-sdk/three the kit's way out of VR for a moment, for a world's own presses", () => {
+    const three = readFileSync(join(sdk, "src", "three.ts"), "utf8");
+    expect(three).toMatch(/export \{ outOfVr, whenWindowGone, type Opened, type VrAsideWhy \} from "\.\/ui\/vr-aside\.js";/);
+  });
+
   it("hands on from nswp-sdk/three what makes an item's picture, under the names it has in the source", async () => {
     // A client's page draws the Bag's things with the kit's own code, so a thing looks the same there as in a
     // world's Bag (asked by the orchestrator for BitPortal, 2026-11-24). Until then no entry handed it on.
