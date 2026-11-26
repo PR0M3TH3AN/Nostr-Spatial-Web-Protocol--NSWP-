@@ -21,6 +21,7 @@ import { createSaves, type Saves } from "../saves.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
 import type { Controls, UiAction, UiCard, UiSection } from "./model.js";
 import { offerSignIn } from "./sign-in-here.js";
+import { outOfVr, whenScreenGone } from "./vr-aside.js";
 
 /**
  * Whether signing in here means unlocking a signer: the visitor's client named one
@@ -333,7 +334,10 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
   onHereAs(() => controls.signal("signer"));
   /** What it says signed out: whose window will open, or that it is being asked again, or didn't answer. */
   const signedOut = () =>
-    signer.asking ? `Asking ${signer.host ?? "your signer"} again…` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`;
+    // In a headset, signing in is from their phone: the owner's words for the press.
+    opts.presenting?.() && !signer.asking && !signer.unanswered
+      ? "Sign In using Phone"
+      : signer.asking ? `Asking ${signer.host ?? "your signer"} again…` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`;
   /** Signing in, from signed out: this row's press, and the "Sign in" row of any tab that says to (signInHere). */
   const signIn = () => {
     const host = signer.host ?? "your own client";
@@ -344,7 +348,18 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
       return controls.say(unansweredWords(signer));
     }
     // A headset draws nothing but the world, so no window or panel of the client's can be seen in one.
-    if (opts.presenting?.()) return controls.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+    // In a headset: their phone (BitLogin's "Way 1"), its page outside VR for a moment, and back in one press.
+    if (opts.presenting?.()) {
+      outOfVr(
+        controls,
+        () => {
+          const phone = signer.signInFromPhone();
+          return { shown: phone.opened, gone: phone.done.then(() => undefined) };
+        },
+        "sign-in",
+      );
+      return;
+    }
     // Shown inside a client that draws the sign-in address's panel over the world: no window, and the screen stays as it is.
     const here = signer.panel;
     if (signer.unlock()) controls.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
@@ -352,7 +367,10 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
   };
   /** "Secure this account": the sign-in address's own page, in the panel the visitor's client draws, where there is one. */
   const secure = () => {
-    if (opts.presenting?.()) return controls.say(`${signer.host ?? "Your sign-in address"} has to show this itself, and that can't be seen from inside a headset. Leave the headset view for a moment, secure your account, and come back in.`);
+    if (opts.presenting?.()) {
+      outOfVr(controls, () => ({ shown: askClientForSignIn("secure"), gone: whenScreenGone(true) }), "secure");
+      return;
+    }
     if (askClientForSignIn("secure")) return controls.say(`${signer.host ?? "Your sign-in address"} is open on "Secure this account", here.`);
     // Only its page inside BitPortal can see this browser's guest: a window of its own is a page apart from it.
     controls.say(`Secure this account from BitPortal's menu: only ${signer.host ?? "your sign-in address"}'s page there can see this guest.`);
@@ -404,8 +422,8 @@ export function accountAction(controls: Controls, opts: { presenting?: () => boo
     hidden: () => !signer.panel,
     act: () => {
       const host = signer.host ?? "your sign-in address";
-      if (opts.presenting?.()) return controls.say(`${host} shows your account itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-      if (!askClientForSignIn("account")) controls.say(`${host} couldn't be shown here just now.`);
+      const shown = outOfVr(controls, () => ({ shown: askClientForSignIn("account"), gone: whenScreenGone(true) }), "wallet").shown;
+      if (!shown && !opts.presenting?.()) controls.say(`${host} couldn't be shown here just now.`);
     },
   };
 }
@@ -428,8 +446,8 @@ export function filesAction(controls: Controls, opts: { presenting?: () => boole
     hidden: () => !signer.panel,
     act: () => {
       const host = signer.host ?? "your sign-in address";
-      if (opts.presenting?.()) return controls.say(`${host} shows your files itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-      if (!askClientForSignIn("files")) controls.say(`${host} couldn't be shown here just now.`);
+      const shown = outOfVr(controls, () => ({ shown: askClientForSignIn("files"), gone: whenScreenGone(true) }), "files").shown;
+      if (!shown && !opts.presenting?.()) controls.say(`${host} couldn't be shown here just now.`);
     },
   };
 }
@@ -451,8 +469,8 @@ export function libraryAction(controls: Controls, opts: { presenting?: () => boo
     hidden: () => !signer.panel,
     act: () => {
       const host = signer.host ?? "your sign-in address";
-      if (opts.presenting?.()) return controls.say(`${host} shows what you have bought itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-      if (!askClientForSignIn("library")) controls.say(`${host} couldn't be shown here just now.`);
+      const shown = outOfVr(controls, () => ({ shown: askClientForSignIn("library"), gone: whenScreenGone(true) }), "wallet").shown;
+      if (!shown && !opts.presenting?.()) controls.say(`${host} couldn't be shown here just now.`);
     },
   };
 }

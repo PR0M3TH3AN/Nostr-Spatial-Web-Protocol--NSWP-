@@ -34,6 +34,7 @@ import { askWell, sendWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
 import type { Controls } from "./ui/model.js";
 import { guestHere, signInFirst } from "./ui/sign-in-here.js";
+import { outOfVr } from "./ui/vr-aside.js";
 
 /**
  * The gate's own times, in seconds. `grace`: how long someone inside has after their time runs out (the owner's
@@ -846,14 +847,20 @@ export function addGateControls(
       controls.say("Asking again what this costs.");
       return void gate.check();
     }
-    // A headset draws nothing but the world, so the page that asks them can't be seen from in one.
-    if (opts.presenting?.()) return controls.say(`${gate.host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
     if (gate.buying) return controls.say(`${gate.host} is still asking. Answer there.`);
     controls.say(`${gate.host} is asking: ${offer.name}, ${offer.words}. Say yes there, and the way opens.`);
-    void gate.buy(offer.listing).then((bought) => {
-      if (bought) controls.say(`Bought: ${offer.name}. The way is open ${untilWords(gate.until)}.`);
-      else controls.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
-    });
+    // Buying is BitLogin's own screen to ask: in a headset, out of VR for a moment for it (ui/vr-aside.ts).
+    outOfVr(
+      controls,
+      () => {
+        const buying = gate.buy(offer.listing).then((bought) => {
+          if (bought) controls.say(`Bought: ${offer.name}. The way is open ${untilWords(gate.until)}.`);
+          else controls.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
+        });
+        return { shown: true, gone: buying };
+      },
+      "buy",
+    );
   };
 
   // Whether there is anything to press: shut, or about to be, for a reason a press could help with.

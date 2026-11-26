@@ -433,16 +433,21 @@ describe("the one control", () => {
     expect(consoleFor(gate).labels()).toEqual(["Go home"]);
   });
 
-  it("in a headset, tells the visitor to step out, and asks nothing of their sign-in address", async () => {
+  it("in a headset, goes out of VR for the sign-in address's own screen, in the same press, and comes back to Back into VR", async () => {
     const signer = standIn();
     signer.sells = receipt();
     const gate = await settled(signer);
     const c = consoleFor(gate, { presenting: true });
+    // The page's headset session, as addViewControls lends it (ui/vr-aside.ts).
+    const { hostVrAside } = await import("../src/ui/vr-aside.js");
+    const order: string[] = [];
+    hostVrAside(c.controls, { presenting: () => true, end: async () => void order.push("end"), back: () => void order.push("back"), openFromHere: () => void order.push("open from here") });
     c.controls.run("gate-buy");
     await pass(0);
-    expect(c.said.at(-1)).toBe("signin.example has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.");
-    expect(signer.buy).not.toHaveBeenCalled();
-    expect(gate.open).toBe(false);
+    // Asked in the press, then the session ended, then Back into VR: no "step out" left to the visitor.
+    expect(signer.buy).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["end", "back"]);
+    expect(c.said.some((t) => /Step out|can't be seen/.test(t))).toBe(false);
   });
 
   it("gives each thing for sale a row of its own", async () => {

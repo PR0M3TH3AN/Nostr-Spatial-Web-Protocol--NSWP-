@@ -210,6 +210,23 @@ not on the internet and is never deployed.
 
 Say it in the BitBrowser session or here; either passes it on.
 
+## 11. Sign In using Phone, and Back into VR (five minutes; on the live site, once the kit with it is live)
+
+**Why:** you said the only things that should take you out of VR are pairing your phone and the browser's limit
+between sites. In a headset, Sign in is now "Sign In using Phone": one press takes you out of VR to BitLogin's own
+page, and one press brings you back where you were. A made-up headset can't say whether the Quest's browser lets a
+press inside VR open a window, so this is the check.
+
+1. In any world, signed out (or as a guest), in VR, open the menu, You, and press **Sign In using Phone**.
+2. You should see BitLogin's page with a code and a QR code, outside VR, at once. If instead you see the world on a
+   flat screen with **Open BitLogin**, press it: that is the browser refusing the window from inside VR.
+3. Pair with your phone as BitLogin's page says. It closes itself when you're signed in.
+4. Press **Back into VR**.
+
+- Say: which of the two you saw at step 2 (BitLogin's page at once, or Open BitLogin).
+- Say: whether you were back where you stood, facing the same way, with the same thing in hand.
+- Say: whether the menu now says you're signed in.
+
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 
 Live since kit 0.88.0 (deployed 2026-11-24). On a desk, in BitPortal's room

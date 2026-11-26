@@ -36,6 +36,7 @@ import { clientPanelOpen, onClientSignIn } from "./client-frame.js";
 import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
+import { hostVrAside } from "./ui/vr-aside.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { BACK_STEP, FADE_S, STEP_REACH } from "./actions.js";
 import { handsPresenting, meetHands } from "./engine-hands.js";
@@ -325,6 +326,35 @@ export function menu(options?: string): string {
 
   // Who they are here, and the way to sign in. It is their own client's to ask, so the engine does the going, as
   // it does for home: the same control, in the same place, with the same words as in a Three.js world (ui/identity.ts).
+  // Out of VR for a moment, for BitLogin's own screens, and back in one press (ui/vr-aside.ts). The engine runs its
+  // session: it is told to end it, and the press on "Back into VR" reaches it as the menu's own Enter VR does.
+  const backOffer = (o: { back?: boolean; open?: boolean; waiting?: Promise<void> }, press: () => void) => {
+    headsetOffer?.remove();
+    headsetOffer = offerHeadset(c.view().title || "this world", press, () => {
+      headsetOffer?.remove();
+      headsetOffer = null;
+    }, o);
+  };
+  hostVrAside(c, {
+    presenting: () => vr.presenting,
+    end: () =>
+      new Promise<void>((done) => {
+        tell({ type: "vr", enter: false });
+        const from = Date.now();
+        const look = setInterval(() => {
+          if (vr.presenting && Date.now() - from < 3000) return;
+          clearInterval(look);
+          done();
+        }, 100);
+      }),
+    back: (waiting) => backOffer({ back: true, waiting }, () => tell({ type: "vr", enter: true })),
+    openFromHere: (open) =>
+      backOffer({ open: true }, () => {
+        const opened = open();
+        if (opened.shown) backOffer({ back: true, waiting: opened.gone }, () => tell({ type: "vr", enter: true }));
+        else c.say("Your browser didn't let BitLogin open. Allow this site to open windows, and press again.");
+      }),
+  });
   if (identityHost()) {
     c.addSection(identitySection());
     c.add(
