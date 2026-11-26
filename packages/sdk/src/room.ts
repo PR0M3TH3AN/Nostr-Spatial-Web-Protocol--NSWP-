@@ -257,10 +257,11 @@ const PLAY_SAID = { burst: 40, perSecond: 30 } as const;
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
 /**
- * The kit's own place to ask for TURN servers (`JoinOptions.iceFrom`): none yet. It is to be the owner's bitblocks-ice
- * once he has deployed it; until then rooms have STUN alone.
+ * The kit's own place to ask for TURN servers (`JoinOptions.iceFrom`): the owner's bitblocks-ice (services/ice/),
+ * deployed 2026-11-25. It answers pages of bitblocks.network only; any other page gets a refusal at once, and its
+ * rooms go on with STUN alone, as before. A world with a TURN service of its own names it in `iceFrom`.
  */
-export const ICE_FROM: string | null = null;
+export const ICE_FROM: string | null = "https://bitblocks-ice.bitunlock.workers.dev/";
 /** How long a room waits for its TURN servers as it is joined, in milliseconds, before going on with STUN alone. */
 const ICE_FROM_WAIT_MS = 3000;
 

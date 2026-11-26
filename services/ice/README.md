@@ -24,7 +24,7 @@ visitor (https://developers.cloudflare.com/realtime/turn/).
   month free, and has to be lowered.
 - Cloudflare's analytics measure all traffic, which is more than it bills, so the count is on the safe side.
 
-Nothing here has been deployed or run against Cloudflare. That is the owner's to do, with the commands below.
+**Deployed 2026-11-25** on the owner's word, at `https://bitblocks-ice.bitunlock.workers.dev/`, with all four secrets in. The kit's `ICE_FROM` names it, and `trials/turn-live.mjs` has two visitors with no direct path meet through it. The commands below are how it was set up, and how it is set up again.
 
 ## What the owner does, once
 

@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Rooms ask the owner's TURN service, now live: two visitors who can't reach each other directly still meet** (SDK `room.ts`: `ICE_FROM`; `services/ice/README.md`; `trials/turn-live.mjs`). On the owner's "Can you set up the turn server with the API keys and the connector?", `bitblocks-ice` was deployed on 2026-11-25 at `https://bitblocks-ice.bitunlock.workers.dev/`, with its four secrets.
+  - **`ICE_FROM` names it.** A room asks it once as it is joined, waits at most 3 seconds, and uses the TURN servers it hands out beside the room's own STUN. It asks again before they run out (an hour). This was all built in 0.93.0 behind an address that was still empty.
+  - **It answers pages of bitblocks.network only.** Any other page gets a refusal at once, and its rooms go on with STUN alone, as before. A world with a TURN service of its own names it in `iceFrom`, and `iceFrom: null` asks nowhere.
+  - **The engine script carries the same address** (one line of it changes).
+  - **Tried against the live Worker** (`trials/turn-live.mjs`): two Chromes, each a guest in the Grove at its own address, both held to relayed paths only, so no direct path could be used. Both pressed Join the room, each was answered by the Worker with TURN credentials, and they met, over a path relayed at both ends. The Nostr relays were the trial's own; nothing went to a real relay.
+
 ## 0.94.0
 
 - **BitLogin from a headset: out of VR for a moment, in one press, and back in one press: `outOfVr`** (SDK `ui/vr-aside.ts`, `ui/headset.ts`, `three.ts`, `engine-menu.ts`, `signer.ts`, `ui/identity.ts`, `room-controls.ts`, `front-room.ts`; `trials/out-of-vr.mjs`; `docs/owner-quest-checks.md`, check 11). The owner, 2026-11-25: "just make it as rare and a seemless as possible", and "the only thing that should force us out of VR is the initial phone pairing and the browsers immurrsive VR site to site limitation". Names given 2026-11-25.
