@@ -1952,6 +1952,27 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## The Docent replaces Lumen (D131, 2026-11-25; free)
+
+- **The walker drives the artist's rigged bones:** it measures the legs and
+  arms from the model's own bones and hands a rig its joints instead of
+  drawing limbs; every other body is unchanged. Each limb bone turns to
+  point at its child's joint, feet level, spine leaning, head turned to
+  where it looks. Its own clips (wave, stretch) play over the top. Screens,
+  `paint`, its own materials per agent, detail by distance, and a body
+  radius of 0.37 m.
+- **Seen:** walking with knees bending and arms swinging, sitting on the
+  trial world's bench, waving seated with the happy face, painted red
+  metallic, "museum" on its chest.
+- **Found:** the room rules read "Stand up" as unclear; metallic paint looks
+  dark without an environment to reflect; the world's stand test still
+  keeps Lumen's clearance.
+- *For the kit:* a rigged body with standard VRM bone names and an
+  unrotated rest pose can be driven by any agent's walker with no code per
+  model; worlds publish their bodies that way. *For worlds:* a body's
+  radius is part of its declaration, so a world's stand test keeps it
+  clear.
+
 ## Variety for the free rules (D130, 2026-11-25; free)
 
 - **The owner's question:** "can we salt our rule based agents so we avoid
