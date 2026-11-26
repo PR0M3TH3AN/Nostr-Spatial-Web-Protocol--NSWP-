@@ -28,3 +28,14 @@ cue picks a face from the artist's own pixel set. Any emoji is drawn by
 the visitor's own system emoji font into the screen, pixelated, so no font
 is shipped. Names (the call, the face ids, the atlas file) are given by the
 orchestrator when it is built.
+
+## Two screens, the owner's choices (2026-11-25)
+
+"1. face source. Both 2. color: full color 3. Chest screen should be
+customize-able too. Lets support emoji on both for now. Im thinking the
+chest for designation like "bar tender" or "librarian" and the face for
+current conversation info like emotions or confusion." So: the eye shows
+the conversation (the artist's drawn set first, then the device's emoji
+font), full colour; a chest screen shows the agent's role, declared as
+`designation: { emoji, title }` (name given 2026-11-25) by its world or
+cast.
