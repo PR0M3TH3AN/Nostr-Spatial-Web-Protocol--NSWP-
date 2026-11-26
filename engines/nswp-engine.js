@@ -1938,7 +1938,7 @@ var NSWP = (() => {
       beta: endoOpts.beta,
       basises: endoOpts.basises.map((basis) => [...basis])
     } : void 0;
-    const lengths = getWLengths(Fp, Fn);
+    const lengths2 = getWLengths(Fp, Fn);
     function assertCompressionIsSupported() {
       if (!Fp.isOdd)
         throw new Error("compression is not supported: Field does not have .isOdd()");
@@ -1962,7 +1962,7 @@ var NSWP = (() => {
     }
     function pointFromBytes(bytes) {
       abytes2(bytes, void 0, "Point");
-      const { publicKey: comp, publicKeyUncompressed: uncomp } = lengths;
+      const { publicKey: comp, publicKeyUncompressed: uncomp } = lengths2;
       const length = bytes.length;
       const head = bytes[0];
       const tail = bytes.subarray(1);
@@ -2371,7 +2371,7 @@ var NSWP = (() => {
     validatePointCons(Point);
     const { Fn } = Point;
     const randomBytes_ = ecdhOpts.randomBytes === void 0 ? randomBytes2 : ecdhOpts.randomBytes;
-    const lengths = Object.assign(getWLengths(Point.Fp, Fn), {
+    const lengths2 = Object.assign(getWLengths(Point.Fp, Fn), {
       seed: Math.max(getMinHashLength(Fn.ORDER), 16)
     });
     function isValidSecretKey(secretKey) {
@@ -2383,7 +2383,7 @@ var NSWP = (() => {
       }
     }
     function isValidPublicKey(publicKey, isCompressed) {
-      const { publicKey: comp, publicKeyUncompressed } = lengths;
+      const { publicKey: comp, publicKeyUncompressed } = lengths2;
       try {
         const l = publicKey.length;
         if (isCompressed === true && l !== comp)
@@ -2396,14 +2396,14 @@ var NSWP = (() => {
       }
     }
     function randomSecretKey(seed) {
-      seed = seed === void 0 ? randomBytes_(lengths.seed) : seed;
-      return mapHashToField(abytes2(seed, lengths.seed, "seed"), Fn.ORDER);
+      seed = seed === void 0 ? randomBytes_(lengths2.seed) : seed;
+      return mapHashToField(abytes2(seed, lengths2.seed, "seed"), Fn.ORDER);
     }
     function getPublicKey2(secretKey, isCompressed = true) {
       return Point.BASE.multiply(Fn.fromBytes(secretKey)).toBytes(isCompressed);
     }
     function isProbPub(item) {
-      const { secretKey, publicKey, publicKeyUncompressed } = lengths;
+      const { secretKey, publicKey, publicKeyUncompressed } = lengths2;
       const allowedLengths = Fn._lengths;
       if (!isBytes2(item))
         return void 0;
@@ -2432,8 +2432,8 @@ var NSWP = (() => {
     };
     const keygen = createKeygen(randomSecretKey, getPublicKey2);
     Object.freeze(utils);
-    Object.freeze(lengths);
-    return Object.freeze({ getPublicKey: getPublicKey2, getSharedSecret, keygen, Point, utils, lengths });
+    Object.freeze(lengths2);
+    return Object.freeze({ getPublicKey: getPublicKey2, getSharedSecret, keygen, Point, utils, lengths: lengths2 });
   }
   function ecdsa(Point, hash, ecdsaOpts = {}) {
     validatePointCons(Point);
@@ -2453,7 +2453,7 @@ var NSWP = (() => {
     const { ORDER: CURVE_ORDER, BITS: fnBits } = Fn;
     const blindLength = getMinHashLength(CURVE_ORDER);
     const csprng = probeRandomBytes(randomBytes4, blindLength);
-    const { keygen, getPublicKey: getPublicKey2, getSharedSecret, utils, lengths } = ecdh(Point, opts);
+    const { keygen, getPublicKey: getPublicKey2, getSharedSecret, utils, lengths: lengths2 } = ecdh(Point, opts);
     const defaultSigOpts = {
       prehash: true,
       lowS: typeof opts.lowS === "boolean" ? opts.lowS : true,
@@ -2484,7 +2484,7 @@ var NSWP = (() => {
     }
     function validateSigLength(bytes, format) {
       validateSigFormat(format);
-      const size = lengths.signature;
+      const size = lengths2.signature;
       const sizer = format === "compact" ? size : format === "recovered" ? size + 1 : void 0;
       return abytes2(bytes, sizer);
     }
@@ -2517,7 +2517,7 @@ var NSWP = (() => {
           format = "compact";
           bytes = bytes.subarray(1);
         }
-        const L2 = lengths.signature / 2;
+        const L2 = lengths2.signature / 2;
         const r = bytes.subarray(0, L2);
         const s = bytes.subarray(L2, L2 * 2);
         return new Signature(Fn.fromBytes(r), Fn.fromBytes(s), recid);
@@ -2605,7 +2605,7 @@ var NSWP = (() => {
         throw new Error("invalid private key");
       const seedArgs = [int2octets(d), int2octets(h1int)];
       if (extraEntropy != null && extraEntropy !== false) {
-        const e = extraEntropy === true ? randomBytes4(lengths.secretKey) : extraEntropy;
+        const e = extraEntropy === true ? randomBytes4(lengths2.secretKey) : extraEntropy;
         seedArgs.push(abytes2(e, void 0, "extraEntropy"));
       }
       const seed = concatBytes2(...seedArgs);
@@ -2692,7 +2692,7 @@ var NSWP = (() => {
       getPublicKey: getPublicKey2,
       getSharedSecret,
       utils,
-      lengths,
+      lengths: lengths2,
       Point,
       sign,
       verify,
@@ -15263,9 +15263,9 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector2} A reference to this vector.
      */
-    lerp(v2, alpha) {
-      this.x += (v2.x - this.x) * alpha;
-      this.y += (v2.y - this.y) * alpha;
+    lerp(v2, alpha2) {
+      this.x += (v2.x - this.x) * alpha2;
+      this.y += (v2.y - this.y) * alpha2;
       return this;
     }
     /**
@@ -15278,9 +15278,9 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector2} A reference to this vector.
      */
-    lerpVectors(v1, v2, alpha) {
-      this.x = v1.x + (v2.x - v1.x) * alpha;
-      this.y = v1.y + (v2.y - v1.y) * alpha;
+    lerpVectors(v1, v2, alpha2) {
+      this.x = v1.x + (v2.x - v1.x) * alpha2;
+      this.y = v1.y + (v2.y - v1.y) * alpha2;
       return this;
     }
     /**
@@ -16558,10 +16558,10 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector3} A reference to this vector.
      */
-    lerp(v2, alpha) {
-      this.x += (v2.x - this.x) * alpha;
-      this.y += (v2.y - this.y) * alpha;
-      this.z += (v2.z - this.z) * alpha;
+    lerp(v2, alpha2) {
+      this.x += (v2.x - this.x) * alpha2;
+      this.y += (v2.y - this.y) * alpha2;
+      this.z += (v2.z - this.z) * alpha2;
       return this;
     }
     /**
@@ -16574,10 +16574,10 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector3} A reference to this vector.
      */
-    lerpVectors(v1, v2, alpha) {
-      this.x = v1.x + (v2.x - v1.x) * alpha;
-      this.y = v1.y + (v2.y - v1.y) * alpha;
-      this.z = v1.z + (v2.z - v1.z) * alpha;
+    lerpVectors(v1, v2, alpha2) {
+      this.x = v1.x + (v2.x - v1.x) * alpha2;
+      this.y = v1.y + (v2.y - v1.y) * alpha2;
+      this.z = v1.z + (v2.z - v1.z) * alpha2;
       return this;
     }
     /**
@@ -18636,11 +18636,11 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector4} A reference to this vector.
      */
-    lerp(v2, alpha) {
-      this.x += (v2.x - this.x) * alpha;
-      this.y += (v2.y - this.y) * alpha;
-      this.z += (v2.z - this.z) * alpha;
-      this.w += (v2.w - this.w) * alpha;
+    lerp(v2, alpha2) {
+      this.x += (v2.x - this.x) * alpha2;
+      this.y += (v2.y - this.y) * alpha2;
+      this.z += (v2.z - this.z) * alpha2;
+      this.w += (v2.w - this.w) * alpha2;
       return this;
     }
     /**
@@ -18653,11 +18653,11 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector4} A reference to this vector.
      */
-    lerpVectors(v1, v2, alpha) {
-      this.x = v1.x + (v2.x - v1.x) * alpha;
-      this.y = v1.y + (v2.y - v1.y) * alpha;
-      this.z = v1.z + (v2.z - v1.z) * alpha;
-      this.w = v1.w + (v2.w - v1.w) * alpha;
+    lerpVectors(v1, v2, alpha2) {
+      this.x = v1.x + (v2.x - v1.x) * alpha2;
+      this.y = v1.y + (v2.y - v1.y) * alpha2;
+      this.z = v1.z + (v2.z - v1.z) * alpha2;
+      this.w = v1.w + (v2.w - v1.w) * alpha2;
       return this;
     }
     /**
@@ -22401,10 +22401,10 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor in the closed interval `[0,1]`.
      * @return {Color} A reference to this color.
      */
-    lerp(color, alpha) {
-      this.r += (color.r - this.r) * alpha;
-      this.g += (color.g - this.g) * alpha;
-      this.b += (color.b - this.b) * alpha;
+    lerp(color, alpha2) {
+      this.r += (color.r - this.r) * alpha2;
+      this.g += (color.g - this.g) * alpha2;
+      this.b += (color.b - this.b) * alpha2;
       return this;
     }
     /**
@@ -22417,10 +22417,10 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor in the closed interval `[0,1]`.
      * @return {Color} A reference to this color.
      */
-    lerpColors(color1, color2, alpha) {
-      this.r = color1.r + (color2.r - color1.r) * alpha;
-      this.g = color1.g + (color2.g - color1.g) * alpha;
-      this.b = color1.b + (color2.b - color1.b) * alpha;
+    lerpColors(color1, color2, alpha2) {
+      this.r = color1.r + (color2.r - color1.r) * alpha2;
+      this.g = color1.g + (color2.g - color1.g) * alpha2;
+      this.b = color1.b + (color2.b - color1.b) * alpha2;
       return this;
     }
     /**
@@ -22434,12 +22434,12 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor in the closed interval `[0,1]`.
      * @return {Color} A reference to this color.
      */
-    lerpHSL(color, alpha) {
+    lerpHSL(color, alpha2) {
       this.getHSL(_hslA);
       color.getHSL(_hslB);
-      const h = lerp(_hslA.h, _hslB.h, alpha);
-      const s = lerp(_hslA.s, _hslB.s, alpha);
-      const l = lerp(_hslA.l, _hslB.l, alpha);
+      const h = lerp(_hslA.h, _hslB.h, alpha2);
+      const s = lerp(_hslA.s, _hslB.s, alpha2);
+      const l = lerp(_hslA.l, _hslB.l, alpha2);
       this.setHSL(h, s, l);
       return this;
     }
@@ -30564,10 +30564,10 @@ postMessage({ t: "started" });
       super(parameterPositions, sampleValues, sampleSize, resultBuffer);
     }
     interpolate_(i1, t0, t, t1) {
-      const result = this.resultBuffer, values = this.sampleValues, stride = this.valueSize, alpha = (t - t0) / (t1 - t0);
+      const result = this.resultBuffer, values = this.sampleValues, stride = this.valueSize, alpha2 = (t - t0) / (t1 - t0);
       let offset = i1 * stride;
       for (let end = offset + stride; offset !== end; offset += 4) {
-        Quaternion.slerpFlat(result, 0, values, offset - stride, values, offset, alpha);
+        Quaternion.slerpFlat(result, 0, values, offset - stride, values, offset, alpha2);
       }
       return result;
     }
@@ -36291,9 +36291,9 @@ postMessage({ t: "started" });
   var _m1$12 = /* @__PURE__ */ new Matrix4();
   var _m$1 = /* @__PURE__ */ new Matrix3();
   _m$1.set(-1, 0, 0, 0, 1, 0, 0, 0, 1);
-  function WebGLBackground(renderer, environments, state, objects, alpha, premultipliedAlpha) {
+  function WebGLBackground(renderer, environments, state, objects, alpha2, premultipliedAlpha) {
     const clearColor = new Color(0);
-    let clearAlpha = alpha === true ? 0 : 1;
+    let clearAlpha = alpha2 === true ? 0 : 1;
     let planeMesh;
     let boxMesh;
     let currentBackground = null;
@@ -36416,9 +36416,9 @@ postMessage({ t: "started" });
         renderList.unshift(planeMesh, planeMesh.geometry, planeMesh.material, 0, 0, null);
       }
     }
-    function setClear(color, alpha2) {
+    function setClear(color, alpha3) {
       color.getRGB(_rgb, getUnlitUniformColorSpace(renderer));
-      state.buffers.color.setClear(_rgb.r, _rgb.g, _rgb.b, alpha2, premultipliedAlpha);
+      state.buffers.color.setClear(_rgb.r, _rgb.g, _rgb.b, alpha3, premultipliedAlpha);
     }
     function dispose() {
       if (boxMesh !== void 0) {
@@ -36436,16 +36436,16 @@ postMessage({ t: "started" });
       getClearColor: function() {
         return clearColor;
       },
-      setClearColor: function(color, alpha2 = 1) {
+      setClearColor: function(color, alpha3 = 1) {
         clearColor.set(color);
-        clearAlpha = alpha2;
+        clearAlpha = alpha3;
         setClear(clearColor, clearAlpha);
       },
       getClearAlpha: function() {
         return clearAlpha;
       },
-      setClearAlpha: function(alpha2) {
-        clearAlpha = alpha2;
+      setClearAlpha: function(alpha3) {
+        clearAlpha = alpha3;
         setClear(clearColor, clearAlpha);
       },
       render,
@@ -45101,7 +45101,7 @@ void main() {
         context = null,
         depth = true,
         stencil = false,
-        alpha = false,
+        alpha: alpha2 = false,
         antialias = false,
         premultipliedAlpha = true,
         preserveDrawingBuffer = false,
@@ -45118,7 +45118,7 @@ void main() {
         }
         _alpha = context.getContextAttributes().alpha;
       } else {
-        _alpha = alpha;
+        _alpha = alpha2;
       }
       const _outputBufferType = outputBufferType;
       const INTEGER_FORMATS = /* @__PURE__ */ new Set([
@@ -54985,6 +54985,54 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     edgeAlpha: 0.34
   };
 
+  // packages/sdk/src/ui/sheet-look.ts
+  var SHEET_LOOK = {
+    /** The menu's words: 13 px, 1.35 lines apart. An icon is 1.55 times the words, drawn with lines 1.6 wide (of 24). */
+    text: { size: 13, line: 1.35, icon: 1.55, iconLine: 1.6, family: 'ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif', mono: 'ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace' },
+    /** Glass: its fill and its edge. */
+    glass: { fill: 0.7, edge: 0.34 },
+    /**
+     * The sheet. At a desk (`desk`, at least that wide and high) it is `wide` across, in two columns; else `narrow`,
+     * in one. It is at most `tall` high, or that share of the screen. Its top edge is lit by a line, glowing.
+     */
+    sheet: { wide: 780, narrow: 480, desk: { width: 900, height: 560 }, side: 20, deskSide: 40, tall: { desk: 780, deskShare: 74, narrow: 640, narrowShare: 70 }, corners: [22, 22, 12, 12], top: { line: 2, glow: 16 } },
+    /** The strip of tabs: its room, and each tab. A tab brought into sight is kept `clear` of the arrows at the ends. */
+    tabs: { pad: [12, 12, 0], gap: 4, clear: 46, more: { width: 40, inset: 9, fade: 45 }, tab: { pad: [9, 13, 8], gap: 7, corners: 14, under: 2, ink: 0.72, on: 0.1 } },
+    /** The list of rows under the strip: its gap, its room, and the line over it. */
+    rows: { gap: 6, pad: 12, line: 0.22 },
+    /** A row to press. */
+    row: { height: 46, pad: [8, 12], corners: 10, gap: 12, edge: 0.12, fill: 0.03, hoverFill: 0.13, hoverEdge: 0.7, onEdge: 0.8, primaryFill: 0.16, primaryEdge: 0.75, state: 0.86, stateInk: 0.6 },
+    /** A line to read. */
+    line: { pad: [4, 12], gap: 12, dim: 0.55, iconDim: 0.55, iconAt: 1 },
+    /** A row typed into: a box and its button, and a line under them. */
+    field: { pad: [8, 12], gap: [6, 8], box: 40, boxPad: [6, 10], boxCorners: 8, boxEdge: 0.25, boxGlass: 0.6, buttonPad: [6, 14], to: 0.86, toInk: 0.6 },
+    /** A song's bar: its words, the bar, and where it is. */
+    slide: { pad: [8, 12], gap: [4, 12], bar: 28, time: 0.86, timeInk: 0.7, onEdge: 0.5 },
+    /** A row that takes a file, and the line under it. */
+    takes: { gap: 4, to: 0.86, toInk: 0.6 },
+    /** Choices of colour: small doorways in a row. */
+    swatches: { gap: [6, 4], pad: [4, 2, 8] },
+    swatch: { width: 66, gap: 6, text: 0.86, ink: 0.8, arch: [38, 44], corners: [19, 5], sill: [46, 2], sillAt: -3, sillInk: 0.25 },
+    /** Things with pictures, side by side: each at least `min` wide at a desk, `narrowMin` on a phone. */
+    tiles: { min: 112, narrowMin: 104, gap: 8, pad: [2, 0, 4] },
+    tile: { pad: [8, 6, 9], gap: 4, corners: [14, 8], text: 0.9, line: 1.2, ink: 0.85, glow: 0.13, letter: 1.9, mark: { size: 24, inset: 6, corners: 8, icon: 15, glass: 0.85, edge: 0.55 } },
+    /** A card at the head of a tab: who, or what, it is about. */
+    card: { pad: 12, corners: [16, 8], face: 56, gap: [3, 12], edge: 0.45, fill: 0.07, title: 1.15, tag: 0.76, keyline: 0.9, quote: 7, thing: 200 },
+    /** A world's own part of a tab, under its name. */
+    from: { top: 6, padX: 12, text: 0.82, ink: 0.55 },
+    /** A tab's note. */
+    note: { pad: [4, 12, 0, 12], inset: 12, text: 0.95, edge: 0.6, ink: 0.78 },
+    /** The strip a said line has in the sheet, above its foot: one line high and `pad` more, then `after`. */
+    says: { pad: 18, after: 8 },
+    /** The foot: keep this tab on the bar, and Close. */
+    foot: { pad: [0, 12, 12], gap: 10, pin: { pad: [7, 12], corners: 10, text: 0.93, icon: 16, gap: 7, edge: 0.22, ink: 0.82 }, close: { height: 38, padX: 14, corners: 10, edge: 0.22 } },
+    /** The bar of things at hand: its keys, each a small doorway on a sill. */
+    bar: { corners: [20, 10], pad: [12, 14, 8], gap: 10, more: 30, theirs: 0.2 },
+    key: { width: 62, gap: 7, arch: [52, 54], corners: [26, 7], sill: [60, 2], sillAt: -4, name: 0.84, line: 1.2, ink: 0.82, fill: 0.08, edge: 0.42, sillInk: 0.28, hoverFill: 0.2, onFill: 0.26 }
+  };
+  var alpha = (a) => String(a).replace(/^0\./, ".");
+  var lengths = (p) => p.map((n) => n ? `${n}px` : "0").join(" ");
+
   // packages/sdk/src/ui/hud.ts
   var T = MARK2.tile;
   var A = MARK2.arch;
@@ -54992,16 +55040,16 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var CSS2 = `
 :host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
   --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
-  font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font: 500 calc(${SHEET_LOOK.text.size}px * var(--s)) / ${SHEET_LOOK.text.line} ${SHEET_LOOK.text.family};
   color: rgb(var(--ink)); -webkit-font-smoothing: antialiased; }
 :host([hidden]) { display: none; }
 * { box-sizing: border-box; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 3px; }
-svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.glass { background: rgba(var(--glass), .7); border: 1px solid rgba(var(--accent), .34);
+svg { width: ${SHEET_LOOK.text.icon}em; height: ${SHEET_LOOK.text.icon}em; fill: none; stroke: currentColor; stroke-width: ${SHEET_LOOK.text.iconLine}; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.glass { background: rgba(var(--glass), ${alpha(SHEET_LOOK.glass.fill)}); border: 1px solid rgba(var(--accent), ${alpha(SHEET_LOOK.glass.edge)});
   -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); }
-.mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-weight: 400; }
+.mono { font-family: ${SHEET_LOOK.text.mono}; font-weight: 400; }
 
 /* ---- the corners of the view, marked lightly: this is a HUD, laid over a place */
 .corner { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(var(--accent), .5); }
@@ -55066,12 +55114,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* The bar: as wide as its keys, and no wider than the screen. Wider than that (tabs pinned to it on a phone), the
    keys slide along it, with an arrow at each end like the menu's tabs. The arrows stand beside the keys, never over
    them, and while it is too wide both places are kept, so the keys don't jump as one comes and goes. */
-.bar { pointer-events: auto; position: relative; display: flex; align-items: stretch; max-width: 100%; border-radius: 20px 20px 10px 10px; }
+.bar { pointer-events: auto; position: relative; display: flex; align-items: stretch; max-width: 100%; border-radius: ${SHEET_LOOK.bar.corners[0]}px ${SHEET_LOOK.bar.corners[0]}px ${SHEET_LOOK.bar.corners[1]}px ${SHEET_LOOK.bar.corners[1]}px; }
 .bar[hidden] { display: none; }
-.hotbar { display: flex; align-items: flex-start; justify-content: flex-start; gap: 10px; padding: 12px 14px 8px; min-width: 0;
+.hotbar { display: flex; align-items: flex-start; justify-content: flex-start; gap: ${SHEET_LOOK.bar.gap}px; padding: ${SHEET_LOOK.bar.pad[0]}px ${SHEET_LOOK.bar.pad[1]}px ${SHEET_LOOK.bar.pad[2]}px; min-width: 0;
   overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
 .hotbar::-webkit-scrollbar { display: none; }
-.bar .more { display: none; flex: none; width: 30px; place-items: center; font-size: 1.55em; line-height: 1;
+.bar .more { display: none; flex: none; width: ${SHEET_LOOK.bar.more}px; place-items: center; font-size: 1.55em; line-height: 1;
   color: rgb(var(--accent)); text-shadow: 0 0 10px rgb(var(--accent)); }
 .bar.over .more { display: grid; }
 .bar .more.left { border-radius: 20px 0 0 10px; }
@@ -55079,19 +55127,19 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Nothing more that way: its place is kept, empty, and it takes no press. */
 .bar .more.spent { visibility: hidden; pointer-events: none; }
 .bar .more:hover { color: rgb(var(--ink)); }
-.key { position: relative; flex: none; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
+.key { position: relative; flex: none; width: ${SHEET_LOOK.key.width}px; display: grid; justify-items: center; gap: ${SHEET_LOOK.key.gap}px; text-align: center; }
 /* Between the place's own keys and the tabs the visitor pinned: a line, so it is plain which are theirs. */
-.hotbar .theirs { flex: none; align-self: stretch; width: 1px; margin: 2px 2px 8px; background: rgba(var(--ink), .2); }
+.hotbar .theirs { flex: none; align-self: stretch; width: 1px; margin: 2px 2px 8px; background: rgba(var(--ink), ${alpha(SHEET_LOOK.bar.theirs)}); }
 .key.pin .arch { border-style: dashed; }
 /* A key is a small doorway: an arch, standing on a sill that lights when it is on. */
-.key .arch { width: 52px; height: 54px; display: grid; place-items: center; border-radius: 26px 26px 7px 7px;
-  background: rgba(var(--accent), .08); border: 1px solid rgba(var(--accent), .42); transition: background .15s, border-color .15s, transform .15s; }
-.key .sill { width: 60px; height: 2px; margin-top: -4px; border-radius: 1px; background: rgba(var(--ink), .28); transition: background .2s, box-shadow .2s; }
-.key .name { font-size: .84em; line-height: 1.2; color: rgba(var(--ink), .82); max-width: 100%; overflow-wrap: anywhere; }
+.key .arch { width: ${SHEET_LOOK.key.arch[0]}px; height: ${SHEET_LOOK.key.arch[1]}px; display: grid; place-items: center; border-radius: ${SHEET_LOOK.key.corners[0]}px ${SHEET_LOOK.key.corners[0]}px ${SHEET_LOOK.key.corners[1]}px ${SHEET_LOOK.key.corners[1]}px;
+  background: rgba(var(--accent), ${alpha(SHEET_LOOK.key.fill)}); border: 1px solid rgba(var(--accent), ${alpha(SHEET_LOOK.key.edge)}); transition: background .15s, border-color .15s, transform .15s; }
+.key .sill { width: ${SHEET_LOOK.key.sill[0]}px; height: ${SHEET_LOOK.key.sill[1]}px; margin-top: ${SHEET_LOOK.key.sillAt}px; border-radius: 1px; background: rgba(var(--ink), ${alpha(SHEET_LOOK.key.sillInk)}); transition: background .2s, box-shadow .2s; }
+.key .name { font-size: ${alpha(SHEET_LOOK.key.name)}em; line-height: ${SHEET_LOOK.key.line}; color: rgba(var(--ink), ${alpha(SHEET_LOOK.key.ink)}); max-width: 100%; overflow-wrap: anywhere; }
 .key .num { position: absolute; top: -6px; right: -2px; }
-.key:hover .arch, .key:focus-visible .arch { background: rgba(var(--accent), .2); border-color: rgb(var(--accent)); transform: translateY(-2px); }
+.key:hover .arch, .key:focus-visible .arch { background: rgba(var(--accent), ${alpha(SHEET_LOOK.key.hoverFill)}); border-color: rgb(var(--accent)); transform: translateY(-2px); }
 .key:hover .sill, .key[aria-pressed="true"] .sill { background: rgb(var(--accent)); box-shadow: 0 0 12px rgba(var(--accent), .8); }
-.key[aria-pressed="true"] .arch { background: rgba(var(--accent), .26); color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
+.key[aria-pressed="true"] .arch { background: rgba(var(--accent), ${alpha(SHEET_LOOK.key.onFill)}); color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
 .key.primary .arch { background: rgb(var(--accent)); color: rgb(var(--glass)); border-color: rgb(var(--accent)); box-shadow: 0 0 18px rgba(var(--accent), .45); }
 .key.warn .arch { border-color: rgba(var(--warn), .7); color: rgb(var(--warn)); background: rgba(var(--warn), .08); }
 .key:disabled { opacity: .5; cursor: default; }
@@ -55111,8 +55159,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
    others can see they are recording, that pressing Buy again charges nothing). The strip grows for them and the
    sheet is kept the size it was (fitSays, below), so the room comes from the bottom of the rows' own scrolling
    area: no row moves, and the last of them are out of sight while the words show. A press on a line puts it away. */
-.sheet > .says { position: static; display: block; flex: none; max-width: none; min-height: calc(1.35em + 18px); margin: 0 12px 8px; }
-.sheet > .says.one { height: calc(1.35em + 18px); overflow: hidden; }
+.sheet > .says { position: static; display: block; flex: none; max-width: none; min-height: calc(${SHEET_LOOK.text.line}em + ${SHEET_LOOK.says.pad}px); margin: 0 ${SHEET_LOOK.rows.pad}px ${SHEET_LOOK.says.after}px; }
+.sheet > .says.one { height: calc(${SHEET_LOOK.text.line}em + ${SHEET_LOOK.says.pad}px); overflow: hidden; }
 .sheet > .says .say { line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; pointer-events: auto; cursor: pointer; }
 .sheet > .says .say:not(:last-child) { display: none; }
 
@@ -55182,115 +55230,115 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
 /* ---- the sheet: everything else, by section */
 .sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
-  width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
-  border-radius: 22px 22px 12px 12px; overflow: hidden; }
+  width: min(${SHEET_LOOK.sheet.narrow}px, calc(100vw - ${SHEET_LOOK.sheet.side}px)); max-height: min(${SHEET_LOOK.sheet.tall.narrowShare}vh, ${SHEET_LOOK.sheet.tall.narrow}px); display: flex; flex-direction: column; pointer-events: auto;
+  border-radius: ${lengths(SHEET_LOOK.sheet.corners)}; overflow: hidden; }
 .sheet[hidden] { display: none; }
 /* One size on every tab: what a short tab leaves is here, above the foot. A tab that isn't up is measured in a box nobody sees. */
 .sheet > .room { flex: 1 1 0; min-height: 0; }
 /* It stands beside the sheet and not in it, as wide as the sheet is, so that tabs can be measured while the sheet is down. */
-.measure { position: absolute; left: 0; top: 0; width: min(480px, calc(100vw - 20px)); border: 1px solid transparent; visibility: hidden; pointer-events: none; }
+.measure { position: absolute; left: 0; top: 0; width: min(${SHEET_LOOK.sheet.narrow}px, calc(100vw - ${SHEET_LOOK.sheet.side}px)); border: 1px solid transparent; visibility: hidden; pointer-events: none; }
 .measure > .rows { overflow: visible; }
 /* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
 .outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
 .outside[hidden] { display: none; }
 /* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
-@media (min-width: 900px) and (min-height: 560px) {
-  .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
-  .measure { width: min(780px, calc(100vw - 40px)); }
+@media (min-width: ${SHEET_LOOK.sheet.desk.width}px) and (min-height: ${SHEET_LOOK.sheet.desk.height}px) {
+  .sheet { width: min(${SHEET_LOOK.sheet.wide}px, calc(100vw - ${SHEET_LOOK.sheet.deskSide}px)); max-height: min(${SHEET_LOOK.sheet.tall.deskShare}vh, ${SHEET_LOOK.sheet.tall.desk}px); }
+  .measure { width: min(${SHEET_LOOK.sheet.wide}px, calc(100vw - ${SHEET_LOOK.sheet.deskSide}px)); }
   .rows { grid-template-columns: 1fr 1fr; align-content: start; }
   .rows > .person, .rows > .swatches, .rows > .tiles, .rows > .row.primary { grid-column: 1 / -1; }
-  .rows > .person.thing { grid-template-columns: 200px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
-  .rows > .tiles { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .rows > .person.thing { grid-template-columns: ${SHEET_LOOK.card.thing}px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
+  .rows > .tiles { grid-template-columns: repeat(auto-fill, minmax(${SHEET_LOOK.tiles.min}px, 1fr)); }
 }
-.sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgb(var(--accent)), transparent); box-shadow: 0 0 16px rgb(var(--accent)); }
-.tabs { position: relative; display: flex; gap: 4px; padding: 12px 12px 0; overflow-x: auto; scrollbar-width: none; }
+.sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: ${SHEET_LOOK.sheet.top.line}px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--accent)), transparent); box-shadow: 0 0 ${SHEET_LOOK.sheet.top.glow}px rgb(var(--accent)); }
+.tabs { position: relative; display: flex; gap: ${SHEET_LOOK.tabs.gap}px; padding: ${lengths(SHEET_LOOK.tabs.pad)}; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 /* There are more sections than fit: an arrow at the side they are on, over a fade, and it takes them there. */
 .tabbar { position: relative; }
-.tabbar .more { position: absolute; top: 2px; bottom: 0; width: 40px; display: grid; align-items: center; z-index: 1; font-size: 1.55em; line-height: 1;
+.tabbar .more { position: absolute; top: 2px; bottom: 0; width: ${SHEET_LOOK.tabs.more.width}px; display: grid; align-items: center; z-index: 1; font-size: 1.55em; line-height: 1;
   color: rgb(var(--accent)); text-shadow: 0 0 10px rgb(var(--accent)); }
-.tabbar .more.left { left: 0; justify-items: start; padding-left: 9px; border-radius: 22px 0 0 0; background: linear-gradient(90deg, rgb(var(--glass)) 45%, rgba(var(--glass), 0)); }
-.tabbar .more.right { right: 0; justify-items: end; padding-right: 9px; border-radius: 0 22px 0 0; background: linear-gradient(270deg, rgb(var(--glass)) 45%, rgba(var(--glass), 0)); }
+.tabbar .more.left { left: 0; justify-items: start; padding-left: ${SHEET_LOOK.tabs.more.inset}px; border-radius: ${SHEET_LOOK.sheet.corners[0]}px 0 0 0; background: linear-gradient(90deg, rgb(var(--glass)) ${SHEET_LOOK.tabs.more.fade}%, rgba(var(--glass), 0)); }
+.tabbar .more.right { right: 0; justify-items: end; padding-right: ${SHEET_LOOK.tabs.more.inset}px; border-radius: 0 ${SHEET_LOOK.sheet.corners[1]}px 0 0; background: linear-gradient(270deg, rgb(var(--glass)) ${SHEET_LOOK.tabs.more.fade}%, rgba(var(--glass), 0)); }
 .tabbar .more[hidden] { display: none; }
 .tabbar .more:hover { color: rgb(var(--ink)); }
-.tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab { display: flex; align-items: center; gap: ${SHEET_LOOK.tabs.tab.gap}px; padding: ${SHEET_LOOK.tabs.tab.pad[0]}px ${SHEET_LOOK.tabs.tab.pad[1]}px ${SHEET_LOOK.tabs.tab.pad[2]}px; border-radius: ${SHEET_LOOK.tabs.tab.corners}px ${SHEET_LOOK.tabs.tab.corners}px 0 0; color: rgba(var(--ink), ${alpha(SHEET_LOOK.tabs.tab.ink)}); border-bottom: ${SHEET_LOOK.tabs.tab.under}px solid transparent; white-space: nowrap; }
 .tab:hover { color: rgb(var(--ink)); }
-.tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
+.tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), ${alpha(SHEET_LOOK.tabs.tab.on)}); border-bottom-color: rgb(var(--accent)); }
 /* Each row keeps its own height whatever room the list is given: when long words take room from the list's foot,
    the rows are scrolled out of sight there, and none is squeezed (a squeezed row moves every row under it). */
-.rows { display: grid; gap: 6px; grid-auto-rows: max-content; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
+.rows { display: grid; gap: ${SHEET_LOOK.rows.gap}px; grid-auto-rows: max-content; padding: ${SHEET_LOOK.rows.pad}px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), ${alpha(SHEET_LOOK.rows.line)});
   scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
 /* A choice of colour is a row of small doorways, each lit in its own. */
-.swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
-.swatch { width: 66px; display: grid; justify-items: center; gap: 6px; font-size: .86em; color: rgba(var(--ink), .8); }
-.swatch i { width: 38px; height: 44px; border-radius: 19px 19px 5px 5px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 30%, transparent)); border: 1px solid var(--c); transition: transform .15s, box-shadow .15s; }
-.swatch u { width: 46px; height: 2px; margin-top: -3px; border-radius: 1px; background: rgba(var(--ink), .25); }
+.swatches { display: flex; flex-wrap: wrap; gap: ${SHEET_LOOK.swatches.gap[0]}px ${SHEET_LOOK.swatches.gap[1]}px; padding: ${lengths(SHEET_LOOK.swatches.pad)}; }
+.swatch { width: ${SHEET_LOOK.swatch.width}px; display: grid; justify-items: center; gap: ${SHEET_LOOK.swatch.gap}px; font-size: ${alpha(SHEET_LOOK.swatch.text)}em; color: rgba(var(--ink), ${alpha(SHEET_LOOK.swatch.ink)}); }
+.swatch i { width: ${SHEET_LOOK.swatch.arch[0]}px; height: ${SHEET_LOOK.swatch.arch[1]}px; border-radius: ${SHEET_LOOK.swatch.corners[0]}px ${SHEET_LOOK.swatch.corners[0]}px ${SHEET_LOOK.swatch.corners[1]}px ${SHEET_LOOK.swatch.corners[1]}px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 30%, transparent)); border: 1px solid var(--c); transition: transform .15s, box-shadow .15s; }
+.swatch u { width: ${SHEET_LOOK.swatch.sill[0]}px; height: ${SHEET_LOOK.swatch.sill[1]}px; margin-top: ${SHEET_LOOK.swatch.sillAt}px; border-radius: 1px; background: rgba(var(--ink), ${alpha(SHEET_LOOK.swatch.sillInk)}); }
 .swatch:hover i { transform: translateY(-2px); }
 .swatch[aria-pressed="true"] i { box-shadow: 0 0 16px var(--c); }
 .swatch[aria-pressed="true"] u { background: var(--c); box-shadow: 0 0 10px var(--c); }
 .swatch[aria-pressed="true"] { color: rgb(var(--ink)); }
 /* Things with pictures of themselves, side by side: what is in a bag. Each is a small plinth the thing stands on. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 2px 0 4px; }
-.tile { display: grid; grid-template-rows: auto auto; justify-items: center; gap: 4px; padding: 8px 6px 9px; border-radius: 14px 14px 8px 8px; text-align: center;
-  border: 1px solid rgba(var(--ink), .12); background: radial-gradient(120% 90% at 50% 100%, rgba(var(--accent), .13), rgba(var(--ink), .03) 70%);
-  font-size: .9em; line-height: 1.2; color: rgba(var(--ink), .85); transition: background .12s, border-color .12s, transform .12s; }
-.tile .shown { width: 100%; aspect-ratio: 1; display: grid; place-items: center; font-weight: 700; font-size: 1.9em; color: rgba(var(--ink), .35); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(${SHEET_LOOK.tiles.narrowMin}px, 1fr)); gap: ${SHEET_LOOK.tiles.gap}px; padding: ${lengths(SHEET_LOOK.tiles.pad)}; }
+.tile { display: grid; grid-template-rows: auto auto; justify-items: center; gap: ${SHEET_LOOK.tile.gap}px; padding: ${lengths(SHEET_LOOK.tile.pad)}; border-radius: ${SHEET_LOOK.tile.corners[0]}px ${SHEET_LOOK.tile.corners[0]}px ${SHEET_LOOK.tile.corners[1]}px ${SHEET_LOOK.tile.corners[1]}px; text-align: center;
+  border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.row.edge)}); background: radial-gradient(120% 90% at 50% 100%, rgba(var(--accent), ${alpha(SHEET_LOOK.tile.glow)}), rgba(var(--ink), ${alpha(SHEET_LOOK.row.fill)}) 70%);
+  font-size: ${alpha(SHEET_LOOK.tile.text)}em; line-height: ${SHEET_LOOK.tile.line}; color: rgba(var(--ink), ${alpha(SHEET_LOOK.tile.ink)}); transition: background .12s, border-color .12s, transform .12s; }
+.tile .shown { width: 100%; aspect-ratio: 1; display: grid; place-items: center; font-weight: 700; font-size: ${SHEET_LOOK.tile.letter}em; color: rgba(var(--ink), .35); }
 .tile canvas { width: 100%; height: 100%; display: block; }
 .tile:hover { border-color: rgba(var(--accent), .7); transform: translateY(-2px); }
 .tile[aria-pressed="true"] { border-color: rgb(var(--accent)); color: rgb(var(--ink)); box-shadow: 0 0 0 1px rgb(var(--accent)), 0 0 18px rgba(var(--accent), .35); }
 .tile span { overflow-wrap: anywhere; }
 /* A tile's mark, in its corner: the bag's says the thing is in your bag. Drawn in the accent, on the glass. */
 .tile { position: relative; }
-.tile .corner-mark { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px;
-  background: rgba(var(--glass), .85); border: 1px solid rgba(var(--accent), .55); color: rgb(var(--accent)); }
-.tile .corner-mark svg { width: 15px; height: 15px; }
+.tile .corner-mark { position: absolute; top: ${SHEET_LOOK.tile.mark.inset}px; right: ${SHEET_LOOK.tile.mark.inset}px; width: ${SHEET_LOOK.tile.mark.size}px; height: ${SHEET_LOOK.tile.mark.size}px; display: grid; place-items: center; border-radius: ${SHEET_LOOK.tile.mark.corners}px;
+  background: rgba(var(--glass), ${alpha(SHEET_LOOK.tile.mark.glass)}); border: 1px solid rgba(var(--accent), ${alpha(SHEET_LOOK.tile.mark.edge)}); color: rgb(var(--accent)); }
+.tile .corner-mark svg { width: ${SHEET_LOOK.tile.mark.icon}px; height: ${SHEET_LOOK.tile.mark.icon}px; }
 /* Faint: not theirs yet. Greyed, and still pressable: it brightens under the pointer, as any tile does. */
 .tile.faint { color: rgba(var(--ink), .55); background: rgba(var(--ink), .03); border-style: dashed; }
 .tile.faint .shown { filter: grayscale(1); opacity: .5; }
 .tile.faint:hover { color: rgba(var(--ink), .85); }
 .tile.faint:hover .shown { opacity: .8; }
-.row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
-  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
-.row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
+.row { display: flex; align-items: center; gap: ${SHEET_LOOK.row.gap}px; min-height: ${SHEET_LOOK.row.height}px; padding: ${SHEET_LOOK.row.pad[0]}px ${SHEET_LOOK.row.pad[1]}px; border-radius: ${SHEET_LOOK.row.corners}px; text-align: left;
+  border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.row.edge)}); background: rgba(var(--ink), ${alpha(SHEET_LOOK.row.fill)}); transition: background .12s, border-color .12s; }
+.row:hover { background: rgba(var(--accent), ${alpha(SHEET_LOOK.row.hoverFill)}); border-color: rgba(var(--accent), ${alpha(SHEET_LOOK.row.hoverEdge)}); }
 /* A line is read and not pressed: no edge, no hover, nothing that looks like a button. Lit is the accent; dark is dim. */
-.line { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 12px; margin: 0; padding: 4px 12px; line-height: 1.35; color: rgba(var(--ink), .55); }
-.line svg { flex: none; margin-top: 1px; opacity: .55; }
+.line { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: ${SHEET_LOOK.line.gap}px; margin: 0; padding: ${SHEET_LOOK.line.pad[0]}px ${SHEET_LOOK.line.pad[1]}px; line-height: ${SHEET_LOOK.text.line}; color: rgba(var(--ink), ${alpha(SHEET_LOOK.line.dim)}); }
+.line svg { flex: none; margin-top: ${SHEET_LOOK.line.iconAt}px; opacity: ${alpha(SHEET_LOOK.line.iconDim)}; }
 .line.on { color: rgb(var(--ink)); }
 .line.on svg { opacity: 1; color: rgb(var(--accent)); }
 /* The chat's pane and nothing else, for a world whose client has the menu. */
 :host(.chat-only) :is(.corner, .id, .menu, .quiet, .as, .full, .says, .sheet, .low) { display: none !important; }
 .row .grow { flex: 1; min-width: 0; }
 /* A row typed into: a box and its button, and under them where what is typed goes. */
-.field { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin: 0; padding: 8px 12px; border-radius: 10px;
-  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); }
-.field input { min-width: 0; min-height: 40px; padding: 6px 10px; border-radius: 8px; font: inherit; color: inherit;
-  border: 1px solid rgba(var(--ink), .25); background: rgba(var(--glass), .6); }
+.field { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: ${SHEET_LOOK.field.gap[0]}px ${SHEET_LOOK.field.gap[1]}px; margin: 0; padding: ${SHEET_LOOK.field.pad[0]}px ${SHEET_LOOK.field.pad[1]}px; border-radius: ${SHEET_LOOK.row.corners}px;
+  border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.row.edge)}); background: rgba(var(--ink), ${alpha(SHEET_LOOK.row.fill)}); }
+.field input { min-width: 0; min-height: ${SHEET_LOOK.field.box}px; padding: ${SHEET_LOOK.field.boxPad[0]}px ${SHEET_LOOK.field.boxPad[1]}px; border-radius: ${SHEET_LOOK.field.boxCorners}px; font: inherit; color: inherit;
+  border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.field.boxEdge)}); background: rgba(var(--glass), ${alpha(SHEET_LOOK.field.boxGlass)}); }
 .field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
-.field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
-.field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
+.field button { min-height: ${SHEET_LOOK.field.box}px; padding: ${SHEET_LOOK.field.buttonPad[0]}px ${SHEET_LOOK.field.buttonPad[1]}px; border-radius: ${SHEET_LOOK.field.boxCorners}px; border: 1px solid rgba(var(--accent), ${alpha(SHEET_LOOK.row.hoverEdge)}); background: rgba(var(--accent), ${alpha(SHEET_LOOK.row.hoverFill)}); }
+.field .to { grid-column: 1 / -1; margin: 0; font-size: ${alpha(SHEET_LOOK.field.to)}em; color: rgba(var(--ink), ${alpha(SHEET_LOOK.field.toInk)}); }
 /* A bar that is moved along: what it is of, the bar, and where it is in words. */
-.slide { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 12px; margin: 0; padding: 8px 12px;
-  border-radius: 10px; border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); }
-.slide.on { border-color: rgba(var(--accent), .5); }
+.slide { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: ${SHEET_LOOK.slide.gap[0]}px ${SHEET_LOOK.slide.gap[1]}px; margin: 0; padding: ${SHEET_LOOK.slide.pad[0]}px ${SHEET_LOOK.slide.pad[1]}px;
+  border-radius: ${SHEET_LOOK.row.corners}px; border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.row.edge)}); background: rgba(var(--ink), ${alpha(SHEET_LOOK.row.fill)}); }
+.slide.on { border-color: rgba(var(--accent), ${alpha(SHEET_LOOK.slide.onEdge)}); }
 .slide.on svg { color: rgb(var(--accent)); }
 .slide .name { min-width: 0; grid-column: 2 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.slide input { grid-column: 1 / 3; width: 100%; min-height: 28px; margin: 0; accent-color: rgb(var(--accent)); }
+.slide input { grid-column: 1 / 3; width: 100%; min-height: ${SHEET_LOOK.slide.bar}px; margin: 0; accent-color: rgb(var(--accent)); }
 .slide input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
-.slide .time { font-size: .86em; color: rgba(var(--ink), .7); white-space: nowrap; }
+.slide .time { font-size: ${alpha(SHEET_LOOK.slide.time)}em; color: rgba(var(--ink), ${alpha(SHEET_LOOK.slide.timeInk)}); white-space: nowrap; }
 /* A row that takes a file: its button, and under it where the file goes. */
-.takes { grid-column: 1 / -1; display: grid; gap: 4px; }
-.takes .to { margin: 0; padding: 0 12px; font-size: .86em; color: rgba(var(--ink), .6); }
-.row .state { font-size: .86em; color: rgba(var(--ink), .6); }
-.row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
+.takes { grid-column: 1 / -1; display: grid; gap: ${SHEET_LOOK.takes.gap}px; }
+.takes .to { margin: 0; padding: 0 ${SHEET_LOOK.row.pad[1]}px; font-size: ${alpha(SHEET_LOOK.takes.to)}em; color: rgba(var(--ink), ${alpha(SHEET_LOOK.takes.toInk)}); }
+.row .state { font-size: ${alpha(SHEET_LOOK.row.state)}em; color: rgba(var(--ink), ${alpha(SHEET_LOOK.row.stateInk)}); }
+.row[aria-pressed="true"] { border-color: rgba(var(--accent), ${alpha(SHEET_LOOK.row.onEdge)}); }
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
 .row.warn { color: rgb(var(--warn)); }
-.row.primary { background: rgba(var(--accent), .16); border-color: rgba(var(--accent), .75); }
+.row.primary { background: rgba(var(--accent), ${alpha(SHEET_LOOK.row.primaryFill)}); border-color: rgba(var(--accent), ${alpha(SHEET_LOOK.row.primaryEdge)}); }
 /* Who a section is about: a face, a name, how they are known, and what they say of themselves, set apart as theirs. */
 /* A person: the card at the head of a section. Its own name, so it is never taken for the card about what is pointed at. */
-.person { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; align-items: center; padding: 12px; border-radius: 16px 16px 8px 8px;
-  border: 1px solid rgba(var(--accent), .45); background: rgba(var(--accent), .07); }
-.person .face { grid-row: span 2; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+.person { display: grid; grid-template-columns: auto 1fr; gap: ${SHEET_LOOK.card.gap[0]}px ${SHEET_LOOK.card.gap[1]}px; align-items: center; padding: ${SHEET_LOOK.card.pad}px; border-radius: ${SHEET_LOOK.card.corners[0]}px ${SHEET_LOOK.card.corners[0]}px ${SHEET_LOOK.card.corners[1]}px ${SHEET_LOOK.card.corners[1]}px;
+  border: 1px solid rgba(var(--accent), ${alpha(SHEET_LOOK.card.edge)}); background: rgba(var(--accent), ${alpha(SHEET_LOOK.card.fill)}); }
+.person .face { grid-row: span 2; width: ${SHEET_LOOK.card.face}px; height: ${SHEET_LOOK.card.face}px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
   background: var(--c, rgba(var(--ink), .2)); color: rgb(var(--glass)); font-weight: 700; font-size: 1.5em; }
 .person .face canvas { width: 100%; height: 100%; display: block; }
 /* A card about a thing: the thing itself, large, on a lit plinth, where a person's card has a face. */
@@ -55303,32 +55351,32 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .person.thing .acts > .swatches { flex: 1 1 100%; }
 .person.thing .face { grid-area: face; width: 100%; height: auto; aspect-ratio: 1; border-radius: 14px;
   background: radial-gradient(90% 70% at 50% 92%, rgba(var(--accent), .3), transparent 70%), rgba(var(--ink), .05); color: rgba(var(--ink), .4); }
-.person h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
-.person .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
+.person h3 { margin: 0; font-size: ${SHEET_LOOK.card.title}em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
+.person .tag { font-size: ${alpha(SHEET_LOOK.card.tag)}em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
 .person .tag.proven { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); }
-.person .keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
+.person .keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: ${alpha(SHEET_LOOK.card.keyline)}em; }
 .person .keyline button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
 .person .keyline button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
-.person blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
+.person blockquote { grid-column: 1 / -1; margin: ${SHEET_LOOK.card.quote}px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
 .person .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
 
 /* A world's part of a tab its client draws: the world's name over its rows, and before its words. */
-.from { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 12px; font-size: .82em; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: rgba(var(--ink), .55); }
+.from { grid-column: 1 / -1; margin: ${SHEET_LOOK.from.top}px 0 0; padding: 0 ${SHEET_LOOK.from.padX}px; font-size: ${alpha(SHEET_LOOK.from.text)}em; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: rgba(var(--ink), ${alpha(SHEET_LOOK.from.ink)}); }
 .note.said { border-left-color: rgba(var(--ink), .3); }
 .note.said b { color: rgba(var(--ink), .9); margin-right: .45em; }
-.note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
+.note { margin: 0; padding: ${lengths(SHEET_LOOK.note.pad)}; color: rgba(var(--ink), ${alpha(SHEET_LOOK.note.ink)}); border-left: 2px solid rgba(var(--accent), ${alpha(SHEET_LOOK.note.edge)}); margin-left: ${SHEET_LOOK.note.inset}px; font-size: ${alpha(SHEET_LOOK.note.text)}em; }
 .note:empty { display: none; }
-.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 12px; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: ${SHEET_LOOK.foot.gap}px; padding: ${lengths(SHEET_LOOK.foot.pad)}; }
 /* Keeping this tab on the bar: a quiet button, opposite Close. */
-.pin-it { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); color: rgba(var(--ink), .82); font-size: .93em; }
-.pin-it svg { width: 16px; height: 16px; }
+.pin-it { display: inline-flex; align-items: center; gap: ${SHEET_LOOK.foot.pin.gap}px; padding: ${SHEET_LOOK.foot.pin.pad[0]}px ${SHEET_LOOK.foot.pin.pad[1]}px; border-radius: ${SHEET_LOOK.foot.pin.corners}px; border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.foot.pin.edge)}); color: rgba(var(--ink), ${alpha(SHEET_LOOK.foot.pin.ink)}); font-size: ${alpha(SHEET_LOOK.foot.pin.text)}em; }
+.pin-it svg { width: ${SHEET_LOOK.foot.pin.icon}px; height: ${SHEET_LOOK.foot.pin.icon}px; }
 /* Its own display would otherwise show it while hidden; and with it away, Close stays where it was, at the right. */
 .pin-it[hidden] { display: none; }
 .foot .close { margin-left: auto; }
 .pin-it:hover:not(:disabled), .pin-it:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
 .pin-it[aria-pressed="true"] { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); background: rgba(var(--accent), .12); }
 .pin-it:disabled { opacity: .5; cursor: default; }
-.close { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); }
+.close { min-height: ${SHEET_LOOK.foot.close.height}px; padding: 0 ${SHEET_LOOK.foot.close.padX}px; border-radius: ${SHEET_LOOK.foot.close.corners}px; border: 1px solid rgba(var(--ink), ${alpha(SHEET_LOOK.foot.close.edge)}); }
 .close:hover { border-color: rgb(var(--ink)); }
 
 /* ---- quiet: one mark in a corner, and everything else behind it */
@@ -56384,9 +56432,32 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             run2 = null;
             if (whose) laid2.push(el("p", { class: "from" }, whose));
           }
-          if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save" || item.kind === "slider") {
+          const alone = ((kind) => {
+            switch (kind) {
+              case "line":
+                return drawLine(item);
+              case "field":
+                return drawField(item, view2.title);
+              case "file":
+                return drawFile(item, view2.title);
+              case "slider":
+                return drawSlider(item);
+              case "button":
+              case "copy":
+              case "save":
+                return drawRow(item);
+              case "swatch":
+              case "tile":
+                return null;
+              default: {
+                const never = kind;
+                throw new Error(`the menu doesn't draw a row of kind ${String(never)}`);
+              }
+            }
+          })(item.kind);
+          if (alone) {
             run2 = null;
-            laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : item.kind === "file" ? drawFile(item, view2.title) : item.kind === "slider" ? drawSlider(item) : drawRow(item));
+            laid2.push(alone);
             continue;
           }
           if (run2?.kind !== item.kind) {
