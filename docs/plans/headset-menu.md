@@ -166,8 +166,8 @@ menu is not drawn above the hands in VR."
 
 - **The thing under the pointer comes forward 3.5 cm** and is lit round its
   edge: a row, a tab, a key on the bar. It takes 120 ms, eased. It is a
-  piece of the same picture, lifted off the sheet, so the sheet isn't drawn
-  again for it.
+  piece of the same picture, lifted off the sheet. Where it was, the sheet
+  shows an empty slot, faintly edged, so its words aren't seen twice.
 - **It doesn't flicker when the ray shakes.** A thing that has come forward
   stays forward until the ray is a centimetre clear of it.
 - **For someone who turned movement down** (`motion: reduced`), nothing
@@ -321,9 +321,18 @@ Each step is a pull request, with the names in it proposed.
 - **Whether a select in the Quest's browser counts as a press** for copying,
   saving and choosing a file. It is the same question as Quest check 11
   (Sign In using Phone).
-- The sketch's measures were read by hand from the flat menu's styles.
-  Some differ by a few pixels in the side-by-side pictures. The build reads
-  them from the one table, so that goes.
+- The sketch's measures were read by hand from the flat menu's styles, so
+  they are a few pixels out in the side-by-side pictures. The build reads
+  them from the one table, and the trial holds them to 2 px, so that goes.
+  As the pictures stand:
+  - the sketch's sheet is 410 px tall to the flat one's 419 on every tab;
+  - rows sit 2 to 6 px higher;
+  - a faint tile keeps its colour where the flat one turns it grey.
+- **The VR way's pages are taller than the menu's own tabs** (the
+  wallet's card, the code to scan). In the pictures the sheet is 0.59 m
+  tall on the menu's tabs and 0.66 m on BitLogin's question. In the build
+  the one size covers them too, so the sheet doesn't grow when the wallet
+  opens. A longer page scrolls instead.
 
 ## For the owner
 
