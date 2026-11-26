@@ -18,6 +18,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
     The kit's TURN service is answered in the trial, as it answers a page not of bitblocks.network; nothing goes to it.
 
+## 0.96.0
+
 - **The headset's menu, step 3 (first part): the flat menu's own drawing in a headset, behind `?menu=sheet`** (SDK `console-sheet.ts`: `createSheetMenu`, `SHEET_M`, `SHEET_MOST`, `FORWARD`; `console.ts`: `sheetAsked`, `XrConsole.scrolling`; `input.ts`: `sticksTaken`; `menu-drawing.ts`: `boxAt`, the bar's own `barAimed`/`barHollow`; `sites/shared/world.ts`; `trials/menu-in-headset.mjs`; `trials/hands-over-menu.mjs --sheet`; `docs/owner-quest-checks.md`, check 12). The owner, 2026-11-25: "Yes, build it". Today's console stays the default until the rest is in (`docs/plans/headset-menu.md`).
   - **What a visitor sees, with `?menu=sheet` after a world's address:** the flat menu's sheet, 1.0 m wide, where the console opens, drawn by `createMenuDrawing` from the same `controls.view()` as the flat menu, every tab. The bar floats 5 cm under it, leaning back 28° to face the eyes, where the world shows its bar. On the wrist it is the narrow layout, one column, 0.36 m, with no bar. The floating Menu button and the summons are as they were.
   - **Pointing:** what a ray rests on comes forward 3.5 cm, eased over 120 ms. It is its own piece of the same picture, lifted off the sheet or the bar, and where it was is left an empty slot, so its words aren't seen twice. It stays forward until the ray is a centimetre clear of it, so a shaking hand doesn't make it flicker. With movement turned down it only lights, as on a flat screen.

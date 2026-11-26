@@ -1952,6 +1952,26 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Variety for the free rules (D130, 2026-11-25; free)
+
+- **The owner's question:** "can we salt our rule based agents so we avoid
+  complete determinism? ... in a way that generalizes?", then "Variety
+  first". Each agent gets its own random stream, seeded from the world
+  seed and its name, so tests replay and play never does; chance only
+  among choices within a margin of the best, never on a clear call; and a
+  personality drawn once (a few of the rules' numbers a little higher or
+  lower). Following orders stays exact.
+- **Results:** hide and seek opened 104 different ways in 400 games
+  against 29, every game still caught; a habit hider was found within 30 s
+  in 13 of 20 games against 1. In the arena a round plays out up to 15
+  ways where the rules are unsure and one way on clear calls, for about 4%
+  more downs.
+- *For the kit and protocol:* an agent's randomness comes from a seed the
+  world hands it (the world's seed and the agent's id), so a host can
+  replay a session and players never meet the same NPC twice. *For
+  skills:* randomness belongs only where scores are close, and the shared
+  offer-picker is the one place for it.
+
 ## The Docent's face and chest screens (D129, 2026-11-25; free)
 
 - **A face per sentence:** an emoji the mind writes is taken out of what is
