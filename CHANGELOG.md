@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The kit's way out of VR for a moment, handed on from `nswp-sdk/three`** (SDK `three.ts`; `ui/vr-aside.ts`; `test/entries.test.ts`). BitPortal's room needs it for its own headset presses, one press out and back as the kit's are. Names given 2026-11-25.
+  - **What is exported:** `outOfVr(controls, open, why)`, `whenWindowGone(win)`, and the types `Opened` (`{ shown, gone }`) and `VrAsideWhy`.
+  - **It needs a host:** `addViewControls` hosts it, as it does for the kit's own presses. With no host, or out of a headset, it just opens.
+  - **What a caller hands back, `{ shown, gone }`:**
+    - `shown` says whether BitLogin's screen really came up. False (a window the browser refused from inside VR) has the flat page offer one "Open BitLogin" press, then Back into VR.
+    - `gone` must settle when that screen has gone, signed in or not. Until it does, Back into VR stays dimmed (at most ten minutes).
+    - For a window, `whenWindowGone(win)` watches it close.
+
 ## 0.96.0
 
 - **The headset's menu, step 3 (first part): the flat menu's own drawing in a headset, behind `?menu=sheet`** (SDK `console-sheet.ts`: `createSheetMenu`, `SHEET_M`, `SHEET_MOST`, `FORWARD`; `console.ts`: `sheetAsked`, `XrConsole.scrolling`; `input.ts`: `sticksTaken`; `menu-drawing.ts`: `boxAt`, the bar's own `barAimed`/`barHollow`; `sites/shared/world.ts`; `trials/menu-in-headset.mjs`; `trials/hands-over-menu.mjs --sheet`; `docs/owner-quest-checks.md`, check 12). The owner, 2026-11-25: "Yes, build it". Today's console stays the default until the rest is in (`docs/plans/headset-menu.md`).
