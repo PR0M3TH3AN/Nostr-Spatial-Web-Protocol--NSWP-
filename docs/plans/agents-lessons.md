@@ -1952,6 +1952,19 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## An agent's designation (D125, 2026-11-25; free)
+
+- **`designation: { emoji, title }`** (name given 2026-11-25, for the
+  Docent's chest screen, the owner's "the chest for designation like "bar
+  tender" or "librarian""): `emoji` is one emoji as a person sees one
+  (joined sequences, skin tones and flags whole); `title` is plain words,
+  at most 40 characters, told to the mind as its work here. A title with
+  brackets, markup or a new line is refused, so it can't pass as a cue or
+  an instruction.
+- *For the protocol:* the designation belongs in the agent's declaration a
+  world or cast publishes, and its title, being shown to a model, is
+  checked as plain words wherever it is read.
+
 ## Responding to fire, repositioning, safety and falling back (D124, 2026-11-25; free)
 
 - **The arena gained:** the way a hit came from (a rough bearing, about 15
