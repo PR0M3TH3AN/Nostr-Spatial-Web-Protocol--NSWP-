@@ -11,6 +11,7 @@ import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
 import { outOfVr, whenScreenGone } from "./ui/vr-aside.js";
+import { sheetAsked } from "./ui/sheet-asked.js";
 import { signInFirst } from "./ui/sign-in-here.js";
 import { filesAnywhere, setFilesAnywhere } from "./file-hosts.js";
 import { chatSwitch, modelsSwitch, picturesSwitch } from "./visitor-switches.js";
@@ -1137,7 +1138,7 @@ export function addRoomControls(
   controls.subscribe(drawFeedPanel);
   /** In a headset it is a panel in the world; on a screen, the other side of the panel the chat is on. */
   const openFeed = () => {
-    if (presence.presenting && opts.panels) return feedPanel ? closeFeedPanel() : openFeedPanel();
+    if (presence.presenting && opts.panels && !sheetAsked()) return feedPanel ? closeFeedPanel() : openFeedPanel();
     controls.signal("toggle:feed");
   };
   notes.onChange?.(() => {
@@ -1199,8 +1200,9 @@ export function addRoomControls(
       on: () => controls.chat.view().unread > 0,
       hidden: () => !presence.session || !showsChat(),
       act: () => {
-        // In a headset it is a panel in the world; on a screen, a panel at the side of it.
-        if (presence.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
+        // In a headset it is a panel in the world; on a screen, a panel at the side of it. With the flat menu's own
+        // drawing in the headset (`?menu=sheet`), the same panel as on a screen, beside the menu (console-sheet.ts).
+        if (presence.presenting && opts.panels && !sheetAsked()) return chatPanel ? closeChatPanel() : openChatPanel();
         controls.signal("toggle:chat");
       },
     },

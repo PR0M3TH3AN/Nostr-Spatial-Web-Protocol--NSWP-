@@ -8,6 +8,12 @@
 //   - Pointing at a long tab and pushing a stick scrolls it, and doesn't walk or turn the visitor.
 //   - With movement turned down, nothing comes forward.
 //   - Close, pressed, puts it away; hands are drawn after every part of it.
+//   - A row to type in asks the kit's keyboard; keys pressed with the trigger send what was typed.
+//   - A song's bar pressed three quarters along is moved to there.
+//   - In a room, the bar's Chat key brings the chat panel up beside the sheet; its box to write in asks the keyboard,
+//     and what is typed is said in the room.
+//   - A row that takes a file goes out of VR for a moment (`outOfVr`, "file"): the browser's chooser, a file
+//     chosen, handed to the row; then Back into VR, by a real press.
 //
 // What is real: this checkout's build of the Gallery, its kit, a real Chrome, the world's own rays and select. Made up:
 // the headset and its controllers (iwer), a long tab of stand-in rows, and BitLogin (a stand-in signer: nobody is
@@ -49,6 +55,9 @@ try {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
     if (url.origin === SIGN_IN && url.pathname === "/signer/") return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: signerPage });
+    // The kit's TURN service (room.ts, ICE_FROM) is answered here, as it answers a page not of bitblocks.network: no
+    // TURN, and the room goes on with STUN. Nothing goes to it.
+    if (url.origin === "https://bitblocks-ice.bitunlock.workers.dev") return route.fulfill({ status: 403, contentType: "text/plain", body: "" });
     if (url.origin !== WORLD) {
       elsewhere.add(url.origin);
       return route.abort();
@@ -63,11 +72,18 @@ try {
   const until = async (ask, ms = 15000) => { const end = Date.now() + ms; for (;;) { const got = await Promise.resolve().then(ask).catch(() => null); if (got || Date.now() > end) return got; await page.waitForTimeout(100); } };
   await page.goto(`${WORLD}/?menu=sheet`, { timeout: 60000 });
   await until(() => page.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
-  // A long tab, so that there is something to scroll: thirty stand-in rows.
+  // A long tab, so that there is something to scroll: thirty stand-in rows. And a tab of rows a headset draws its
+  // own way: one to type in, a song's bar, one that takes a file. What each is given is kept, to be read back.
   await page.evaluate(() => {
     const c = window.__nswpTest.controls;
     c.addSection({ id: "long", label: "Long" });
     for (let i = 0; i < 30; i++) c.add({ id: `stand-in-${i}`, section: "long", label: `Stand-in row ${i + 1}`, icon: "list", act() {} });
+    c.addSection({ id: "kinds", label: "Kinds" });
+    c.add(
+      { id: "stand-in-field", section: "kinds", kind: "field", label: "Name a star", icon: "note", act(typed) { window.__typed = typed ?? null; } },
+      { id: "stand-in-song", section: "kinds", kind: "slider", label: "Night Market", icon: "music", slider: { value: () => 40, max: () => 200, text: () => "0:40 of 3:20" }, act(at) { window.__slid = Number(at); } },
+      { id: "stand-in-file", section: "kinds", kind: "file", label: "Hang a picture", icon: "panel", accept: ["image"], act(_typed, file) { window.__file = file ? { name: file.name, size: file.size } : null; } },
+    );
   });
 
   // Into the made-up headset by a real press on the page.
@@ -200,12 +216,94 @@ try {
   check("with movement turned down, nothing comes forward", s5?.forward === "" && (await pointed()).includes("console:sheet:tab:look"), { state: s5, pointed: await pointed() });
   await page.evaluate(() => window.__nswpTest.controls.setTheme({ motion: true }));
 
+  // ---- A row to type in: the kit's keyboard asks, and keys pressed with the trigger send what was typed.
+  const kinds = await tabAt("Kinds");
+  if (kinds) await aimAt("right", kinds);
+  await page.waitForTimeout(250);
+  await trigger("right");
+  const fieldAt = await where("Name a star");
+  if (fieldAt) await aimAt("right", fieldAt);
+  await page.waitForTimeout(300);
+  await trigger("right");
+  const kb = await page.evaluate(() => window.__nswpTest.panels.keyboard.info());
+  check("a row to type in, pressed, brings up the kit's keyboard, saying what it is for", kb.open && kb.title.includes("Name a star"), { open: kb.open, title: kb.title });
+  for (const key of ["kb:h", "kb:i", "kb:enter"]) {
+    const at = await page.evaluate((key) => window.__nswpTest.panels.keyboard.pointOf(key)?.toArray() ?? null, key);
+    if (at) await aimAt("right", at);
+    await page.waitForTimeout(200);
+    await trigger("right");
+  }
+  // The kit's keyboard begins a sentence with a capital, as a phone's does: "h", "i" is "Hi".
+  check("and what is typed on it, pressed key by key with the trigger, is what the row is given", (await page.evaluate(() => window.__typed)) === "Hi", await page.evaluate(() => window.__typed ?? null));
+
+  // ---- A song's bar, pressed three quarters along.
+  const songAt = await where("Night Market@0.75");
+  if (songAt) await aimAt("right", songAt);
+  await page.waitForTimeout(300);
+  await trigger("right");
+  const slid = await page.evaluate(() => window.__slid ?? null);
+  check("a song's bar pressed three quarters along is moved to there (150 of 200)", typeof slid === "number" && Math.abs(slid - 150) <= 8, { slid, songAt, section: (await said()).section, pointed: await pointed(), keyboard: (await page.evaluate(() => window.__nswpTest.panels.keyboard.info())).open });
+  await page.screenshot({ path: join(SHOTS, "menu-in-headset-kinds.png") });
+
+  // ---- In a room: the bar's Chat key brings the chat panel up beside the sheet, and its box asks the keyboard.
+  await page.evaluate(() => window.__nswpTest.controls.run("room-join"));
+  await until(() => page.evaluate(() => window.__nswpTest.controls.view().chat.ready), 15000);
+  await page.waitForTimeout(600);
+  const chatKey = await where("bar:Chat");
+  if (chatKey) await aimAt("right", chatKey);
+  await page.waitForTimeout(300);
+  await trigger("right");
+  const sc = await state();
+  const panelAt = await page.evaluate(() => { const g = window.__nswpTest.console.group; const c = g.getObjectByName("chat"); const s = g.getObjectByName("sheet"); return c && s ? { shown: c.visible, right: c.position.x > s.position.x + s.scale.x / 2, wide: Math.round(c.scale.x * 1000) / 1000 } : null; });
+  check("in a room, the bar's Chat key brings the chat panel up, beside the sheet on its right", !!chatKey && sc?.chat === "room" && !!panelAt?.shown && panelAt.right, { chatKey, state: sc, panelAt, ready: await page.evaluate(() => window.__nswpTest.controls.view().chat.ready), room: await page.evaluate(() => window.__nswpTest.state.room ?? null), hotbar: await page.evaluate(() => window.__nswpTest.controls.view().hotbar.map((h) => h.short || h.label)) });
+  const writeAt = await where("chat:write");
+  if (writeAt) await aimAt("right", writeAt);
+  await page.waitForTimeout(300);
+  await trigger("right");
+  const kb2 = await page.evaluate(() => window.__nswpTest.panels.keyboard.info());
+  for (const key of ["kb:y", "kb:o", "kb:enter"]) {
+    const at = await page.evaluate((key) => window.__nswpTest.panels.keyboard.pointOf(key)?.toArray() ?? null, key);
+    if (at) await aimAt("right", at);
+    await page.waitForTimeout(200);
+    await trigger("right");
+  }
+  await page.waitForTimeout(400);
+  const lines = await page.evaluate(() => window.__nswpTest.controls.view().chat.lines.map((l) => ({ text: l.text, mine: l.mine })));
+  check("its box to write in asks the keyboard, and what is typed is said in the room", kb2.open && kb2.title.startsWith("Write to the room") && lines.some((l) => l.mine && l.text === "Yo"), { title: kb2.title, lines });
+  await page.screenshot({ path: join(SHOTS, "menu-in-headset-chat.png") });
+
   // ---- Close, pressed, puts it away.
   const close = await where("Close");
   if (close) await aimAt("right", close);
   await page.waitForTimeout(400);
   await trigger("right");
   check("Close, pressed, puts it away", (await said()).open === false, await said());
+  // ---- A row that takes a file: out of VR for a moment, the browser's chooser, and back.
+  await page.evaluate(() => window.__nswpTest.console.setOpen(true));
+  await until(async () => (await said()).open, 8000);
+  await page.waitForTimeout(500);
+  const kinds2 = await tabAt("Kinds");
+  if (kinds2) await aimAt("right", kinds2);
+  await page.waitForTimeout(250);
+  await trigger("right");
+  const fileAt = await where("Hang a picture");
+  if (fileAt) await aimAt("right", fileAt);
+  await page.waitForTimeout(300);
+  const chooser = page.waitForEvent("filechooser", { timeout: 8000 }).catch(() => null);
+  await trigger("right");
+  const fc = await chooser;
+  await until(async () => !(await page.evaluate(() => window.__nswpTest.state.xr === "presenting")), 8000);
+  check("a row that takes a file goes out of VR for a moment, with the browser's chooser up", !!fc && !(await page.evaluate(() => window.__nswpTest.state.xr === "presenting")), { chooser: !!fc, xr: await page.evaluate(() => window.__nswpTest.state.xr) });
+  // A small picture of four pixels, made here: the chooser hands it to the row.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4nGNk+M/AwMDAxMDAwMAAAA4OAQcR3yTnAAAAAElFTkSuQmCC", "base64");
+  if (fc) await fc.setFiles({ name: "star.png", mimeType: "image/png", buffer: png });
+  await page.waitForTimeout(500);
+  check("the file chosen is handed to the row", (await page.evaluate(() => window.__file?.name ?? null)) === "star.png", await page.evaluate(() => window.__file ?? null));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  const backReady = await until(() => page.evaluate(() => { const b = document.getElementById("nswp-enter-vr"); return b && !b.disabled && b.textContent === "Back into VR" ? true : null; }), 8000);
+  const back = await page.locator("#nswp-enter-vr").boundingBox().catch(() => null);
+  if (backReady && back) await page.mouse.click(back.x + back.width / 2, back.y + back.height / 2);
+  check("then Back into VR, by a real press, goes back in", !!backReady && !!(await until(() => page.evaluate(() => window.__nswpTest.state.xr === "presenting"), 15000)), { backReady });
   check("nothing went wrong on the page", errors.length === 0, errors);
   check("nothing was asked of anywhere else", elsewhere.size === 0, [...elsewhere]);
 } finally {

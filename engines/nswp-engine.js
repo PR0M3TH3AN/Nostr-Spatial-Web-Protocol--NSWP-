@@ -9408,7 +9408,7 @@ postMessage({ t: "started" });
   }
 
   // packages/sdk/src/ui/vr-aside.ts
-  var VR_ASIDE = ["sign-in", "secure", "wallet", "files", "buy", "allow"];
+  var VR_ASIDE = ["sign-in", "secure", "wallet", "files", "buy", "allow", "file"];
   var hosts = /* @__PURE__ */ new WeakMap();
   function hostVrAside(controls2, host) {
     hosts.set(controls2, host);
@@ -58897,6 +58897,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return true;
   }
 
+  // packages/sdk/src/ui/sheet-asked.ts
+  var sheetAsked = () => {
+    try {
+      return new URLSearchParams(globalThis.location?.search ?? "").get("menu") === "sheet";
+    } catch {
+      return false;
+    }
+  };
+
   // packages/sdk/src/messages.ts
   var MOST2 = 300;
   var FRESH_MS4 = 45e3;
@@ -59116,7 +59125,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let fetching = false;
     const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
     const say3 = (text2) => controls2.say(text2);
-    const inHeadset = () => !!opts.presenting?.() && !!opts.panels;
+    const inHeadset = () => !!opts.presenting?.() && !!opts.panels && !sheetAsked();
     let panel = null;
     const closePanel = () => {
       const was = panel;
@@ -60213,7 +60222,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     controls2.subscribe(drawFeedPanel);
     const openFeed = () => {
-      if (presence3.presenting && opts.panels) return feedPanel ? closeFeedPanel() : openFeedPanel();
+      if (presence3.presenting && opts.panels && !sheetAsked()) return feedPanel ? closeFeedPanel() : openFeedPanel();
       controls2.signal("toggle:feed");
     };
     notes2.onChange?.(() => {
@@ -60270,7 +60279,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         on: () => controls2.chat.view().unread > 0,
         hidden: () => !presence3.session || !showsChat(),
         act: () => {
-          if (presence3.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
+          if (presence3.presenting && opts.panels && !sheetAsked()) return chatPanel ? closeChatPanel() : openChatPanel();
           controls2.signal("toggle:chat");
         }
       },

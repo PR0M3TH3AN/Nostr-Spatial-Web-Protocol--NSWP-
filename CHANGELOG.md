@@ -4,6 +4,20 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The headset's menu, step 3 (second part): typed rows, a song's bar, rows that take a file, and the chat panel, behind `?menu=sheet`** (SDK `console-sheet.ts`; `menu-drawing.ts`: `layChat`, `drawChat`, `chatAt`, `chatSides`, `CHAT_LOOK`, `sliderTrack`; `ui/vr-aside.ts`: `VR_ASIDE` gains `"file"`, given 2026-11-25; `ui/sheet-asked.ts`; `console.ts`: `createConsole({ ask })`; `room-controls.ts`; `messaging.ts`; `sites/shared/world.ts`; `trials/menu-in-headset.mjs`; `docs/owner-quest-checks.md`, check 12).
+  - **A row to type in:** pressed, the kit's keyboard comes up, saying what it is for, and what is typed goes where the flat menu's box sends it.
+  - **A song's bar:** pressed along, it is moved to there.
+  - **A row that takes a file:** no browser lets a page pick a file from the headset's own storage inside immersive VR, the same kind of limit as going from site to site. So it goes out of VR for a moment (`outOfVr`, the given seventh reason `"file"`). The browser's chooser comes up, the file chosen is handed to the row, and Back into VR goes back in. For a visitor who chose BitLogin's VR way, their BitLogin Files will be offered in VR instead, once BitLogin's half is released. Picking a device file inside VR is on BitBrowser's list.
+  - **Chat, posts and letters in one panel beside the menu,** drawn as the flat panel at the side of a screen. It has the sides as tabs, the newest lines (the feed's under where to write), and a box to write in that asks the kit's keyboard. It stands to the right of the sheet, turned 20° to the eyes, as tall as the sheet. The world opens it as it opens the flat one (`toggle:chat`, `toggle:feed`, `open:letters`), so the bar's Chat key, Send out a post and a conversation open it here. Room chat and posts used to be two floating panels of their own in a headset, and letters weren't shown in one at all.
+  - **The menu comes back after the keyboard:** the keyboard still comes up where the menu is, and the menu still steps aside for it. With `?menu=sheet` it now comes back when the keyboard has gone, on the same tab and with the chat panel beside it. Today's console is unchanged.
+  - **Tried: `trials/menu-in-headset.mjs`, 23 of 23,** every press a real controller's trigger. To part one's 15 it adds:
+    - a typed row brings up the keyboard, and keys pressed with the trigger send "Hi";
+    - a song's bar pressed three quarters along is moved to 150 of 200;
+    - in a room, the bar's Chat key brings the panel up on the sheet's right, and its box sends "Yo" to the room;
+    - a file row goes out of VR with the chooser up, the file is handed to the row, and Back into VR goes back in.
+
+    The kit's TURN service is answered in the trial, as it answers a page not of bitblocks.network; nothing goes to it.
+
 - **The kit's way out of VR for a moment, handed on from `nswp-sdk/three`** (SDK `three.ts`; `ui/vr-aside.ts`; `test/entries.test.ts`). BitPortal's room needs it for its own headset presses, one press out and back as the kit's are. Names given 2026-11-25.
   - **What is exported:** `outOfVr(controls, open, why)`, `whenWindowGone(win)`, and the types `Opened` (`{ shown, gone }`) and `VrAsideWhy`.
   - **It needs a host:** `addViewControls` hosts it, as it does for the kit's own presses. With no host, or out of a headset, it just opens.

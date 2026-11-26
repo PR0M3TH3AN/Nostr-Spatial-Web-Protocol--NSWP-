@@ -17,7 +17,12 @@ import type { Controls } from "./model.js";
 import { onClientSignIn } from "../client-frame.js";
 
 /** Why a press goes out of VR: the few things only BitLogin's own screens can do. */
-export const VR_ASIDE = ["sign-in", "secure", "wallet", "files", "buy", "allow"] as const;
+/**
+ * `file`: a file from the headset's own storage, for a row that takes one. No browser lets a page pick one inside
+ * immersive VR, the same kind of limit as going from site to site (given 2026-11-25). For a visitor who chose BitLogin's
+ * VR way, their BitLogin Files will be offered in VR instead, once BitLogin's half is released.
+ */
+export const VR_ASIDE = ["sign-in", "secure", "wallet", "files", "buy", "allow", "file"] as const;
 export type VrAsideWhy = (typeof VR_ASIDE)[number];
 
 /**

@@ -15,6 +15,7 @@ const sources = files(src).map((f) => ({ file: relative(src, f).replaceAll("\\",
 
 /** Every place the kit goes out of VR, and why. Signing in from a phone is the one the owner means to stay. */
 const PLACES = [
+  ["console-sheet.ts", "file"],
   ["front-room.ts", "buy"],
   ["room-controls.ts", "allow"],
   ["room-controls.ts", "allow"],
@@ -41,7 +42,7 @@ describe("going out of VR, kept to a few", () => {
     }
     for (const [, why] of found) expect(VR_ASIDE as readonly string[], why).toContain(why);
     expect(found.sort()).toEqual([...PLACES].sort());
-    expect([...VR_ASIDE]).toEqual(["sign-in", "secure", "wallet", "files", "buy", "allow"]);
+    expect([...VR_ASIDE]).toEqual(["sign-in", "secure", "wallet", "files", "buy", "allow", "file"]);
   });
 
   it("is not reached by what needs no screen of BitLogin's: the family's sign-in, a guest, notes, reactions, the bag", () => {
