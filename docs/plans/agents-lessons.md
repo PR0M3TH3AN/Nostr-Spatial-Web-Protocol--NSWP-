@@ -1952,6 +1952,76 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## Weapons as data, sharing what is seen, and two against two (D128, 2026-11-25; free)
+
+- **Weapons as data:** clip, fire rate, reload, spread, pellets and reach.
+  The dart blaster plays as before; a rifle (tight, slow, 30 m) and a
+  shotgun (four pellets in 7 degrees, close only) added; several carried,
+  each keeping its clip, 0.5 s to switch. **Equip** (the right weapon for
+  the range) downed its hostile in 15 of 30 against 7, and switched from a
+  wrong start in 11 of 15, never from a right one.
+- **Two against two:** **Reserve** keeps teammates off one cover spot and
+  one lost enemy. **Share Knowledge** brings both in a little sooner but
+  alone doesn't win (7 won, 9 lost, 14 drawn, against 13 to 10 without;
+  within the noise).
+- **Mended:** Listen turned teammates toward each other's footsteps;
+  sharing sent both after one sighting; and each counted both enemies
+  against itself alone, so it fell back from an even fight (now squad
+  against squad).
+- *For items:* reach and spread (and pellets) are a weapon's data, not
+  only clip and fire rate, or an agent can't choose between weapons. *For
+  the protocol:* sharing sightings in a squad goes with knowing where
+  squad-mates are, or the odds are misjudged. *For skills:* knowing more
+  isn't winning more; it needs Coordinate and Support to pay off.
+
+## A model asked only where the rules are unsure (D127, 2026-11-25; $0.0054)
+
+- **JEV asked only when the top two offers' scores are within 0.5**, and
+  shown only what is that close: a third of the changes, 209 requests.
+  The threshold came from the gaps measured free: gaps of a point or more
+  are set on purpose; within half a point is where the rules' judgement is
+  thinnest; falling back against fighting on is never that close, so
+  D126's failure can't recur.
+- **Result:** downed 61 times against the rules' 64 (and D126's 82), at a
+  quarter of the requests; caught reloading in the open 11 times against
+  20; fell back in 10 of 10. Ten seeds can't separate 61 from 64, but the
+  model went from a cost to no worse, perhaps better.
+- *For the protocol:* hand a decision model only the choices the rules
+  can't separate, with how close they are, and nothing else. *For the
+  kit:* skills publish scores on one shared scale, so "close" means the
+  same in every world.
+
+## A model choosing tactics in the arena (D126, 2026-11-25; $0.023)
+
+- **JEV chose among each fighter's top three skill offers** (shown only
+  its own state, never the enemies' true places), asked when the offers
+  changed, at most twice a second, the free rules acting meanwhile so the
+  body never waited. 897 requests, $0.023, median answer 0.24 s.
+- **It did worse than the rules:** downed 82 times against 64 over six
+  rounds of 10 seeds. Most of it in Disengage, where it went against the
+  rules on 114 of 168 answers and fell back in 4 rounds of 10 against 10.
+  A little better on Reload and Reposition, within the noise.
+- **The lesson, D117's from the other side:** a model asked whatever the
+  gap between the scores overrides clear calls. Rules first; a model only
+  where the rules can't tell.
+- *For the protocol:* a decision model handed a world's skill offers is
+  asked only when their scores are close. *For the kit and worlds:* skills
+  report how sure they are, not only what they would do; that is what lets
+  the model be asked rarely, which is also what keeps a crowd affordable.
+
+## An agent's designation (D125, 2026-11-25; free)
+
+- **`designation: { emoji, title }`** (name given 2026-11-25, for the
+  Docent's chest screen, the owner's "the chest for designation like "bar
+  tender" or "librarian""): `emoji` is one emoji as a person sees one
+  (joined sequences, skin tones and flags whole); `title` is plain words,
+  at most 40 characters, told to the mind as its work here. A title with
+  brackets, markup or a new line is refused, so it can't pass as a cue or
+  an instruction.
+- *For the protocol:* the designation belongs in the agent's declaration a
+  world or cast publishes, and its title, being shown to a model, is
+  checked as plain words wherever it is read.
+
 ## Responding to fire, repositioning, safety and falling back (D124, 2026-11-25; free)
 
 - **The arena gained:** the way a hit came from (a rough bearing, about 15
