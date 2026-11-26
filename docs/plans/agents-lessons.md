@@ -1952,6 +1952,23 @@ want to do with the browser game".
 - A world may now declare up to 500 things and 500 walls (a guard, not a
   size); larger worlds come in areas.
 
+## A model asked only where the rules are unsure (D127, 2026-11-25; $0.0054)
+
+- **JEV asked only when the top two offers' scores are within 0.5**, and
+  shown only what is that close: a third of the changes, 209 requests.
+  The threshold came from the gaps measured free: gaps of a point or more
+  are set on purpose; within half a point is where the rules' judgement is
+  thinnest; falling back against fighting on is never that close, so
+  D126's failure can't recur.
+- **Result:** downed 61 times against the rules' 64 (and D126's 82), at a
+  quarter of the requests; caught reloading in the open 11 times against
+  20; fell back in 10 of 10. Ten seeds can't separate 61 from 64, but the
+  model went from a cost to no worse, perhaps better.
+- *For the protocol:* hand a decision model only the choices the rules
+  can't separate, with how close they are, and nothing else. *For the
+  kit:* skills publish scores on one shared scale, so "close" means the
+  same in every world.
+
 ## A model choosing tactics in the arena (D126, 2026-11-25; $0.023)
 
 - **JEV chose among each fighter's top three skill offers** (shown only
