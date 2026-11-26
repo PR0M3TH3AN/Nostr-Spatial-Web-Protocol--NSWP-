@@ -290,7 +290,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 }
 .sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: ${LOOK.sheet.top.line}px; pointer-events: none;
   background: linear-gradient(90deg, transparent, rgb(var(--accent)), transparent); box-shadow: 0 0 ${LOOK.sheet.top.glow}px rgb(var(--accent)); }
-.tabs { position: relative; display: flex; gap: ${LOOK.tabs.gap}px; padding: ${LOOK.tabs.pad[0]}px ${LOOK.tabs.pad[1]}px ${LOOK.tabs.pad[2]}px; overflow-x: auto; scrollbar-width: none; }
+.tabs { position: relative; display: flex; gap: ${LOOK.tabs.gap}px; padding: ${lengths(LOOK.tabs.pad)}; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 /* There are more sections than fit: an arrow at the side they are on, over a fade, and it takes them there. */
 .tabbar { position: relative; }
