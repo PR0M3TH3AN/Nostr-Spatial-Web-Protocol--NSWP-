@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.97.0
+
 - **The headset's menu, step 3 (second part): typed rows, a song's bar, rows that take a file, and the chat panel, behind `?menu=sheet`** (SDK `console-sheet.ts`; `menu-drawing.ts`: `layChat`, `drawChat`, `chatAt`, `chatSides`, `CHAT_LOOK`, `sliderTrack`; `ui/vr-aside.ts`: `VR_ASIDE` gains `"file"`, given 2026-11-25; `ui/sheet-asked.ts`; `console.ts`: `createConsole({ ask })`; `room-controls.ts`; `messaging.ts`; `sites/shared/world.ts`; `trials/menu-in-headset.mjs`; `docs/owner-quest-checks.md`, check 12).
   - **A row to type in:** pressed, the kit's keyboard comes up, saying what it is for, and what is typed goes where the flat menu's box sends it.
   - **A song's bar:** pressed along, it is moved to there.
