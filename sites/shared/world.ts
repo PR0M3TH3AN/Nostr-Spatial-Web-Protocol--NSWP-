@@ -1286,6 +1286,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const startedAt = performance.now();
   let lastT = 0;
   let wasBusy = false;
+  /** The console was up when the keyboard or the library's board came: it comes back when they have gone. */
+  let steppedAside = false;
   const movedFrom = rig.position.clone();
   let hoverKept: [number, number] | null = null;
   let hoverTick = 0;
@@ -1299,9 +1301,16 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     lastT = t;
     input!.update(dt);
     panels!.update(t, dt);
-    // The keyboard and the library's board come up where the console is: it steps aside for them.
+    // The keyboard and the library's board come up where the console is: it steps aside for them. The flat menu's
+    // drawing (`?menu=sheet`) comes back when they have gone, on the same tab and with the chat panel beside it where
+    // that was up: what was typed was most often for it.
     const busy = panels!.keyboard.open || panels!.library.showing;
-    if (busy && !wasBusy) xrConsole.setOpen(false);
+    if (busy && !wasBusy) {
+      steppedAside = xrConsole.open && !!xrConsole.sheet;
+      xrConsole.setOpen(false);
+    }
+    if (!busy && wasBusy && steppedAside && renderer.xr.isPresenting) xrConsole.setOpen(true);
+    if (!busy) steppedAside = false;
     wasBusy = busy;
     crossing.update(t, dt);
     camera.getWorldPosition(head);

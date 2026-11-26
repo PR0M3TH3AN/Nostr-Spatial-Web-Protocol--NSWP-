@@ -55,6 +55,9 @@ try {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
     if (url.origin === SIGN_IN && url.pathname === "/signer/") return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: signerPage });
+    // The kit's TURN service (room.ts, ICE_FROM) is answered here, as it answers a page not of bitblocks.network: no
+    // TURN, and the room goes on with STUN. Nothing goes to it.
+    if (url.origin === "https://bitblocks-ice.bitunlock.workers.dev") return route.fulfill({ status: 403, contentType: "text/plain", body: "" });
     if (url.origin !== WORLD) {
       elsewhere.add(url.origin);
       return route.abort();
@@ -230,7 +233,8 @@ try {
     await page.waitForTimeout(200);
     await trigger("right");
   }
-  check("and what is typed on it, pressed key by key with the trigger, is what the row is given", (await page.evaluate(() => window.__typed)) === "hi", await page.evaluate(() => window.__typed ?? null));
+  // The kit's keyboard begins a sentence with a capital, as a phone's does: "h", "i" is "Hi".
+  check("and what is typed on it, pressed key by key with the trigger, is what the row is given", (await page.evaluate(() => window.__typed)) === "Hi", await page.evaluate(() => window.__typed ?? null));
 
   // ---- A song's bar, pressed three quarters along.
   const songAt = await where("Night Market@0.75");
@@ -238,7 +242,7 @@ try {
   await page.waitForTimeout(300);
   await trigger("right");
   const slid = await page.evaluate(() => window.__slid ?? null);
-  check("a song's bar pressed three quarters along is moved to there (150 of 200)", typeof slid === "number" && Math.abs(slid - 150) <= 8, slid);
+  check("a song's bar pressed three quarters along is moved to there (150 of 200)", typeof slid === "number" && Math.abs(slid - 150) <= 8, { slid, songAt, section: (await said()).section, pointed: await pointed(), keyboard: (await page.evaluate(() => window.__nswpTest.panels.keyboard.info())).open });
   await page.screenshot({ path: join(SHOTS, "menu-in-headset-kinds.png") });
 
   // ---- In a room: the bar's Chat key brings the chat panel up beside the sheet, and its box asks the keyboard.
@@ -251,7 +255,7 @@ try {
   await trigger("right");
   const sc = await state();
   const panelAt = await page.evaluate(() => { const g = window.__nswpTest.console.group; const c = g.getObjectByName("chat"); const s = g.getObjectByName("sheet"); return c && s ? { shown: c.visible, right: c.position.x > s.position.x + s.scale.x / 2, wide: Math.round(c.scale.x * 1000) / 1000 } : null; });
-  check("in a room, the bar's Chat key brings the chat panel up, beside the sheet on its right", !!chatKey && sc?.chat === "room" && !!panelAt?.shown && panelAt.right, { chatKey, state: sc, panelAt });
+  check("in a room, the bar's Chat key brings the chat panel up, beside the sheet on its right", !!chatKey && sc?.chat === "room" && !!panelAt?.shown && panelAt.right, { chatKey, state: sc, panelAt, ready: await page.evaluate(() => window.__nswpTest.controls.view().chat.ready), room: await page.evaluate(() => window.__nswpTest.state.room ?? null), hotbar: await page.evaluate(() => window.__nswpTest.controls.view().hotbar.map((h) => h.short || h.label)) });
   const writeAt = await where("chat:write");
   if (writeAt) await aimAt("right", writeAt);
   await page.waitForTimeout(300);
@@ -265,7 +269,7 @@ try {
   }
   await page.waitForTimeout(400);
   const lines = await page.evaluate(() => window.__nswpTest.controls.view().chat.lines.map((l) => ({ text: l.text, mine: l.mine })));
-  check("its box to write in asks the keyboard, and what is typed is said in the room", kb2.open && kb2.title.startsWith("Write to the room") && lines.some((l) => l.mine && l.text === "yo"), { title: kb2.title, lines });
+  check("its box to write in asks the keyboard, and what is typed is said in the room", kb2.open && kb2.title.startsWith("Write to the room") && lines.some((l) => l.mine && l.text === "Yo"), { title: kb2.title, lines });
   await page.screenshot({ path: join(SHOTS, "menu-in-headset-chat.png") });
 
   // ---- Close, pressed, puts it away.

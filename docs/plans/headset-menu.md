@@ -271,8 +271,8 @@ one at a time, each from main.
    `trials/headset-menu-same.mjs`. Not yet shown in a headset.
 3. **The headset shows it,** behind `?menu=sheet`, in two pull requests. The first: the sheet and the bar
    in a headset, pointing, pressing, scrolling, coming forward, the wrist's narrow layout, and the hands
-   check widened (`trials/hands-over-menu.mjs --sheet`). The second: typed rows, the song's bar, file
-   rows and the chat panel. All together, this step brings:
+   check widened (`trials/hands-over-menu.mjs --sheet`), merged in PR 616. The second: typed rows, the
+   song's bar, file rows and the chat panel. All together, this step brings:
    - pointing, pressing, scrolling, and coming forward (still for
      `motion: reduced`);
    - typed rows on the kit's keyboard, the song's bar, copying and saving;

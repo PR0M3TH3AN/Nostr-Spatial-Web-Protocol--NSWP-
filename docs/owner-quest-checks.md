@@ -216,8 +216,14 @@ bar under it. It is built behind a switch in the address until the rest of it is
 - Say: whether your hands were ever covered by any part of it.
 - Say: whether it looks "the same or better" than the flat screen's.
 
-Typing into a row, a song's bar, rows that take a file, the chat panel, and the engine-made worlds (Godot) come in the
-next pull requests; then it is the menu everywhere without the switch.
+With the kit that has the second part:
+7. Join the room, press Chat on the bar: the chat panel comes up beside the menu. Press where to write, type on the
+   kit's keyboard, and press done: what you typed is in the room, and the menu and the panel are back.
+8. A row that takes a file (Panels, Hang a picture): it takes you out of VR for a moment to choose one, then Back into VR.
+
+- Say: whether the chat panel is where you'd want it, and readable.
+
+The engine-made worlds (Godot) come next; then it is the menu everywhere without the switch.
 
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 
