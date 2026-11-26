@@ -15,8 +15,8 @@ const sources = files(src).map((f) => ({ file: relative(src, f).replaceAll("\\",
 
 /** Every place the kit goes out of VR, and why. Signing in from a phone is the one the owner means to stay. */
 const PLACES = [
-  ["console-sheet.ts", "file"],
   ["front-room.ts", "buy"],
+  ["menu-press.ts", "file"],
   ["room-controls.ts", "allow"],
   ["room-controls.ts", "allow"],
   ["room-controls.ts", "buy"],

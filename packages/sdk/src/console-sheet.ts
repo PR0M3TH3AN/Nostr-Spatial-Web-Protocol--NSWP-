@@ -8,9 +8,8 @@
  * console is.
  */
 import * as THREE from "three";
-import { MENU_LIMITS, menuFileKind } from "@nswp/core";
 import { boxAt, chatAt, chatSides, createMenuDrawing, drawBar, drawChat, drawSheet, layChat, sliderTrack, type ChatLayout, type ChatSide, type MenuBox, type MenuDrawing } from "./menu-drawing.js";
-import { outOfVr, whenScreenGone } from "./ui/vr-aside.js";
+import { pressMenu } from "./menu-press.js";
 import type { Controls } from "./ui/model.js";
 import { SHEET_LOOK as LOOK } from "./ui/sheet-look.js";
 
@@ -256,36 +255,6 @@ export function createSheetMenu(controls: Controls, opts: SheetMenuOptions): She
       if (trouble) controls.say(trouble);
     });
   };
-  /** A row that takes a file: from the headset's own storage, which only a flat page can offer, out of VR a moment. */
-  const pickFile = (item: { id: string; accept?: readonly string[] }) => {
-    const accept = item.accept ?? [];
-    outOfVr(
-      controls,
-      () => {
-        const picker = document.createElement("input");
-        picker.type = "file";
-        picker.accept = accept.map((k) => `${k}/*`).join(",");
-        picker.hidden = true;
-        const done = () => picker.remove();
-        picker.addEventListener("cancel", done);
-        picker.addEventListener("change", () => {
-          const file = picker.files?.[0];
-          done();
-          if (!file) return;
-          const kind = menuFileKind(file.type);
-          if (!kind || !accept.includes(kind)) return controls.say("That kind of file can't go here.");
-          if (file.size > MENU_LIMITS.file) return controls.say("That file is too large to hand over: 64 MB at most.");
-          if (file.size < 1) return controls.say("That file is empty.");
-          controls.run(item.id, undefined, file);
-        });
-        document.body.append(picker);
-        picker.click();
-        return { shown: true, gone: whenScreenGone(false) };
-      },
-      "file",
-    );
-  };
-
   const s: SheetMenu = {
     root,
     get section() {
@@ -366,17 +335,6 @@ export function createSheetMenu(controls: Controls, opts: SheetMenuOptions): She
     },
     press(hit) {
       const d = drawing();
-      const view = controls.view();
-      if (hit.startsWith("bar:")) {
-        const id = hit.slice(4);
-        if (id.startsWith("tab:")) {
-          // A tab kept on the bar: the menu on that tab, or put away where it is already up on it.
-          if (s.section === id.slice(4)) return "close";
-          s.section = id.slice(4);
-        } else if (id.startsWith("act:")) controls.run(id.slice(4));
-        s.paint(mount);
-        return;
-      }
       if (hit.startsWith("chat:")) {
         const id = hit.slice(5);
         if (id.startsWith("chat-tab:")) chatSide = id.slice(9) as ChatSide;
@@ -386,38 +344,14 @@ export function createSheetMenu(controls: Controls, opts: SheetMenuOptions): She
         s.paint(mount);
         return;
       }
-      const id = hit.startsWith("sheet:") ? hit.slice(6) : hit;
-      if (id === "close") return "close";
-      if (id.startsWith("tab:")) s.section = id.slice(4);
-      else if (id === "tabs-left" || id === "tabs-right") d.tabsScroll += id === "tabs-left" ? -240 : 240;
-      else if (id === "pin") {
-        const here = view.sections.find((x) => x.id === s.section);
-        if (here) controls.setPinned(here.id, !here.pinned);
-      } else if (id.startsWith("act:")) {
-        const item = view.sections.flatMap((x) => x.items).find((i) => i.id === id.slice(4));
-        if (item?.kind === "copy") {
-          const words = item.copy ?? "";
-          void (navigator.clipboard?.writeText(words) ?? Promise.reject(new Error("no clipboard"))).then(
-            () => controls.say("Copied."),
-            () => controls.say(words),
-          );
-        } else if (item?.kind === "field" && opts.ask) {
-          // A row to type in: the kit's keyboard asks for the words, and they go where the flat menu's box sends them.
-          void opts.ask({ title: `${item.label}: what you type goes to ${view.title}.`, maxLength: MENU_LIMITS.field }).then((text) => {
-            if (text?.trim()) controls.run(item.id, text);
-          });
-        } else if (item?.kind === "slider" && item.slider) {
-          // A song's bar: pressed along, it is moved to there.
-          const L = d.sheetLayout;
-          const b = L ? boxAt(L, id, d.rowsScroll) : null;
-          if (b) {
-            const track = sliderTrack(b, item.slider.text?.() ?? "", measure, view.theme.scale || 1);
-            const at = Math.max(0, Math.min(1, (lastPoint.x - track.left) / Math.max(1, track.wide)));
-            controls.run(item.id, String(Math.round(at * item.slider.max())));
-          }
-        } else if (item?.kind === "file") pickFile(item);
-        else controls.run(id.slice(4));
-      }
+      const said = pressMenu(controls, d, hit.startsWith("sheet:") ? hit.slice(6) : hit, {
+        at: lastPoint,
+        ...(opts.ask ? { ask: opts.ask } : {}),
+        measure,
+        section: () => s.section,
+        setSection: (id) => (s.section = id),
+      });
+      if (said === "close") return "close";
       s.paint(mount);
     },
     update(dt, session, next, presence) {

@@ -153,6 +153,11 @@ var _console_units := Vector2(1024.0, 640.0)
 var _console_place := {"wide": 0.84, "reach": 1.05, "drop": 0.18, "least": 0.4, "away": 2.6}
 var _console_since := 0.0
 var _console_aimed := ""
+## The kit says a stick scrolls its menu while a hand points at it (the flat menu's own drawing,
+## `?menu=sheet`): then the sticks are the menu's, and don't walk or turn the visitor.
+var _console_scrolls := false
+## The hands that pointed at the console last frame.
+var _console_holding: Array = []
 ## What the kit last said the hands mean. For tests.
 var _meant: Dictionary = {}
 
@@ -618,6 +623,7 @@ func _console_take(now: Dictionary, place: bool = false) -> void:
 		_console_light("")
 		return
 	_console_units = Vector2(float(now.get("w", 1024.0)), float(now.get("h", 640.0)))
+	_console_scrolls = bool(now.get("scrolls", false))
 	for key: String in _console_place.keys():
 		_console_place[key] = float(now.get(key, _console_place[key]))
 	var wide := float(_console_place.wide)
@@ -734,12 +740,25 @@ func _console_frame(delta: float, pads: Array) -> Array:
 			continue
 		lit = str(row.id)
 		if float(pad.get("trigger", 0.0)) > 0.5 and not _trigger_was[clampi(slot, 0, 1)]:
-			_console_take(Nswp.console({"press": lit, "have": _console_stamp}))
+			# Where it landed too: a press along a song's bar moves it to there.
+			var spot := at as Vector2
+			_console_take(Nswp.console({"press": lit, "at": [spot.x, spot.y], "have": _console_stamp}))
 			if not _console_open:
 				return on
 			lit = ""
 	if lit != _console_aimed:
 		_console_light(lit)
+	# A stick pushed while a hand points at the menu scrolls it, where the kit says it does.
+	if _console_scrolls and not on.is_empty():
+		var push := 0.0
+		for pad: Variant in pads:
+			if typeof(pad) == TYPE_DICTIONARY and on.has(int(pad.get("index", 0))):
+				var stick: Array = pad.get("stick", [0.0, 0.0])
+				if absf(float(stick[1])) > absf(push):
+					push = float(stick[1])
+		if absf(push) > 0.15:
+			# Forward is up the list.
+			_console_take(Nswp.console({"scroll": -push * delta * 600.0, "have": _console_stamp}))
 	_console_since += delta
 	if _console_since > 0.3:
 		_console_take(Nswp.console({"have": _console_stamp}))
@@ -1061,7 +1080,16 @@ func _tend_shade(delta: float) -> void:
 ## Comes back with how they wish to walk this frame, smoothly, as a speed along the floor.
 func _hands_frame(delta: float) -> Vector3:
 	var pads := _read_hands()
-	var meant := Nswp.hands(pads, delta, _stepped)
+	# While a hand points at a menu that scrolls, the sticks are the menu's: the kit is told they are at rest.
+	var told := pads
+	if _console_scrolls and _console_open and not _console_holding.is_empty():
+		told = []
+		for pad: Variant in pads:
+			var calm: Variant = pad.duplicate() if typeof(pad) == TYPE_DICTIONARY else pad
+			if typeof(calm) == TYPE_DICTIONARY:
+				calm["stick"] = [0.0, 0.0]
+			told.append(calm)
+	var meant := Nswp.hands(told, delta, _stepped)
 	_stepped = 0.0
 	_meant = meant
 	_step_spot = null
@@ -1072,6 +1100,7 @@ func _hands_frame(delta: float) -> Vector3:
 	if bool(meant.get("menu", false)):
 		_console_set(not _console_open)
 	var on_console := _console_frame(delta, pads)
+	_console_holding = on_console
 	var fade := bool(meant.get("fade", true))
 	_step_ready = bool(meant.get("mayStep", true))
 	var turn := float(meant.get("turn", 0.0))
