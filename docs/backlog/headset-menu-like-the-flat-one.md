@@ -23,9 +23,18 @@
   that until he has.
 
 **Asked again, 2026-11-25,** from his Quest on the live sites: "The live
-sites menus in VR look old. They should look the same." Still waiting on
-Quest check 1 (`docs/owner-quest-checks.md`), which decides how it is
-built.
+sites menus in VR look old. They should look the same." And the same day:
+"the menus in VR should look the same or better than the flat screens. VR
+is not an additional feature. It is the entire point."
+
+**Designed again, 2026-11-25, with pictures; not built.** On the owner's
+"ship it to live" words, the orchestrator chose the way that works in every
+browser: the headset draws the menu itself from `ui/model.ts`, every tab,
+kept the same as the flat menu by one table of measures and a trial that
+compares the two tab by tab. So Quest check 1 no longer decides anything.
+The design is `docs/plans/headset-menu.md`. The pictures are in the
+sessions' notes folder, `headset-menu-2026-11-25/`. It also draws the VR
+way's screens (`everything-in-vr.md`).
 
 ## What is true today
 
