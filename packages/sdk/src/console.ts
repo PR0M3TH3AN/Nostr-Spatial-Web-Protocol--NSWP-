@@ -58,20 +58,11 @@ export interface XrConsole {
    */
   readonly scrolling: boolean;
   /** For tests, with the flat menu's drawing only: where a thing is in the room (console-sheet.ts, `whereIs`), and its state. */
-  sheet?: { whereIs(label: string): [number, number, number] | null; readonly state: { rowsScroll: number; forward: string; lifted: number } };
+  sheet?: { whereIs(label: string): [number, number, number] | null; readonly state: { rowsScroll: number; forward: string; lifted: number; chat: string } };
 }
 
-/**
- * Whether the headset shows the flat menu's own drawing (console-sheet.ts) in place of today's console: asked for by
- * the address, `?menu=sheet`, until it is the default (docs/plans/headset-menu.md, step 5).
- */
-export const sheetAsked = (): boolean => {
-  try {
-    return new URLSearchParams(globalThis.location?.search ?? "").get("menu") === "sheet";
-  } catch {
-    return false;
-  }
-};
+export { sheetAsked } from "./ui/sheet-asked.js";
+import { sheetAsked } from "./ui/sheet-asked.js";
 
 const W = CONSOLE_W;
 const H = CONSOLE_H;
@@ -104,12 +95,24 @@ function holoMaterial(map: THREE.Texture): THREE.ShaderMaterial {
   });
 }
 
-export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLRenderer; rig: THREE.Object3D; sheet?: boolean }): XrConsole {
+export function createConsole(
+  controls: Controls,
+  opts: {
+    renderer: THREE.WebGLRenderer;
+    rig: THREE.Object3D;
+    sheet?: boolean;
+    /** Ask for words on the kit's keyboard in the headset (`panels.keyboard.ask`): for a row to type in, and the chat panel. */
+    ask?: (o: { title: string; maxLength?: number; multiline?: boolean }) => Promise<string | null>;
+  },
+): XrConsole {
   const group = new THREE.Group();
   group.name = "nswp-console";
   group.visible = false;
   // The flat menu's own drawing, where it is asked for: the sheet, the bar under it, what is pointed at come forward.
-  const sm = (opts.sheet ?? sheetAsked()) ? createSheetMenu(controls, { menuOrder: MENU_ORDER, motion: () => controls.theme.motion, shown: () => group.visible }) : null;
+  const sm =
+    (opts.sheet ?? sheetAsked())
+      ? createSheetMenu(controls, { menuOrder: MENU_ORDER, motion: () => controls.theme.motion, shown: () => group.visible, ...(opts.ask ? { ask: opts.ask } : {}), open: () => setOpen(true, "floating") })
+      : null;
   if (sm) {
     sm.root.visible = false;
     group.add(sm.root);

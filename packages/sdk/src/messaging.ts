@@ -18,6 +18,7 @@ import { wrapWords } from "./ui/chat.js";
 import { ago } from "./ui/feed.js";
 import type { Controls, UiAction } from "./ui/model.js";
 import { guestHere, signInFirst, signInHere } from "./ui/sign-in-here.js";
+import { sheetAsked } from "./ui/sheet-asked.js";
 import { rgb } from "./ui/theme.js";
 
 /** What sends and reads private messages for the visitor (three.ts gives a world's; a visitor's own client gives its own). */
@@ -63,7 +64,8 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
   let fetching = false;
   const nameOf = (pubkey: string) => profiles.get(pubkey)?.name || shortNpub(pubkey);
   const say = (text: string) => controls.say(text);
-  const inHeadset = () => !!opts.presenting?.() && !!opts.panels;
+  // With the flat menu's own drawing in the headset (`?menu=sheet`), a conversation is in its panel beside the menu.
+  const inHeadset = () => !!opts.presenting?.() && !!opts.panels && !sheetAsked();
 
   // ---- The conversation in a headset: a panel of the visitor's own. Where to write is at the bottom.
   let panel: { panel: Panel; canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; drawn: string } | null = null;

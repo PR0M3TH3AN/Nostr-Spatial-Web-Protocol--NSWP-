@@ -8,7 +8,9 @@
  * console is.
  */
 import * as THREE from "three";
-import { boxAt, createMenuDrawing, drawBar, drawSheet, type MenuBox, type MenuDrawing } from "./menu-drawing.js";
+import { MENU_LIMITS, menuFileKind } from "@nswp/core";
+import { boxAt, chatAt, chatSides, createMenuDrawing, drawBar, drawChat, drawSheet, layChat, sliderTrack, type ChatLayout, type ChatSide, type MenuBox, type MenuDrawing } from "./menu-drawing.js";
+import { outOfVr, whenScreenGone } from "./ui/vr-aside.js";
 import type { Controls } from "./ui/model.js";
 import { SHEET_LOOK as LOOK } from "./ui/sheet-look.js";
 
@@ -54,13 +56,27 @@ export interface SheetMenu {
    * your bar", or "bar:<words>" for a key on the bar. Null where it isn't shown.
    */
   whereIs(label: string): [number, number, number] | null;
-  /** For tests: how far the list is scrolled, and whether something has come forward, and how far. */
-  readonly state: { rowsScroll: number; forward: string; lifted: number };
+  /** For tests: how far the list is scrolled, whether something has come forward and how far, and the chat panel's side. */
+  readonly state: { rowsScroll: number; forward: string; lifted: number; chat: string };
 }
 
 const MENU_ORDER = 30;
 
-export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; motion: () => boolean; shown: () => boolean }): SheetMenu {
+/** The panel of chat, posts and letters beside the sheet: how far from its edge, and how far it is turned to the eyes. */
+const CHAT_GAP = 0.03;
+const CHAT_TURN = (20 * Math.PI) / 180;
+
+export interface SheetMenuOptions {
+  menuOrder?: number;
+  motion: () => boolean;
+  shown: () => boolean;
+  /** Ask for words on the kit's keyboard (keyboard.ts, `ask`), for a typed row and the chat panel. Null: no keyboard. */
+  ask?: (o: { title: string; maxLength?: number; multiline?: boolean }) => Promise<string | null>;
+  /** Bring the menu up: the chat panel stands beside it, so asking for the panel brings it up too. */
+  open?: () => void;
+}
+
+export function createSheetMenu(controls: Controls, opts: SheetMenuOptions): SheetMenu {
   const order = opts.menuOrder ?? MENU_ORDER;
   const root = new THREE.Group();
   root.name = "nswp-menu-sheet";
@@ -79,9 +95,26 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
   const sheet = plane("sheet", order);
   const bar = plane("bar", order);
   const piece = plane("forward", order + 1);
+  const chat = plane("chat", order);
   bar.rotation.x = -BAR_TILT;
   piece.visible = false;
-  root.add(sheet, bar, piece);
+  chat.visible = false;
+  chat.rotation.y = -CHAT_TURN;
+  root.add(sheet, bar, piece, chat);
+  const chatCanvas = document.createElement("canvas");
+  const chatG = chatCanvas.getContext("2d")!;
+  const measureG = document.createElement("canvas").getContext("2d")!;
+  const measure = (text: string, f: string) => {
+    measureG.font = f;
+    return measureG.measureText(text).width;
+  };
+  /** Which side of the panel is up, or null while it is put away; and what it was last drawn as. */
+  let chatSide: ChatSide | null = null;
+  let chatLayout: ChatLayout | null = null;
+  let chatDrawn = "";
+  let chatHot: string | null = null;
+  /** Where on the sheet the last ray met it, in the flat menu's pixels: where a press along a song's bar lands. */
+  let lastPoint = { x: 0, y: 0 };
 
   /** A canvas to a material: a new texture where its size has changed, the same one told to load again where not. */
   const upload = (mesh: THREE.Mesh, canvas: HTMLCanvasElement) => {
@@ -111,6 +144,12 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
     const h = L.height * per;
     sheet.scale.set(L.width * per, h, 1);
     sheet.position.set(0, mount === "wrist" ? 0 : TOP - h / 2, 0);
+    if (chatLayout) {
+      const cw = chatLayout.width * per;
+      const ch = chatLayout.height * per;
+      chat.scale.set(cw, ch, 1);
+      chat.position.set((L.width * per) / 2 + CHAT_GAP + (cw / 2) * Math.cos(CHAT_TURN), TOP - ch / 2, (cw / 2) * Math.sin(CHAT_TURN));
+    }
     const B = d.barLayout;
     if (B && mount === "floating") {
       const bh = B.height * per;
@@ -170,6 +209,83 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
     return true;
   };
 
+  /** The chat panel, beside the floating sheet, while a side of it is up and there is a side to show. */
+  const paintChat = () => {
+    const view = controls.view();
+    const sides = chatSides(view);
+    if (chatSide && !sides.includes(chatSide)) chatSide = sides[0] ?? null;
+    const L = drawing().sheetLayout;
+    const show = !!chatSide && mount === "floating" && !!L;
+    chat.visible = show;
+    if (!show || !chatSide || !L) return;
+    const sig = JSON.stringify([chatSide, view.theme, view.chat.version, view.feed.version, view.letters.version, sides, chatHot, L.height, Math.floor(Date.now() / 60000)]);
+    if (sig === chatDrawn) return;
+    chatDrawn = sig;
+    chatLayout = layChat(view, chatSide, { measure, height: L.height });
+    chatCanvas.width = Math.round(chatLayout.width * SCALE);
+    chatCanvas.height = Math.round(chatLayout.height * SCALE);
+    drawChat(chatG, view, chatLayout, { scale: SCALE, glass: 0.95, hot: chatHot });
+    upload(chat, chatCanvas);
+    place();
+    if (chatSide === "room") controls.chat.seen();
+    if (chatSide === "letters") controls.letters.seen();
+  };
+  /** Asked for by the world as a flat menu is: the room's chat, the visitor's feed, a conversation. */
+  controls.onSignal((name) => {
+    const side: ChatSide | null = name === "toggle:chat" ? "room" : name === "toggle:feed" ? "feed" : name === "open:letters" ? "letters" : null;
+    if (!side || !opts.shown()) return;
+    chatSide = name === "open:letters" || chatSide !== side ? side : null;
+    if (chatSide === "feed") controls.feed.opened();
+    if (chatSide) opts.open?.();
+    s.paint(mount);
+  });
+  /** Words from the kit's keyboard, for where to write in the panel: sent, and anything said of it said. */
+  const writeInChat = () => {
+    if (!opts.ask || !chatSide) return;
+    const view = controls.view();
+    const side = chatSide;
+    const ask =
+      side === "feed"
+        ? { title: "Write a post. Done sends it out, for anyone to read.", maxLength: view.feed.limit }
+        : side === "letters"
+          ? { title: `Write to ${view.letters.with}. Only they can read it. Done sends it.`, maxLength: view.letters.limit, multiline: true }
+          : { title: "Write to the room. Done sends it.", maxLength: view.chat.limit };
+    void opts.ask(ask).then((text) => {
+      if (!text?.trim()) return;
+      const trouble = side === "feed" ? controls.feed.send(text) : side === "letters" ? controls.letters.send(text) : controls.chat.send(text);
+      if (trouble) controls.say(trouble);
+    });
+  };
+  /** A row that takes a file: from the headset's own storage, which only a flat page can offer, out of VR a moment. */
+  const pickFile = (item: { id: string; accept?: readonly string[] }) => {
+    const accept = item.accept ?? [];
+    outOfVr(
+      controls,
+      () => {
+        const picker = document.createElement("input");
+        picker.type = "file";
+        picker.accept = accept.map((k) => `${k}/*`).join(",");
+        picker.hidden = true;
+        const done = () => picker.remove();
+        picker.addEventListener("cancel", done);
+        picker.addEventListener("change", () => {
+          const file = picker.files?.[0];
+          done();
+          if (!file) return;
+          const kind = menuFileKind(file.type);
+          if (!kind || !accept.includes(kind)) return controls.say("That kind of file can't go here.");
+          if (file.size > MENU_LIMITS.file) return controls.say("That file is too large to hand over: 64 MB at most.");
+          if (file.size < 1) return controls.say("That file is empty.");
+          controls.run(item.id, undefined, file);
+        });
+        document.body.append(picker);
+        picker.click();
+        return { shown: true, gone: whenScreenGone(false) };
+      },
+      "file",
+    );
+  };
+
   const s: SheetMenu = {
     root,
     get section() {
@@ -199,7 +315,8 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
         void before;
         place();
       }
-      const wantPiece = forward && hit && hit !== "pane" ? hit : "";
+      paintChat();
+      const wantPiece = forward && hit && hit !== "pane" && !hit.startsWith("chat:") ? hit : "";
       if (wantPiece !== pieceFor) {
         pieceFor = wantPiece;
         lift = 0;
@@ -210,10 +327,18 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
       const d = drawing();
       const L = d.sheetLayout;
       if (!L) return null;
+      if (chat.visible && chatLayout) {
+        const onChat = raycaster.intersectObject(chat, false)[0];
+        if (onChat?.uv) {
+          const id = chatAt(chatLayout, onChat.uv.x * chatLayout.width, (1 - onChat.uv.y) * chatLayout.height);
+          return id ? `chat:${id}` : "pane";
+        }
+      }
       const onSheet = raycaster.intersectObject(sheet, false)[0];
       if (onSheet?.uv) {
         const x = onSheet.uv.x * L.width;
         const y = (1 - onSheet.uv.y) * L.height;
+        lastPoint = { x, y };
         // What has come forward stays so until the ray is a centimetre clear of it: no flicker as the hand shakes.
         if (aimed?.startsWith("sheet:")) {
           const keep = boxAt(L, aimed.slice(6), d.rowsScroll);
@@ -236,6 +361,7 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
     aim(hit) {
       if (hit === aimed) return;
       aimed = hit;
+      chatHot = hit?.startsWith("chat:") ? hit.slice(5) : null;
       s.paint(mount);
     },
     press(hit) {
@@ -248,6 +374,15 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
           if (s.section === id.slice(4)) return "close";
           s.section = id.slice(4);
         } else if (id.startsWith("act:")) controls.run(id.slice(4));
+        s.paint(mount);
+        return;
+      }
+      if (hit.startsWith("chat:")) {
+        const id = hit.slice(5);
+        if (id.startsWith("chat-tab:")) chatSide = id.slice(9) as ChatSide;
+        else if (id === "chat-close") chatSide = null;
+        else if (id === "chat-write") writeInChat();
+        if (chatSide === "feed") controls.feed.opened();
         s.paint(mount);
         return;
       }
@@ -266,7 +401,22 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
             () => controls.say("Copied."),
             () => controls.say(words),
           );
-        } else controls.run(id.slice(4));
+        } else if (item?.kind === "field" && opts.ask) {
+          // A row to type in: the kit's keyboard asks for the words, and they go where the flat menu's box sends them.
+          void opts.ask({ title: `${item.label}: what you type goes to ${view.title}.`, maxLength: MENU_LIMITS.field }).then((text) => {
+            if (text?.trim()) controls.run(item.id, text);
+          });
+        } else if (item?.kind === "slider" && item.slider) {
+          // A song's bar: pressed along, it is moved to there.
+          const L = d.sheetLayout;
+          const b = L ? boxAt(L, id, d.rowsScroll) : null;
+          if (b) {
+            const track = sliderTrack(b, item.slider.text?.() ?? "", measure, view.theme.scale || 1);
+            const at = Math.max(0, Math.min(1, (lastPoint.x - track.left) / Math.max(1, track.wide)));
+            controls.run(item.id, String(Math.round(at * item.slider.max())));
+          }
+        } else if (item?.kind === "file") pickFile(item);
+        else controls.run(id.slice(4));
       }
       s.paint(mount);
     },
@@ -305,7 +455,7 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
       }
     },
     get holding() {
-      return aimed !== null;
+      return aimed !== null && !aimed.startsWith("chat:");
     },
     describe() {
       const view = controls.view();
@@ -328,6 +478,26 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
       let box: MenuBox | null = null;
       let on: THREE.Mesh = sheet;
       let size = { w: L.width, h: L.height };
+      if (label.startsWith("chat:")) {
+        // The chat panel's own: "chat:write", "chat:close", "chat:tab:<side>".
+        if (!chat.visible || !chatLayout) return null;
+        const id = `chat-${label.slice(5)}`;
+        const b = [...chatLayout.tabs, chatLayout.close, chatLayout.write].find((x) => x.id === id) ?? null;
+        if (!b) return null;
+        root.updateMatrixWorld(true);
+        return chat.localToWorld(new THREE.Vector3((b.x + b.w / 2) / chatLayout.width - 0.5, 0.5 - (b.y + b.h / 2) / chatLayout.height, 0)).toArray() as [number, number, number];
+      }
+      const along = /^(.*)@([\d.]+)$/.exec(label);
+      if (along) {
+        // A song's bar, at a share of the way along it: "<its words>@0.75".
+        const item = view.sections.find((x) => x.id === s.section)?.items.find((i) => i.label === along[1] && i.kind === "slider");
+        const b = item ? boxAt(L, `act:${item.id}`, d.rowsScroll) : null;
+        if (!item || !b) return null;
+        const track = sliderTrack(b, item.slider?.text?.() ?? "", measure, view.theme.scale || 1);
+        const x = track.left + Number(along[2]) * track.wide;
+        root.updateMatrixWorld(true);
+        return sheet.localToWorld(new THREE.Vector3(x / L.width - 0.5, 0.5 - (b.y + b.h - 18) / L.height, 0)).toArray() as [number, number, number];
+      }
       if (label.startsWith("bar:")) {
         const words = label.slice(4);
         box = B?.keys.find((k) => (k.lines ?? []).join(" ") === words) ?? null;
@@ -349,7 +519,7 @@ export function createSheetMenu(controls: Controls, opts: { menuOrder?: number; 
       return on.localToWorld(local).toArray() as [number, number, number];
     },
     get state() {
-      return { rowsScroll: drawing().rowsScroll, forward: piece.visible ? pieceFor : "", lifted: piece.visible ? Math.round(((piece.userData.base as THREE.Vector3 | undefined)?.distanceTo(piece.position) ?? 0) * 1000) / 1000 : 0 };
+      return { chat: chat.visible ? (chatSide ?? "") : "", rowsScroll: drawing().rowsScroll, forward: piece.visible ? pieceFor : "", lifted: piece.visible ? Math.round(((piece.userData.base as THREE.Vector3 | undefined)?.distanceTo(piece.position) ?? 0) * 1000) / 1000 : 0 };
     },
     pressLabelled(label) {
       const view = controls.view();

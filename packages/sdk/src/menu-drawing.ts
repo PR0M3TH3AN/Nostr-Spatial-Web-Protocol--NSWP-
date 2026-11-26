@@ -1150,3 +1150,259 @@ export function createMenuDrawing(controls: Controls, opts: MenuDrawingOptions =
   };
   return d;
 }
+
+// ----------------------------------------------------------------------------------- chat, posts and letters
+
+/** Which side of the panel is up: what the room writes, the visitor's own posts, or a private conversation. */
+export type ChatSide = "room" | "feed" | "letters";
+
+/** The flat menu's panel at the side (ui/hud.ts, `.chat`): its measures, from its styles. */
+export const CHAT_LOOK = { width: 340, header: { pad: [9, 8, 8, 14], tab: 30, gap: 8 }, list: { pad: [10, 14], gap: 7 }, form: { pad: 8, gap: 6, box: 16 * 1.35 + 16 + 2 }, corners: [14, 6, 6, 14], edge: 2 } as const;
+
+export interface ChatLayout {
+  width: number;
+  height: number;
+  side: ChatSide;
+  /** The sides there are, as tabs, where more than one is there; else the one side's name. */
+  tabs: MenuBox[];
+  title: string;
+  close: MenuBox;
+  /** The box to write in and its button, pressed together: the kit's keyboard asks for the words. */
+  write: MenuBox;
+  send: MenuBox;
+  /** Words over the list (the feed's and a conversation's own), and what was last said about sending. */
+  lead: string[];
+  said: string[];
+  /** The lines that fit, newest at the foot (the feed's newest at the top, under where to write). */
+  lines: { y: number; who: string; text: string[]; small: string; mine: boolean; note: boolean; color: string; faint: boolean }[];
+  /** Nothing written yet: what it says instead. */
+  empty: string[];
+}
+
+const ago = (at: number): string => {
+  const s = Math.max(0, (Date.now() - at) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+};
+
+/** Which sides are there now, in the flat panel's order. */
+export function chatSides(view: UiView): ChatSide[] {
+  return (["room", "letters", "feed"] as const).filter((s) => (s === "room" ? view.chat.ready : s === "feed" ? view.feed.ready : view.letters.ready));
+}
+
+/** The panel laid out for one side, `height` tall, as the flat one is at the side of a screen. */
+export function layChat(view: UiView, side: ChatSide, o: { measure: Measure; height: number }): ChatLayout {
+  const scale = view.theme.scale || 1;
+  const m = o.measure;
+  const C = CHAT_LOOK;
+  const width = C.width;
+  const H = C.header;
+  const headH = H.pad[0] + H.tab + H.pad[2] + 1;
+  const sides = chatSides(view);
+  const tabs: MenuBox[] = [];
+  const bold = font(scale, 1, 650);
+  const names: Record<ChatSide, string> = { room: view.chat.unread && side !== "room" ? `Room chat: ${view.chat.unread} new` : "Room chat", letters: view.letters.title, feed: "My public feed" };
+  let tx = 1 + H.pad[3];
+  if (sides.length > 1) {
+    for (const s of sides) {
+      const w = 20 + m(names[s], bold);
+      tabs.push({ id: `chat-tab:${s}`, kind: "tab", x: tx, y: H.pad[0], w, h: H.tab, lines: [names[s]] });
+      tx += w + 4;
+    }
+  }
+  const title = side === "feed" ? view.feed.title : side === "letters" ? view.letters.title : view.chat.title;
+  const close = { id: "chat-close", kind: "close", x: width - 2 - H.pad[1] - 30, y: H.pad[0], w: 30, h: 30 };
+  const inner = width - 2 - 2 * C.list.pad[1];
+  const small = font(scale, 0.9);
+  const lead = side !== "room" ? wrapWords(m, side === "feed" ? view.feed.lead : view.letters.lead, small, width - 2 - 28) .filter(Boolean) : [];
+  const saidText = side === "feed" ? view.feed.said : side === "letters" ? view.letters.said : "";
+  const said = saidText ? wrapWords(m, saidText, small, width - 2 - 24) : [];
+  const leadH = lead.length ? 8 + lead.length * 0.9 * S * scale * LH : 0;
+  const saidH = said.length ? said.length * 0.9 * S * scale * LH + 8 : 0;
+  const formH = 2 * C.form.pad + C.form.box + 1;
+  // Where to write: at the foot for the room and a conversation, at the top for the feed, as the flat panel has it.
+  const feed = side === "feed";
+  const sendWords = feed ? "Send out a post" : "Send";
+  const sendW = 26 + m(sendWords, font(scale, 1, feed ? 650 : 500)) + 2;
+  const formY = feed ? headH + leadH : o.height - 1 - formH;
+  const write = { id: "chat-write", kind: "field", x: 1 + C.form.pad, y: formY + 1 + C.form.pad, w: width - 2 - 2 * C.form.pad - C.form.gap - sendW, h: C.form.box, lines: [feed ? "Write a post" : side === "letters" ? `Write to ${view.letters.with}, privately` : "Write to the room"] };
+  const send = { id: "chat-write", kind: "row", x: write.x + write.w + C.form.gap, y: write.y, w: sendW, h: C.form.box, lines: [sendWords] };
+  // The list: as many of the newest as fit.
+  const listTop = feed ? formY + formH + saidH : headH + leadH;
+  const listBottom = feed ? o.height - 1 : formY - saidH;
+  const LHpx = S * scale * LH;
+  const raw = side === "room"
+    ? view.chat.lines.map((l) => ({ who: l.note ? "" : l.who, text: l.text, small: "", mine: l.mine, note: l.note, color: l.color, faint: false }))
+    : side === "feed"
+      ? [...view.feed.posts].map((p) => ({ who: "", text: p.text, small: p.state === "sending" ? "Sending…" : p.state === "failed" ? "Not sent" : p.state === "removing" ? "Taking it back…" : ago(p.at), mine: true, note: false, color: "", faint: p.state !== "out" }))
+      : view.letters.lines.map((l) => ({ who: l.mine ? "" : l.who, text: l.text, small: l.state === "sending" ? "Sending…" : l.state === "failed" ? "Not sent" : ago(l.at), mine: l.mine, note: false, color: "", faint: l.state === "sending" }));
+  const laid = raw.map((r) => {
+    const f = r.note ? font(scale, 0.93) : font(scale);
+    const nameW = r.who ? m(r.who, bold) + 0.45 * S * scale : 0;
+    // The name runs into the words, as inline text does: the first line is shorter by it.
+    const words = wrapWords(m, `${" ".repeat(0)}${r.text}`, f, inner - nameW);
+    const rest = words.length > 1 ? wrapWords(m, words.slice(1).join(" "), f, inner) : [];
+    const text = words.length ? [words[0]!, ...rest] : [""];
+    const h = text.length * (r.note ? 0.93 : 1) * LHpx + (r.small ? 3 + 0.86 * S * scale * LH : 0) + (feed ? 20 : 0);
+    return { ...r, text, h };
+  });
+  const lines: ChatLayout["lines"] = [];
+  const gap = feed ? 0 : C.list.gap;
+  if (feed) {
+    let y = listTop + 1;
+    for (const l of [...laid].reverse()) {
+      if (y + l.h > listBottom) break;
+      lines.push({ ...l, y: y + 10 });
+      y += l.h + gap;
+    }
+  } else {
+    let y = listBottom - C.list.pad[0];
+    for (const l of [...laid].reverse()) {
+      if (y - l.h < listTop + C.list.pad[0]) break;
+      y -= l.h;
+      lines.unshift({ ...l, y });
+      y -= gap;
+    }
+  }
+  const emptyWords = side === "room" ? "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere." : side === "feed" ? (view.feed.loading ? "Finding your posts." : "You haven't sent out a post yet.") : "Nothing written yet.";
+  const empty = raw.length ? [] : wrapWords(m, emptyWords, font(scale), width - 2 - 28);
+  return { width, height: o.height, side, tabs, title, close, write, send, lead, said, lines, empty };
+}
+
+/** Paint a laid-out panel onto `g`, at `o.scale`. */
+export function drawChat(g: G, view: UiView, L: ChatLayout, o: { scale: number; glass?: number; hot?: string | null }): void {
+  const k = o.scale;
+  const scale = view.theme.scale || 1;
+  const A = rgb(view.theme.accent);
+  const I = rgb(view.theme.ink);
+  const Gl = rgb(view.theme.glass);
+  const acc = (a: number) => `rgba(${A}, ${a})`;
+  const ink = (a: number) => `rgba(${I}, ${a})`;
+  const C = CHAT_LOOK;
+  const box = (x: number, y: number, w: number, h: number, r: readonly number[] | number) => {
+    g.beginPath();
+    g.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, corners(r));
+  };
+  const text = (words: string, x: number, y: number, f: string, color: string) => {
+    g.font = f;
+    g.fillStyle = color;
+    g.textBaseline = "top";
+    g.fillText(words, x, y);
+  };
+  const LHpx = S * scale * LH;
+  g.setTransform(k, 0, 0, k, 0, 0);
+  g.clearRect(0, 0, L.width, L.height);
+  box(0, 0, L.width, L.height, C.corners);
+  g.fillStyle = `rgba(${Gl}, ${o.glass ?? 0.95})`;
+  g.fill();
+  g.lineWidth = 1;
+  g.strokeStyle = acc(LOOK.glass.edge);
+  g.stroke();
+  g.fillStyle = acc(1);
+  g.fillRect(L.width - C.edge, C.corners[1], C.edge, L.height - C.corners[1] - C.corners[2]);
+  // The header: the sides as tabs, or the one side's name; and the press that puts it away.
+  const H = C.header;
+  const headH = H.pad[0] + H.tab + H.pad[2];
+  const bold = font(scale, 1, 650);
+  if (L.tabs.length) {
+    for (const t of L.tabs) {
+      const on = t.id === `chat-tab:${L.side}`;
+      if (o.hot === t.id) {
+        box(t.x, t.y, t.w, t.h, [8, 8, 0, 0]);
+        g.fillStyle = ink(0.08);
+        g.fill();
+      }
+      if (on) {
+        g.fillStyle = acc(1);
+        g.fillRect(t.x, t.y + t.h - 2, t.w, 2);
+      }
+      g.textBaseline = "middle";
+      g.font = bold;
+      g.fillStyle = on ? ink(1) : ink(0.75);
+      g.fillText(t.lines?.[0] ?? "", t.x + 10, t.y + t.h / 2);
+    }
+  } else {
+    g.textBaseline = "middle";
+    g.font = bold;
+    g.fillStyle = ink(1);
+    g.fillText(L.title, 1 + H.pad[3], H.pad[0] + H.tab / 2);
+  }
+  if (o.hot === L.close.id) {
+    box(L.close.x, L.close.y, L.close.w, L.close.h, 8);
+    g.fillStyle = ink(0.1);
+    g.fill();
+  }
+  iconAt(g, "close", L.close.x + (30 - 1.2 * S * scale) / 2, L.close.y + (30 - 1.2 * S * scale) / 2, 1.2 * S * scale, o.hot === L.close.id ? ink(1) : ink(0.7));
+  g.fillStyle = acc(LOOK.rows.line);
+  g.fillRect(1, headH, L.width - 2, 1);
+  const small = font(scale, 0.9);
+  L.lead.forEach((line, i) => text(line, 1 + 14, headH + 1 + 8 + i * 0.9 * LHpx, small, ink(0.7)));
+  // Where to write: pressed, the kit's keyboard asks for the words.
+  const hot = o.hot === "chat-write";
+  box(L.write.x, L.write.y, L.write.w, L.write.h, 9);
+  g.fillStyle = ink(0.07);
+  g.fill();
+  g.strokeStyle = hot ? acc(1) : ink(0.22);
+  g.stroke();
+  g.textBaseline = "middle";
+  g.font = font(scale, 16 / (S * scale) * scale);
+  g.fillStyle = ink(0.5);
+  g.fillText(L.write.lines?.[0] ?? "", L.write.x + 11, L.write.y + L.write.h / 2);
+  box(L.send.x, L.send.y, L.send.w, L.send.h, 9);
+  g.fillStyle = hot ? acc(1) : acc(0.18);
+  g.fill();
+  g.strokeStyle = acc(0.7);
+  g.stroke();
+  g.font = font(scale, 1, L.side === "feed" ? 650 : 500);
+  g.fillStyle = hot ? `rgba(${Gl}, 1)` : ink(1);
+  g.fillText(L.send.lines?.[0] ?? "", L.send.x + 13, L.send.y + L.send.h / 2);
+  const formTop = L.write.y - 1 - C.form.pad;
+  g.fillStyle = acc(LOOK.rows.line);
+  if (L.side === "feed") g.fillRect(1, L.write.y + L.write.h + C.form.pad, L.width - 2, 1);
+  else g.fillRect(1, formTop, L.width - 2, 1);
+  const saidTop = L.side === "feed" ? L.write.y + L.write.h + C.form.pad + 1 : formTop - L.said.length * 0.9 * LHpx - 8;
+  L.said.forEach((line, i) => text(line, 1 + 12, saidTop + i * 0.9 * LHpx, small, ink(0.7)));
+  // The lines.
+  const x0 = 1 + C.list.pad[1];
+  for (const l of L.lines) {
+    g.globalAlpha = l.faint ? 0.65 : 1;
+    let y = l.y;
+    l.text.forEach((line, i) => {
+      let x = x0;
+      if (i === 0 && l.who) {
+        g.font = bold;
+        g.fillStyle = l.mine ? ink(0.62) : l.color || acc(1);
+        g.textBaseline = "top";
+        g.fillText(l.who, x, y);
+        x += g.measureText(l.who).width + 0.45 * S * scale;
+      }
+      text(line, x, y, l.note ? font(scale, 0.93) : font(scale), l.note ? ink(0.6) : ink(1));
+      y += (l.note ? 0.93 : 1) * LHpx;
+    });
+    if (l.small) text(l.small, x0, y + 3, font(scale, 0.86), ink(0.55));
+    g.globalAlpha = 1;
+    if (L.side === "feed") {
+      g.fillStyle = ink(0.12);
+      g.fillRect(x0, l.y + (l.text.length * LHpx + (l.small ? 3 + 0.86 * LHpx : 0)) + 10, L.width - 2 - 2 * C.list.pad[1], 1);
+    }
+  }
+  if (L.empty.length) {
+    const top = L.side === "feed" ? L.write.y + L.write.h + C.form.pad + 14 : headH + 1 + 14 + L.lead.length * 0.9 * LHpx;
+    L.empty.forEach((line, i) => text(line, 1 + 14, top + i * LHpx, font(scale), ink(0.7)));
+  }
+}
+
+/** Where a song's bar runs along its row, in the same pixels: where a press along it lands. */
+export function sliderTrack(b: MenuBox, words: string, measure: Measure, scale: number): { left: number; wide: number } {
+  const D = LOOK.slide;
+  const tw = measure(words, font(scale, D.time, 400, true));
+  return { left: b.x + 1 + D.pad[1], wide: b.w - 2 - 2 * D.pad[1] - tw - D.gap[1] };
+}
+
+/** What is at a point of the panel: a tab, the press that puts it away, or where to write. */
+export function chatAt(L: ChatLayout, x: number, y: number): string | null {
+  for (const b of [...L.tabs, L.close, L.write, L.send]) if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) return b.id;
+  return null;
+}

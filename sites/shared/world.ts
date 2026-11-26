@@ -653,7 +653,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     icon: "help",
     note: `${cfg.purpose} ${helpWords("world")}`,
   });
-  const xrConsole: XrConsole = createConsole(controls, { renderer, rig });
+  // A row to type in, and the chat panel, ask for words on the headset's own keyboard (panels, below).
+  const xrConsole: XrConsole = createConsole(controls, { renderer, rig, ask: (o) => panels?.keyboard.ask(o) ?? Promise.resolve(null) });
   scene.add(xrConsole.group);
   hooks.console = xrConsole;
 
