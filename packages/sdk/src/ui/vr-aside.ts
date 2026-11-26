@@ -10,7 +10,8 @@
  *
  * Kept small and replaceable: only the few reasons in `VR_ASIDE` come here, and a test of the kit's own source holds
  * it to them (packages/sdk/test/vr-aside.test.ts). Once BitLogin's screens are drawn in VR for a visitor who chose
- * that, the wallet's, Files', buying's and an Allow's go away from here. The kit's own; not in any entry.
+ * that, the wallet's, Files', buying's and an Allow's go away from here. Handed on from `nswp-sdk/three` (`outOfVr`,
+ * `whenWindowGone`, `Opened`, `VrAsideWhy`), for a world's own presses that need BitLogin's screens.
  */
 import type { Controls } from "./model.js";
 import { onClientSignIn } from "../client-frame.js";
